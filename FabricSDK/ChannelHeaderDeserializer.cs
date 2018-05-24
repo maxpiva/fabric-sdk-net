@@ -14,34 +14,31 @@
  *
  */
 
-using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.NetExtensions;
 
 namespace Hyperledger.Fabric.SDK
 {
-
     public class ChannelHeaderDeserializer : BaseDeserializer<ChannelHeader>
     {
-        public ChannelHeader ChannelHeader => Reference;
-        public ChannelHeaderDeserializer(byte[] byteString) : base(byteString)
+        public ChannelHeaderDeserializer(ByteString byteString) : base(byteString)
         {
         }
+
+        public ChannelHeader ChannelHeader => Reference;
 
         public string ChannelId => ChannelHeader?.ChannelId;
 
         public ulong Epoch => ChannelHeader?.Epoch ?? 0;
 
-        public DateTime? Timestamp => ChannelHeader?.Timestamp;
+        public Timestamp Timestamp => ChannelHeader?.Timestamp;
 
         public string TxId => ChannelHeader?.TxId;
 
         public int Type => ChannelHeader?.Type ?? 0;
 
         public int Version => ChannelHeader?.Version ?? 0;
-
     }
 }
-

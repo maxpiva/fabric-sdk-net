@@ -12,14 +12,10 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
-
 namespace Hyperledger.Fabric.SDK.Transaction
 {
-
     public class UpgradeProposalBuilder : InstantiateProposalBuilder
     {
-
 //    private final static Log logger = LogFactory.getLog(UpgradeProposalBuilder.class);
 
         private UpgradeProposalBuilder()
@@ -37,6 +33,5 @@ namespace Hyperledger.Fabric.SDK.Transaction
             base.Context(context);
             return this;
         }
-
     }
 }

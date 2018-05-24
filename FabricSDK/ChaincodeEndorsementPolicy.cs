@@ -18,10 +18,12 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Text.RegularExpressions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
+
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
@@ -80,7 +82,7 @@ namespace Hyperledger.Fabric.SDK
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have list but found {vo}x.");
                     if (voList.Count < matchNo)
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have at least {matchNo} items to match but only found {voList.Count}.");
-                    SignaturePolicy.NOutOf spB = new SignaturePolicy.NOutOf {N = matchNo};
+                    SignaturePolicy.Types.NOutOf spB = new SignaturePolicy.Types.NOutOf { N = matchNo};
                     foreach (Dictionary<string, object> nlo in voList)
                     {
 
@@ -88,7 +90,7 @@ namespace Hyperledger.Fabric.SDK
                         spB.Rules.Add(sp);
                     }
 
-                    return new SignaturePolicy {n_out_of = spB};
+                    return new SignaturePolicy {NOutOf = spB};
                 }
 
                 throw new ChaincodeEndorsementPolicyParseException($"Unsupported policy type {key}");
@@ -158,28 +160,28 @@ namespace Hyperledger.Fabric.SDK
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} mspId must not be null or empty String in role");
                 }
 
-                MSPRole.MSPRoleType mspRoleType;
+                MSPRole.Types.MSPRoleType mspRoleType;
 
                 switch (name)
                 {
                     case "member":
-                        mspRoleType = MSPRole.MSPRoleType.Member;
+                        mspRoleType = MSPRole.Types.MSPRoleType.Member;
                         break;
                     case "admin":
-                        mspRoleType = MSPRole.MSPRoleType.Admin;
+                        mspRoleType = MSPRole.Types.MSPRoleType.Admin;
                         break;
                     case "client":
-                        mspRoleType = MSPRole.MSPRoleType.Client;
+                        mspRoleType = MSPRole.Types.MSPRoleType.Client;
                         break;
                     case "peer":
-                        mspRoleType = MSPRole.MSPRoleType.Peer;
+                        mspRoleType = MSPRole.Types.MSPRoleType.Peer;
                         break;
                     default:
                         throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} name expected member, admin, client, or peer in role got {name}");
                 }
 
                 MSPRole mspRole = new MSPRole {MspIdentifier = (string) mspId, Role = mspRoleType};
-                MSPPrincipal principal = new MSPPrincipal {Principal = mspRole.SerializeProtoBuf(), PrincipalClassification = MSPPrincipal.Classification.Role};
+                MSPPrincipal principal = new MSPPrincipal {Principal = mspRole.ToByteString(), PrincipalClassification = MSPPrincipal.Types.Classification.Role};
                 ret.Add(key, principal);
 
             }
@@ -257,7 +259,7 @@ namespace Hyperledger.Fabric.SDK
             SignaturePolicy sp = ParsePolicy(identities, mp);
             SignaturePolicyEnvelope env = new SignaturePolicyEnvelope {Rule = sp, Version = 0};
             env.Identities.AddRange(identities.Values);
-            policyBytes = env.SerializeProtoBuf();
+            policyBytes = env.ToByteArray();
         }
 
         /**

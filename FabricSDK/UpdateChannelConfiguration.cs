@@ -14,62 +14,53 @@
  *
  */
 
-package org.hyperledger.fabric.sdk;
+using System.IO;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
-import org.apache.commons.io.IOUtils;
-
-/**
- * A wrapper for the Hyperledger Channel update configuration
- */
-public class UpdateChannelConfiguration {
-    private byte[] configBytes = null;
-
+namespace Hyperledger.Fabric.SDK
+{
     /**
-     * The  constructor for the UpdateChannelConfiguration wrapper. You will
-     * need to use the {@link Channel#updateChannelConfiguration(UpdateChannelConfiguration, byte[]...)} method to
-     * populate the update channel configuration
+     * A wrapper for the Hyperledger Channel update configuration
      */
-    public UpdateChannelConfiguration() {
-    }
+    public class UpdateChannelConfiguration
+    {
+        /**
+         * The  constructor for the UpdateChannelConfiguration wrapper. You will
+         * need to use the {@link Channel#updateChannelConfiguration(UpdateChannelConfiguration, byte[]...)} method to
+         * populate the update channel configuration
+         */
+        public UpdateChannelConfiguration()
+        {
+        }
 
-    /**
-     * constructs a UpdateChannelConfiguration object with the actual configuration gotten from the file system
-     *
-     * @param configFile The file containing the channel configuration.
-     * @throws IOException
-     */
-    public UpdateChannelConfiguration(File configFile) throws IOException {
-        InputStream is = new FileInputStream(configFile);
-        configBytes = IOUtils.toByteArray(is);
-    }
+        /**
+         * constructs a UpdateChannelConfiguration object with the actual configuration gotten from the file system
+         *
+         * @param configFile The file containing the channel configuration.
+         * @throws IOException
+         */
+        public UpdateChannelConfiguration(FileInfo configFile)
+        {
+            UpdateChannelConfigurationBytes = File.ReadAllBytes(configFile.FullName);
+        }
 
-    /**
-     * constructs a UpdateChannelConfiguration object
-     *
-     * @param configAsBytes the byte array containing the serialized channel configuration
-     */
-    public UpdateChannelConfiguration(byte[] configAsBytes) {
-        this.configBytes = configAsBytes;
-    }
+        /**
+         * constructs a UpdateChannelConfiguration object
+         *
+         * @param configAsBytes the byte array containing the serialized channel configuration
+         */
+        public UpdateChannelConfiguration(byte[] configAsBytes)
+        {
+            UpdateChannelConfigurationBytes = configAsBytes;
+        }
 
-    /**
-     * sets the UpdateChannelConfiguration from a byte array
-     *
-     * @param updateChannelConfigurationAsBytes the byte array containing the serialized channel configuration
-     */
-    public void setUpdateChannelConfiguration(byte[] updateChannelConfigurationAsBytes) {
-        this.configBytes = updateChannelConfigurationAsBytes;
-    }
-
-    /**
-     * @return the channel configuration serialized per protobuf and ready for inclusion into channel configuration
-     */
-    public byte[] getUpdateChannelConfigurationAsBytes() {
-        return this.configBytes;
+        /**
+         * sets the UpdateChannelConfiguration from a byte array
+         *
+         * @param updateChannelConfigurationAsBytes the byte array containing the serialized channel configuration
+         */
+        /**
+            * @return the channel configuration serialized per protobuf and ready for inclusion into channel configuration
+        */
+        public byte[] UpdateChannelConfigurationBytes { get; set; }
     }
 }

@@ -16,6 +16,7 @@
 
 using System.Collections.Generic;
 using System.Text;
+using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
@@ -25,8 +26,6 @@ namespace Hyperledger.Fabric.SDK.Transaction
     public class GetConfigBlockBuilder : CSCCProposalBuilder
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(GetConfigBlockBuilder));
-        private readonly List<byte[]> argsList = new List<byte[]>();
-
         private GetConfigBlockBuilder()
         {
             AddArg("GetConfigBlock");

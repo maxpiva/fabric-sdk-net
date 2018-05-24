@@ -11,7 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
+/*
 package org.hyperledger.fabric.sdk;
 
 import java.io.ByteArrayInputStream;
@@ -60,341 +60,479 @@ import org.hyperledger.fabric.sdk.security.CryptoPrimitives;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hyperledger.fabric.sdk.helper.Utils.parseGrpcUrl;
+*/
 
-class Endpoint {
-    private static final Log logger = LogFactory.getLog(Endpoint.class);
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Text.RegularExpressions;
+using Grpc.Core;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Security;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Digests;
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Security;
+using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
+using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
-    private static final String SSLPROVIDER = Config.getConfig().getDefaultSSLProvider();
-    private static final String SSLNEGOTIATION = Config.getConfig().getDefaultSSLNegotiationType();
+namespace Hyperledger.Fabric.SDK
+{
+    public class Endpoint
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(Endpoint));
 
-    private final String addr;
-    private final int port;
-    private final String url;
-    private byte[] clientTLSCertificateDigest;
-    private byte[] tlsClientCertificatePEMBytes;
-    private NettyChannelBuilder channelBuilder = null;
+        private static readonly string SSLNEGOTIATION = Config.GetConfig().GetDefaultSSLNegotiationType();
 
-    private static final Map<String, String> CN_CACHE = Collections.synchronizedMap(new HashMap<>());
+        private static readonly ConcurrentDictionary<string, string> CN_CACHE = new ConcurrentDictionary<string, string>();
+        private readonly byte[] tlsClientCertificatePEMBytes;
 
-    Endpoint(String url, Properties properties) {
-        logger.trace(format("Creating endpoint for url %s", url));
-        this.url = url;
-        String cn = null;
-        String sslp = null;
-        String nt = null;
-        byte[] pemBytes = null;
-        X509Certificate[] clientCert = null;
-        PrivateKey clientKey = null;
-        Properties purl = parseGrpcUrl(url);
-        String protocol = purl.getProperty("protocol");
-        this.addr = purl.getProperty("host");
-        this.port = Integer.parseInt(purl.getProperty("port"));
 
-        if (properties != null) {
-            if ("grpcs".equals(protocol)) {
-                CryptoPrimitives cp;
-                try {
-                    cp = new CryptoPrimitives();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+        private byte[] clientTLSCertificateDigest;
 
-                try (ByteArrayOutputStream bis = new ByteArrayOutputStream(64000)) {
-                    byte[] pb = (byte[]) properties.get("pemBytes");
-                    if (null != pb) {
-                        bis.write(pb);
+        public Endpoint(string url, Dictionary<string, object> properties)
+        {
+            logger.Trace($"Creating endpoint for url {url}");
+            Url = url;
+            string cn = null;
+            string nt = null;
+            byte[] pemBytes = null;
+            var purl = Utils.ParseGrpcUrl(url);
+
+            Protocol = purl.Protocol;
+            Host = purl.Host;
+            Port = purl.Port;
+            byte[] ckb = null, ccb = null;
+
+            if (properties != null)
+            {
+                if ("grpcs".Equals(Protocol, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    CryptoPrimitives cp;
+                    try
+                    {
+                        cp = new CryptoPrimitives();
                     }
-                    if (properties.containsKey("pemFile")) {
+                    catch (Exception e)
+                    {
+                        throw;
+                    }
 
-                        String pemFile = properties.getProperty("pemFile");
+                    using (MemoryStream bis = new MemoryStream())
+                    {
+                        try
+                        {
+                            if (properties.ContainsKey("pemBytes"))
+                                bis.WriteAllBytes((byte[]) properties["pemBytes"]);
+                            if (properties.ContainsKey("PemFile"))
+                            {
+                                string pemFile = (string) properties["pemFile"];
+                                Regex r = new Regex("[ \t]*,[ \t]*");
+                                string[] pems = r.Split(pemFile);
 
-                        String[] pems = pemFile.split("[ \t]*,[ \t]*");
+                                foreach (string pem in pems)
+                                {
+                                    if (!string.IsNullOrEmpty(pem))
+                                    {
+                                        try
+                                        {
+                                            bis.WriteAllBytes(File.ReadAllBytes(Path.GetFullPath(pem)));
+                                        }
+                                        catch (IOException e)
+                                        {
+                                            throw new ArgumentException($"Failed to read certificate file {Path.GetFullPath(pem)}");
+                                        }
+                                    }
+                                }
+                            }
 
-                        for (String pem : pems) {
-                            if (null != pem && !pem.isEmpty()) {
-                                try {
-                                    bis.write(Files.readAllBytes(Paths.get(pem)));
-                                } catch (IOException e) {
-                                    throw new RuntimeException(format("Failed to read certificate file %s",
-                                            new File(pem).getAbsolutePath()), e);
+                            bis.Flush();
+                            pemBytes = bis.ToArray();
+
+                            if (pemBytes.Length == 0)
+                                pemBytes = null;
+                        }
+                        catch (Exception e)
+                        {
+                            throw new Exception($"Failed to read CA certificates file {e}");
+                        }
+                    }
+
+                    if (pemBytes == null)
+                    {
+                        logger.Warn($"Endpoint {url} is grpcs with no CA certificates");
+                    }
+
+                    if (null != pemBytes)
+                    {
+                        try
+                        {
+                            cn = properties.ContainsKey("hostnameOverride") ? (string) properties["hostnameOverride"] : null;
+                            bool trustsv = properties.ContainsKey("trustServerCertificate") && ((string) properties["trustServerCertificate"]).Equals("true", StringComparison.InvariantCultureIgnoreCase);
+                            if (cn == null && trustsv)
+                            {
+                                string cnKey = pemBytes.ToUTF8String();
+                                CN_CACHE.TryGetValue(cnKey, out cn);
+                                if (cn == null)
+                                {
+                                    X509Certificate2 cert = cp.BytesToCertificate(pemBytes);
+                                    cn = cert.GetNameInfo(X509NameType.DnsName, false);
+                                    CN_CACHE.TryAdd(cnKey, cn);
                                 }
                             }
                         }
-
+                        catch (Exception e)
+                        {
+                            /// Mostly a development env. just log it.
+                            logger.Error("Error getting Subject CN from certificate. Try setting it specifically with hostnameOverride property. " + e);
+                        }
                     }
-                    pemBytes = bis.toByteArray();
 
-                    if (pemBytes.length == 0) {
-                        pemBytes = null;
+                    // check for mutual TLS - both clientKey and clientCert must be present
+                    if (properties.ContainsKey("clientKeyFile") && properties.ContainsKey("clientKeyBytes"))
+                    {
+                        throw new ArgumentException("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set");
                     }
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to read CA certificates file %s", e);
-                }
-
-                if (pemBytes == null) {
-                    logger.warn(format("Endpoint %s is grpcs with no CA certificates", url));
-                }
-
-                if (null != pemBytes) {
-                    try {
-                        cn = properties.getProperty("hostnameOverride");
-                        if (cn == null && "true".equals(properties.getProperty("trustServerCertificate"))) {
-                            final String cnKey = new String(pemBytes, UTF_8);
-                            cn = CN_CACHE.get(cnKey);
-                            if (cn == null) {
-                                X500Name x500name = new JcaX509CertificateHolder(
-                                        (X509Certificate) cp.bytesToCertificate(pemBytes)).getSubject();
-                                RDN rdn = x500name.getRDNs(BCStyle.CN)[0];
-                                cn = IETFUtils.valueToString(rdn.getFirst().getValue());
-                                CN_CACHE.put(cnKey, cn);
+                    else if (properties.ContainsKey("clientCertFile") && properties.ContainsKey("clientCertBytes"))
+                    {
+                        throw new ArgumentException("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set");
+                    }
+                    else if (properties.ContainsKey("clientKeyFile") || properties.ContainsKey("clientCertFile"))
+                    {
+                        if (properties.ContainsKey("clientKeyFile") && properties.ContainsKey("clientCertFile"))
+                        {
+                            try
+                            {
+                                ckb = File.ReadAllBytes(Path.GetFullPath((string) properties["clientKeyFile"]));
+                                ccb = File.ReadAllBytes(Path.GetFullPath((string) properties["clientCertFile"]));
+                            }
+                            catch (Exception e)
+                            {
+                                throw new ArgumentException("Failed to parse TLS client key and/or cert", e);
                             }
                         }
-                    } catch (Exception e) {
-                        /// Mostly a development env. just log it.
-                        logger.error(
-                                "Error getting Subject CN from certificate. Try setting it specifically with hostnameOverride property. "
-                                        + e.getMessage());
-                    }
-                }
-                // check for mutual TLS - both clientKey and clientCert must be present
-                byte[] ckb = null, ccb = null;
-                if (properties.containsKey("clientKeyFile") && properties.containsKey("clientKeyBytes")) {
-                    throw new RuntimeException("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set");
-                } else if (properties.containsKey("clientCertFile") && properties.containsKey("clientCertBytes")) {
-                    throw new RuntimeException("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set");
-                } else if (properties.containsKey("clientKeyFile") || properties.containsKey("clientCertFile")) {
-                    if ((properties.getProperty("clientKeyFile") != null) && (properties.getProperty("clientCertFile") != null)) {
-                        try {
-                            ckb = Files.readAllBytes(Paths.get(properties.getProperty("clientKeyFile")));
-                            ccb = Files.readAllBytes(Paths.get(properties.getProperty("clientCertFile")));
-                        } catch (IOException e) {
-                            throw new RuntimeException("Failed to parse TLS client key and/or cert", e);
+                        else
+                        {
+                            throw new ArgumentException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");
                         }
-                    } else {
-                        throw new RuntimeException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");
                     }
-                } else if (properties.containsKey("clientKeyBytes") || properties.containsKey("clientCertBytes")) {
-                    ckb = (byte[]) properties.get("clientKeyBytes");
-                    ccb = (byte[]) properties.get("clientCertBytes");
-                    if ((ckb == null) || (ccb == null)) {
-                        throw new RuntimeException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
+                    else if (properties.ContainsKey("clientKeyThumbprint"))
+                    {
+                        X509Certificate2 certi = SearchCertificateByFingerprint((string) properties["clientKeyThumbprint"]);
+                        if (certi == null)
+                            throw new ArgumentException($"Thumbprint {(string) properties["clientKeyThumbprint"]} not found in KeyStore");
+                        ccb = ExportToPEMCert(certi);
+                        ckb = ExportToPEMKey(certi);
                     }
-                }
-
-                if ((ckb != null) && (ccb != null)) {
-                    String what = "private key";
-                    try {
-                        logger.trace("client TLS private key bytes size:" + ckb.length);
-                        clientKey = cp.bytesToPrivateKey(ckb);
-                        logger.trace("converted TLS key.");
-                        what = "certificate";
-                        logger.trace("client TLS certificate bytes:" + Hex.encodeHexString(ccb));
-                        clientCert = new X509Certificate[] {(X509Certificate) cp.bytesToCertificate(ccb)};
-                        logger.trace("converted client TLS certificate.");
-                        tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
-                    } catch (CryptoException e) {
-                        throw new RuntimeException("Failed to parse TLS client " + what, e);
+                    else if (properties.ContainsKey("clientKeySubject"))
+                    {
+                        X509Certificate2 certi = SearchCertificateBySubject((string) properties["clientKeySubject"]);
+                        if (certi == null)
+                            throw new ArgumentException($"Subject {(string) properties["clientKeySubject"]} not found in KeyStore");
+                        ccb = ExportToPEMCert(certi);
+                        ckb = ExportToPEMKey(certi);
                     }
-                }
-
-                sslp = properties.getProperty("sslProvider");
-
-                if (null == sslp) {
-                    sslp = SSLPROVIDER;
-                    logger.trace(format("Endpoint %s specific SSL provider not found use global value: %s ", url, SSLPROVIDER));
-                }
-                if (!"openSSL".equals(sslp) && !"JDK".equals(sslp)) {
-                    throw new RuntimeException(format("Endpoint %s property of sslProvider has to be either openSSL or JDK. value: '%s'", url, sslp));
-                }
-
-                nt = properties.getProperty("negotiationType");
-                if (null == nt) {
-                    nt = SSLNEGOTIATION;
-                    logger.trace(format("Endpoint %s specific Negotiation type not found use global value: %s ", url, SSLNEGOTIATION));
-                }
-
-                if (!"TLS".equals(nt) && !"plainText".equals(nt)) {
-                    throw new RuntimeException(format("Endpoint %s property of negotiationType has to be either TLS or plainText. value: '%s'", url, nt));
-                }
-            }
-        }
-
-        try {
-            if (protocol.equalsIgnoreCase("grpc")) {
-                this.channelBuilder = NettyChannelBuilder.forAddress(addr, port).usePlaintext(true);
-                addNettyBuilderProps(channelBuilder, properties);
-            } else if (protocol.equalsIgnoreCase("grpcs")) {
-                if (pemBytes == null) {
-                    // use root certificate
-                    this.channelBuilder = NettyChannelBuilder.forAddress(addr, port);
-                    addNettyBuilderProps(channelBuilder, properties);
-                } else {
-                    try {
-
-                        logger.trace(format("Endpoint %s Negotiation type: '%s', SSLprovider: '%s'", url, nt, sslp));
-                        SslProvider sslprovider = sslp.equals("openSSL") ? SslProvider.OPENSSL : SslProvider.JDK;
-                        NegotiationType ntype = nt.equals("TLS") ? NegotiationType.TLS : NegotiationType.PLAINTEXT;
-
-                        SslContextBuilder clientContextBuilder = getSslContextBuilder(clientCert, clientKey, sslprovider);
-                        SslContext sslContext;
-
-                        try (InputStream myInputStream = new ByteArrayInputStream(pemBytes)) {
-                            sslContext = clientContextBuilder
-                                    .trustManager(myInputStream)
-                                    .build();
+                    else if (properties.ContainsKey("clientKeyBytes") || properties.ContainsKey("clientCertBytes"))
+                    {
+                        ckb = (byte[]) properties["clientKeyBytes"];
+                        ccb = (byte[]) properties["clientCertBytes"];
+                        if (ckb == null || ccb == null)
+                        {
+                            throw new ArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
                         }
+                    }
 
-                        channelBuilder = NettyChannelBuilder
-                                .forAddress(addr, port)
-                                .sslContext(sslContext)
-                                .negotiationType(ntype);
-
-                        if (cn != null) {
-                            channelBuilder.overrideAuthority(cn);
+                    if (ckb != null && ccb != null)
+                    {
+                        string what = "private key";
+                        try
+                        {
+                            logger.Trace("client TLS private key bytes size:" + ckb.Length);
+                            //clientKey = cp.BytesToPrivateKey(ckb);
+                            logger.Trace("converted TLS key.");
+                            what = "certificate";
+                            logger.Trace("client TLS certificate bytes:" + ccb.ToHexString());
+                            //clientCert = new X509Certificate2[] {(X509Certificate2) cp.BytesToCertificate(ccb)};
+                            logger.Trace("converted client TLS certificate.");
+                            tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
                         }
-                        addNettyBuilderProps(channelBuilder, properties);
-                    } catch (SSLException sslex) {
-                        throw new RuntimeException(sslex);
+                        catch (CryptoException e)
+                        {
+                            throw new ArgumentException("Failed to parse TLS client " + what, e);
+                        }
+                    }
+
+                    nt = null;
+                    if (properties.ContainsKey("negotiationType"))
+                        nt = (string) properties["negotiationType"];
+                    if (null == nt)
+                    {
+                        nt = SSLNEGOTIATION;
+                        logger.Trace($"Endpoint {url} specific Negotiation type not found use global value: {SSLNEGOTIATION}");
+                    }
+
+                    if (!"TLS".Equals(nt, StringComparison.InvariantCultureIgnoreCase) && !"plainText".Equals(nt, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        throw new ArgumentException($"Endpoint {url} property of negotiationType has to be either TLS or plainText. value:'{nt}'");
                     }
                 }
-            } else {
-                throw new RuntimeException("invalid protocol: " + protocol);
             }
-        } catch (RuntimeException e) {
-            logger.error(e);
-            throw e;
-        } catch (Exception e) {
-            logger.error(e);
-            throw new RuntimeException(e);
+
+            try
+            {
+                List<ChannelOption> options = new List<ChannelOption>();
+                foreach (string str in properties.Keys)
+                {
+                    if (str.StartsWith("grpc."))
+                    {
+                        if (properties[str] is int)
+                            options.Add(new ChannelOption(str, (int) properties[str]));
+                        else if (properties[str] is string)
+                            options.Add(new ChannelOption(str, (string) properties[str]));
+                    }
+                }
+
+                if (Protocol.Equals("grpc", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    ChannelOptions = options;
+                    Credentials = null;
+                }
+                else if (Protocol.Equals("grpcs", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    if (pemBytes == null)
+                    {
+                        // use root certificate
+                        ChannelOptions = options;
+                        Credentials = null;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            ChannelCredentials creds;
+                            if (ckb != null && ccb != null)
+                                creds = new SslCredentials(pemBytes.ToUTF8String(), new KeyCertificatePair(ccb.ToUTF8String(), ckb.ToUTF8String()));
+                            else
+                                creds = new SslCredentials(pemBytes.ToUTF8String());
+                            if (cn != null)
+                                options.Add(new ChannelOption("grpc.default_authority", cn));
+                            Credentials = creds;
+                            ChannelOptions = options;
+                        }
+                        catch (Exception sslex)
+                        {
+                            throw;
+                        }
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException("invalid protocol: " + Protocol);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.ErrorException(e.Message, e);
+                throw e;
+            }
         }
-    }
 
-    SslContextBuilder getSslContextBuilder(X509Certificate[] clientCert, PrivateKey clientKey, SslProvider sslprovider) {
-        SslContextBuilder clientContextBuilder = GrpcSslContexts.configure(SslContextBuilder.forClient(), sslprovider);
-        if (clientKey != null && clientCert != null) {
-            clientContextBuilder = clientContextBuilder.keyManager(clientKey, clientCert);
-        }
-        return clientContextBuilder;
-    }
+        /*
+        private static final Pattern METHOD_PATTERN = Pattern.compile("grpc\\.NettyChannelBuilderOption\\.([^.]*)$");
+        private static final Map<Class<?>, Class<?>> WRAPPERS_TO_PRIM = new ImmutableMap.Builder<Class<?>, Class<?>>()
+        .put(Boolean.class, boolean.class).put(Byte.class, byte.class).put(Character.class, char.class).put(Double.class, double.class).put(Float.class, float.class).put(Integer.class, int.class).put(Long.class, long.class).put(Short.class, short.class).put(Void.class, void.class).build();
 
-    byte[] getClientTLSCertificateDigest() {
-        //The digest must be SHA256 over the DER encoded certificate. The PEM has the exact DER sequence in hex encoding around the begin and end markers
+        private void addNettyBuilderProps(NettyChannelBuilder channelBuilder, Properties props)
+        throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
-        if (tlsClientCertificatePEMBytes != null && clientTLSCertificateDigest == null) {
-
-            String pemCert = new String(tlsClientCertificatePEMBytes, UTF_8);
-            byte[] derBytes = Base64.getDecoder().decode(
-                    pemCert.replaceAll("-+[ \t]*(BEGIN|END)[ \t]+CERTIFICATE[ \t]*-+", "").replaceAll("\\s", "").trim()
-            );
-
-            Digest digest = new SHA256Digest();
-            clientTLSCertificateDigest = new byte[digest.getDigestSize()];
-            digest.update(derBytes, 0, derBytes.length);
-            digest.doFinal(clientTLSCertificateDigest, 0);
-        }
-
-        return clientTLSCertificateDigest;
-    }
-
-    private static final Pattern METHOD_PATTERN = Pattern.compile("grpc\\.NettyChannelBuilderOption\\.([^.]*)$");
-    private static final Map<Class<?>, Class<?>> WRAPPERS_TO_PRIM = new ImmutableMap.Builder<Class<?>, Class<?>>()
-            .put(Boolean.class, boolean.class).put(Byte.class, byte.class).put(Character.class, char.class)
-            .put(Double.class, double.class).put(Float.class, float.class).put(Integer.class, int.class)
-            .put(Long.class, long.class).put(Short.class, short.class).put(Void.class, void.class).build();
-
-    private void addNettyBuilderProps(NettyChannelBuilder channelBuilder, Properties props)
-            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-
-        if (props == null) {
-            return;
-        }
-
-        for (Map.Entry<?, ?> es : props.entrySet()) {
-            Object methodprop = es.getKey();
-            if (methodprop == null) {
-                continue;
-            }
-            String methodprops = String.valueOf(methodprop);
-
-            Matcher match = METHOD_PATTERN.matcher(methodprops);
-
-            String methodName = null;
-
-            if (match.matches() && match.groupCount() == 1) {
-                methodName = match.group(1).trim();
-
-            }
-            if (null == methodName || "forAddress".equals(methodName) || "build".equals(methodName)) {
-
-                continue;
+            if (props == null)
+            {
+                return;
             }
 
-            Object parmsArrayO = es.getValue();
-            Object[] parmsArray;
-            if (!(parmsArrayO instanceof Object[])) {
-                parmsArray = new Object[] {parmsArrayO};
-
-            } else {
-                parmsArray = (Object[]) parmsArrayO;
-            }
-
-            Class<?>[] classParms = new Class[parmsArray.length];
-            int i = -1;
-            for (Object oparm : parmsArray) {
-                ++i;
-
-                if (null == oparm) {
-                    classParms[i] = Object.class;
+            for (Map.Entry < ?, ?> es :
+            props.entrySet()) {
+                Object methodprop = es.getKey();
+                if (methodprop == null)
+                {
                     continue;
                 }
 
-                Class<?> unwrapped = WRAPPERS_TO_PRIM.get(oparm.getClass());
-                if (null != unwrapped) {
-                    classParms[i] = unwrapped;
+                String methodprops = System.String.valueOf(methodprop);
+
+                Matcher match = METHOD_PATTERN.matcher(methodprops);
+
+                String methodName = null;
+
+                if (match.matches() && match.groupCount() == 1)
+                {
+                    methodName = match.group(1).trim();
+
+                }
+
+                if (null == methodName || "forAddress".equals(methodName) || "build".equals(methodName))
+                {
+
+                    continue;
+                }
+
+                Object parmsArrayO = es.getValue();
+                Object[] parmsArray;
+                if (!(parmsArrayO instanceof Object[])) {
+                    parmsArray = new Object[] {parmsArrayO};
+
                 } else {
+                    parmsArray = (Object[]) parmsArrayO;
+                }
 
-                    Class<?> clz = oparm.getClass();
+                Class < ?>[] classParms = new Class[parmsArray.length];
+                int i = -1;
+                for (Object oparm :
+                parmsArray) {
+                    ++i;
 
-                    Class<?> ecz = clz.getEnclosingClass();
-                    if (null != ecz && ecz.isEnum()) {
-                        clz = ecz;
+                    if (null == oparm)
+                    {
+                        classParms[i] = Object.class;
+                        continue;
                     }
 
-                    classParms[i] = clz;
+                    Class < ?> unwrapped = WRAPPERS_TO_PRIM.get(oparm.getClass());
+                    if (null != unwrapped)
+                    {
+                        classParms[i] = unwrapped;
+                    }
+                    else
+                    {
+
+                        Class < ?> clz = oparm.getClass();
+
+                        Class < ?> ecz = clz.getEnclosingClass();
+                        if (null != ecz && ecz.isEnum())
+                        {
+                            clz = ecz;
+                        }
+
+                        classParms[i] = clz;
+                    }
                 }
-            }
 
-            final Method method = channelBuilder.getClass().getMethod(methodName, classParms);
+                final Method method = channelBuilder.getClass().getMethod(methodName, classParms);
 
-            method.invoke(channelBuilder, parmsArray);
+                method.invoke(channelBuilder, parmsArray);
 
-            if (logger.isTraceEnabled()) {
-                StringBuilder sb = new StringBuilder(200);
-                String sep = "";
-                for (Object p : parmsArray) {
-                    sb.append(sep).append(p + "");
-                    sep = ", ";
+                if (logger.isTraceEnabled())
+                {
+                    StringBuilder sb = new StringBuilder(200);
+                    String sep = "";
+                    for (Object p :
+                    parmsArray) {
+                        sb.append(sep).append(p + "");
+                        sep = ", ";
+
+                    }
+                    logger.trace(format("Endpoint with url: %s set managed channel builder method %s (%s) ", url, method, sb.toString()));
 
                 }
-                logger.trace(format("Endpoint with url: %s set managed channel builder method %s (%s) ", url,
-                        method, sb.toString()));
 
             }
 
         }
+                */
+        public Grpc.Core.Channel BuildChannel() => new Grpc.Core.Channel(Host,Port,Credentials,ChannelOptions);
 
+        public string Host { get; }
+
+        public string Protocol { get; }
+
+        public string Url { get; }
+
+        public int Port { get; }
+
+        public ChannelCredentials Credentials { get; }
+
+        public List<ChannelOption> ChannelOptions { get; }
+        public byte[] GetClientTLSCertificateDigest()
+        {
+            //The digest must be SHA256 over the DER encoded certificate. The PEM has the exact DER sequence in hex encoding around the begin and end markers
+
+            if (tlsClientCertificatePEMBytes != null && clientTLSCertificateDigest == null)
+            {
+                Regex regex = new Regex("-+[ \t]*(BEGIN|END)[ \t]+CERTIFICATE[ \t]*-+");
+                string pemCert = tlsClientCertificatePEMBytes.ToUTF8String();
+                byte[] derBytes = Convert.FromBase64String(regex.Replace(pemCert, string.Empty).Replace(" ", string.Empty));
+                IDigest digest = new Sha256Digest();
+                clientTLSCertificateDigest = new byte[digest.GetDigestSize()];
+                digest.BlockUpdate(derBytes, 0, derBytes.Length);
+                digest.DoFinal(clientTLSCertificateDigest, 0);
+            }
+
+            return clientTLSCertificateDigest;
+        }
+
+        private X509Certificate2 SearchCertificate(string value, Func<string, X509Certificate2, bool> check_func)
+        {
+            StoreName[] stores = {StoreName.My, StoreName.TrustedPublisher, StoreName.TrustedPeople, StoreName.Root, StoreName.CertificateAuthority, StoreName.AuthRoot, StoreName.AddressBook};
+            StoreLocation[] locations = {StoreLocation.CurrentUser, StoreLocation.LocalMachine};
+            foreach (StoreLocation location in locations)
+            {
+                foreach (StoreName s in stores)
+                {
+                    X509Store store = new X509Store(s, location);
+                    store.Open(OpenFlags.ReadOnly);
+                    foreach (X509Certificate2 m in store.Certificates)
+                    {
+                        if (check_func(value, m))
+                        {
+                            store.Close();
+                            return m;
+                        }
+                    }
+
+                    store.Close();
+                }
+            }
+
+            return null;
+        }
+
+        private X509Certificate2 SearchCertificateBySubject(string subject)
+        {
+            return SearchCertificate(subject, (certname, m) => m.Subject.IndexOf("CN=" + certname, 0, StringComparison.InvariantCultureIgnoreCase) >= 0 || m.Issuer.IndexOf("CN=" + certname, 0, StringComparison.InvariantCultureIgnoreCase) >= 0);
+        }
+
+        private X509Certificate2 SearchCertificateByFingerprint(string finger)
+        {
+            return SearchCertificate(finger, (certname, m) => m.Thumbprint?.Equals(certname, StringComparison.InvariantCultureIgnoreCase) ?? false);
+        }
+
+
+        public static byte[] ExportToPEMCert(X509Certificate2 cert)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.AppendLine("-----BEGIN CERTIFICATE-----");
+            builder.AppendLine(Convert.ToBase64String(cert.Export(X509ContentType.Cert), Base64FormattingOptions.InsertLineBreaks));
+            builder.AppendLine("-----END CERTIFICATE-----");
+
+            return builder.ToString().ToBytes();
+        }
+
+        public static byte[] ExportToPEMKey(X509Certificate2 cert)
+        {
+            AsymmetricCipherKeyPair keyPair = DotNetUtilities.GetRsaKeyPair(cert.GetRSAPrivateKey());
+            using (StringWriter str = new StringWriter())
+            {
+                PemWriter pw = new PemWriter(str);
+                pw.WriteObject(keyPair.Private);
+                str.Flush();
+                return str.ToString().ToBytes();
+            }
+        }
     }
-
-    ManagedChannelBuilder<?> getChannelBuilder() {
-        return this.channelBuilder;
-    }
-
-    String getHost() {
-        return this.addr;
-    }
-
-    int getPort() {
-        return this.port;
-    }
-
 }

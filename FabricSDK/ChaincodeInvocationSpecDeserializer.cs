@@ -16,22 +16,24 @@
 
 
 using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
+
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ChaincodeInvocationSpecDeserializer : BaseDeserializer<ChaincodeInvocationSpec>
     {
-        private WeakReference<ChaincodeInputDeserializer> chaincodeInputDeserializer;
+        private readonly WeakItem<ChaincodeInputDeserializer, ChaincodeInvocationSpec> chaincodeInputDeserializer;
 
-        public ChaincodeInvocationSpecDeserializer(byte[] byteString) : base(byteString)
+        public ChaincodeInvocationSpecDeserializer(ByteString byteString) : base(byteString)
         {
+            chaincodeInputDeserializer=new WeakItem<ChaincodeInputDeserializer, ChaincodeInvocationSpec>((input) => new ChaincodeInputDeserializer(input.ChaincodeSpec.Input),()=>Reference);
         }
 
         public ChaincodeInvocationSpec ChaincodeInvocationSpec => Reference;
-        public ChaincodeInputDeserializer ChaincodeInput => ChaincodeInvocationSpec.ChaincodeSpec.Input.GetOrCreateWR(ref chaincodeInputDeserializer, (input) => new ChaincodeInputDeserializer(input));
+        public ChaincodeInputDeserializer ChaincodeInput => chaincodeInputDeserializer.Reference;
     }
 }

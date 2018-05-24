@@ -132,10 +132,10 @@ namespace Hyperledger.Fabric.SDK.Helper
                 sdkProperties=new Dictionary<string, string>();
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
                 IniData data = parser.ReadFile(DEFAULT_CONFIG);
-                Section sec = data.Sections.First();
-                foreach (var key in sec.Keys)
+                KeyDataCollection sect = data.Global;
+                foreach (KeyData kd in sect)
                 {
-                    sdkProperties.Add(key.KeyName,key.Value);
+                    sdkProperties.Add(kd.KeyName, kd.Value);
                 }
 
             }

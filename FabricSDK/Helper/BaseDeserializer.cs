@@ -1,18 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.NetExtensions;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
-    public class BaseDeserializer<T> where T: class
+    public class BaseDeserializer<T> where T: class, IMessage<T>, new()
     {
-        protected internal byte[] byteString;
+        protected internal ByteString bs;
         protected WeakReference<T> reference;
-        public BaseDeserializer(byte[] byteString)
+        public BaseDeserializer(ByteString byteString)
         {
-            this.byteString = byteString;
+            bs = byteString;
         }
-        internal T Reference => byteString.GetOrDeserializeProtoBufWR(ref reference);
+        public BaseDeserializer(T reference)
+        {
+            bs = reference.ToByteString();
+            Reference = reference;
+        }
+        internal T Reference
+        {
+            get => bs.ToByteArray().GetOrDeserializeProtoBufWR(ref reference);
+            set => reference = new WeakReference<T>(value);
+        }
     }
 }

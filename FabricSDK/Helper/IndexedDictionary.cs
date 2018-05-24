@@ -34,7 +34,7 @@ namespace Hyperledger.Fabric.SDK.Helper
     }
 
 
-    //Taken from nhibernate (LICENSE SHOULD BE REVISED or this IMPLEMENTATION SHOULD BE REDO)
+    //Taken from nhibernate (LICENSE SHOULD BE REVISED or this SHOULD BE REDO)
     [Serializable]
     public class LinkedHashMap<TKey, TValue> : IDictionary<TKey, TValue>, IDeserializationCallback
     {

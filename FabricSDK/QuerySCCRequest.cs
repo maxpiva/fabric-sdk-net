@@ -12,29 +12,26 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
+namespace Hyperledger.Fabric.SDK
+{
 
-import org.hyperledger.fabric.protos.peer.Chaincode;
+    /**
+     * Request for getting information about the blockchain ledger.
+     */
+    public class QuerySCCRequest : TransactionRequest
+    {
 
-/**
- * Request for getting information about the blockchain ledger.
- */
-public class QuerySCCRequest extends TransactionRequest {
+        public static readonly string GETCHAININFO = "GetChainInfo";
+        public static readonly string GETBLOCKBYNUMBER = "GetBlockByNumber";
+        public static readonly string GETBLOCKBYHASH = "GetBlockByHash";
+        public static readonly string GETTRANSACTIONBYID = "GetTransactionByID";
+        public static readonly string GETBLOCKBYTXID = "GetBlockByTxID";
 
-    public static final String GETCHAININFO = "GetChainInfo";
-    public static final String GETBLOCKBYNUMBER = "GetBlockByNumber";
-    public static final String GETBLOCKBYHASH = "GetBlockByHash";
-    public static final String GETTRANSACTIONBYID = "GetTransactionByID";
-    public static final String GETBLOCKBYTXID = "GetBlockByTxID";
+        public QuerySCCRequest(IUser userContext) : base(userContext)
+        {
+        }
 
-    public QuerySCCRequest(User userContext) {
-        super(userContext);
+
+        public override ChaincodeID ChaincodeID => new ChaincodeID(new Protos.Peer.ChaincodeID {Name = "qscc"});
     }
-
-    @Override
-    public ChaincodeID getChaincodeID() {
-        return new ChaincodeID(
-                Chaincode.ChaincodeID.newBuilder().setName("qscc").build());
-    }
-
 }

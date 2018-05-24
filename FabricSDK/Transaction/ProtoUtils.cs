@@ -16,16 +16,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.Protos.Orderer;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.Protos.Msp;
-using Hyperledger.Fabric.SDK.Protos.Orderer;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
+
 
 using Hyperledger.Fabric.SDK.Security;
-using ProtoBuf;
+
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {/*
@@ -98,8 +101,8 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
          * @param tlsCertHash
          * @return a new chain header.
          */
-        public static ChannelHeader CreateChannelHeader(HeaderType type, String txID, String channelID, long epoch,
-                                                        DateTime? timeStamp, ChaincodeHeaderExtension chaincodeHeaderExtension,
+        public static ChannelHeader CreateChannelHeader(HeaderType type, string txID, string channelID, long epoch,
+                                                        Timestamp timeStamp, ChaincodeHeaderExtension chaincodeHeaderExtension,
                                                         byte[] tlsCertHash) {
 
             if (isDebugLevel)
@@ -112,15 +115,15 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
 
             ChannelHeader ret=new ChannelHeader {Type = (int)type, Version = 1, TxId = txID, ChannelId = channelID, Timestamp = timeStamp, Epoch = (ulong)epoch};
             if (null != chaincodeHeaderExtension)
-                ret.Extension = chaincodeHeaderExtension.SerializeProtoBuf();
+                ret.Extension = chaincodeHeaderExtension.ToByteString();
             if (tlsCertHash != null)
-                ret.TlsCertHash = tlsCertHash.CloneBytes();
+                ret.TlsCertHash = ByteString.CopyFrom(tlsCertHash);
             return ret;
 
         }
 
-        public static ChaincodeDeploymentSpec CreateDeploymentSpec(ChaincodeSpec.Type ccType, String name, String chaincodePath,
-                                                                   String chaincodeVersion, List<String> args,
+        public static ChaincodeDeploymentSpec CreateDeploymentSpec(ChaincodeSpec.Types.Type ccType, string name, string chaincodePath,
+                                                                   string chaincodeVersion, List<string> args,
                                                                    byte[] codePackage) {
 
             Protos.Peer.ChaincodeID chaincodeID = new Protos.Peer.ChaincodeID
@@ -132,12 +135,12 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
                 chaincodeID.Path=chaincodePath;
 
             // build chaincodeInput
-            List<byte[]> argList = args.Select(a => Encoding.UTF8.GetBytes(a)).ToList();
+            List<ByteString> argList = args.Select(ByteString.CopyFromUtf8).ToList();
             ChaincodeInput chaincodeInput = new ChaincodeInput();
             chaincodeInput.Args.AddRange(argList);
                 
             // Construct the ChaincodeSpec
-            ChaincodeSpec chaincodeSpec = new ChaincodeSpec { ChaincodeId = chaincodeID, Input = chaincodeInput, type=ccType};
+            ChaincodeSpec chaincodeSpec = new ChaincodeSpec { ChaincodeId = chaincodeID, Input = chaincodeInput, Type=ccType};
 
             if (isDebugLevel) {
                 StringBuilder sb = new StringBuilder(1000);
@@ -153,8 +156,8 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
                 string sep = "";
                 sb.Append(" args(");
 
-                foreach (byte[] x in argList) {
-                    sb.Append(sep).Append("\"").Append(Encoding.UTF8.GetString(x).LogString()).Append("\"");
+                foreach (ByteString x in argList) {
+                    sb.Append(sep).Append("\"").Append(x.ToStringUtf8().LogString()).Append("\"");
                     sep = ", ";
 
                 }
@@ -163,19 +166,19 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
 
             }
 
-            ChaincodeDeploymentSpec spec=new ChaincodeDeploymentSpec { ChaincodeSpec = chaincodeSpec,ExecEnv = ChaincodeDeploymentSpec.ExecutionEnvironment.Docker};
+            ChaincodeDeploymentSpec spec=new ChaincodeDeploymentSpec { ChaincodeSpec = chaincodeSpec,ExecEnv = ChaincodeDeploymentSpec.Types.ExecutionEnvironment.Docker};
             if (codePackage != null)
-                spec.CodePackage = codePackage.CloneBytes();
+                spec.CodePackage = ByteString.CopyFrom(codePackage);
             return spec;
 
         }
 
-        public static byte[] GetSignatureHeaderAsByteString(TransactionContext transactionContext) {
+        public static ByteString GetSignatureHeaderAsByteString(TransactionContext transactionContext) {
 
             return GetSignatureHeaderAsByteString(transactionContext.User, transactionContext);
         }
 
-        public static byte[] GetSignatureHeaderAsByteString(IUser user, TransactionContext transactionContext)
+        public static ByteString GetSignatureHeaderAsByteString(IUser user, TransactionContext transactionContext)
         {
 
             SerializedIdentity identity = CreateSerializedIdentity(user);
@@ -210,33 +213,20 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
 
             }
 
-            ;
-            return (new SignatureHeader {Creator = identity.SerializeProtoBuf(), Nonce = transactionContext.Nonce}).SerializeProtoBuf();
+            return (new SignatureHeader {Creator = identity.ToByteString(), Nonce = transactionContext.Nonce}).ToByteString();
         }
 
         public static SerializedIdentity CreateSerializedIdentity(IUser user)
         {
-            return new SerializedIdentity {IdBytes = Encoding.UTF8.GetBytes(user.Enrollment.Cert), Mspid = user.MspId};
+            return new SerializedIdentity {IdBytes = ByteString.CopyFromUtf8(user.Enrollment.Cert), Mspid = user.MspId};
         }
-        /*
-        public static ProtoBuf.Protos.Rwset.TITimestamp getCurrentFabricTimestamp()
+
+        public static Timestamp GetCurrentFabricTimestamp()
         {
-            Instant time = Instant.now();
-            return Timestamp.newBuilder().setSeconds(time.getEpochSecond())
-                    .setNanos(time.getNano()).build();
+            return Timestamp.FromDateTimeOffset(DateTimeOffset.UtcNow);
         }
 
-        public static Date getDateFromTimestamp(Timestamp timestamp) {
-            return new Date(Timestamps.toMillis(timestamp));
-        }
 
-        static Timestamp getTimestampFromDate(Date date) {
-
-            long millis = date.getTime();
-            return Timestamp.newBuilder().setSeconds(millis / 1000)
-                    .setNanos((int) ((millis % 1000) * 1000000)).build();
-        }
-        */
         public static Envelope CreateSeekInfoEnvelope(TransactionContext transactionContext, SeekInfo seekInfo, byte[] tlsCertHash)
         {
 
@@ -244,15 +234,15 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
                     transactionContext.TxID, transactionContext.ChannelID, transactionContext.Epoch,
                     transactionContext.FabricTimestamp, null, tlsCertHash);
 
-            SignatureHeader signatureHeader = new SignatureHeader { Creator = transactionContext.Identity.SerializeProtoBuf(), Nonce = transactionContext.Nonce };
-            Header seekHeader = new Header {SignatureHeader = signatureHeader.SerializeProtoBuf(), ChannelHeader = seekInfoHeader.SerializeProtoBuf()};
-            Payload seekPayload = new Payload { Header = seekHeader, Data=seekInfo.SerializeProtoBuf()};
-            return new Envelope {Signature = transactionContext.SignByteStrings(seekPayload.SerializeProtoBuf()), Payload = seekPayload.SerializeProtoBuf()};
+            SignatureHeader signatureHeader = new SignatureHeader { Creator = transactionContext.Identity.ToByteString(), Nonce = transactionContext.Nonce };
+            Header seekHeader = new Header {SignatureHeader = signatureHeader.ToByteString(), ChannelHeader = seekInfoHeader.ToByteString()};
+            Payload seekPayload = new Payload { Header = seekHeader, Data=seekInfo.ToByteString()};
+            return new Envelope {Signature = transactionContext.SignByteStrings(seekPayload.ToByteString()), Payload = seekPayload.ToByteString()};
 
         }
 
         public static Envelope CreateSeekInfoEnvelope(TransactionContext transactionContext, SeekPosition startPosition,
-                                                      SeekPosition stopPosition, SeekInfo.SeekBehavior seekBehavior, byte[] tlsCertHash)
+                                                      SeekPosition stopPosition, SeekInfo.Types.SeekBehavior seekBehavior, byte[] tlsCertHash)
         {
             return CreateSeekInfoEnvelope(transactionContext, new SeekInfo {Start = startPosition, Behavior = seekBehavior, Stop = stopPosition},tlsCertHash);
         }

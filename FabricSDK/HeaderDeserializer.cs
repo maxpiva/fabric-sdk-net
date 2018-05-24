@@ -13,26 +13,27 @@
  *  limitations under the License.
  *
  */
-using System;
-using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Msp;
+
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class HeaderDeserializer
     {
+        private readonly WeakItem<ChannelHeaderDeserializer, Header> channelHeader;
 
-        private WeakReference<ChannelHeaderDeserializer> channelHeader;
-        public ChannelHeaderDeserializer ChannelHeader => Header.GetOrCreateWR(ref channelHeader, (h) => new ChannelHeaderDeserializer(h.ChannelHeader));
         public HeaderDeserializer(Header header)
         {
             Header = header;
+            channelHeader = new WeakItem<ChannelHeaderDeserializer, Header>((h) => new ChannelHeaderDeserializer(h.ChannelHeader), () => Header);
         }
+
+        public ChannelHeaderDeserializer ChannelHeader => channelHeader.Reference;
         public Header Header { get; }
-        public SerializedIdentity Creator => Header.SignatureHeader.DeserializeProtoBuf<SignatureHeader>()?.Creator?.DeserializeProtoBuf<SerializedIdentity>();
-        public byte[] Nonce => Header.SignatureHeader.DeserializeProtoBuf<SignatureHeader>()?.Nonce;
+        public SerializedIdentity Creator => SerializedIdentity.Parser.ParseFrom(SignatureHeader.Parser.ParseFrom(Header.SignatureHeader)?.Creator);
+        public byte[] Nonce => SignatureHeader.Parser.ParseFrom(Header.SignatureHeader).Nonce.ToByteArray();
     }
 }

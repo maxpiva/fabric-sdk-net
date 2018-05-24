@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Google.Protobuf;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
@@ -99,7 +100,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @return {@code true} if the signature is successfully verified; otherwise {@code false}.
          * @throws CryptoException
          */
-        bool Verify(byte[] certificate, string signatureAlgorithm, byte[] signature, byte[] plainText);
+        bool Verify(byte[] certificate, string signatureAlgorithm,  byte[] signature, byte[] plainText);
 
         /**
          * Hash the specified text byte data.
@@ -117,6 +118,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @return String in PEM format for certificate request.
          * @throws InvalidArgumentException
          */
+        string GenerateCertificationRequest(string user, AsymmetricAlgorithm publickey, AsymmetricAlgorithm privatekey);
         string GenerateCertificationRequest(string user, AsymmetricAlgorithm keypair);
 
         /**

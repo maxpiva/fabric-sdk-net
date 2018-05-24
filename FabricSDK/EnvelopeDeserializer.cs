@@ -15,49 +15,42 @@
  */
 
 using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using ProtoBuf;
 
 namespace Hyperledger.Fabric.SDK
 {
-
     public class EnvelopeDeserializer : BaseDeserializer<Envelope>
     {
-
-        private WeakReference<PayloadDeserializer> payload;
+        private readonly WeakItem<PayloadDeserializer,Envelope> payload;            
+        public EnvelopeDeserializer(ByteString byteString, byte validcode) : base(byteString)
+        {
+            ValidationCode = validcode;
+            payload = new WeakItem<PayloadDeserializer, Envelope>((env) => new PayloadDeserializer(env.Payload), () => Reference);
+        }
 
         /**
             * @return the validation code of this Transaction (enumeration TxValidationCode in Transaction.proto)
          */
         public byte ValidationCode { get; }
 
-        public EnvelopeDeserializer(byte[] byteString, byte validcode) : base(byteString)
-        {
-            this.ValidationCode = validcode;
-        }
-
         public Envelope Envelope => Reference;
-        public byte[] Signature => Envelope?.Signature;
-        public PayloadDeserializer Payload => Envelope?.GetOrCreateWR(ref payload, (env) => new PayloadDeserializer(env.Payload));
-
+        public byte[] Signature => Envelope?.Signature.ToByteArray();
+        public PayloadDeserializer Payload => payload.Reference;        
         public int Type => Payload?.Header?.ChannelHeader?.Type ?? 0;
 
         /**
          * @return whether this Transaction is marked as TxValidationCode.VALID
          */
-        public bool IsValid => ValidationCode == (int) Protos.Peer.FabricTransaction.TxValidationCode.Valid;
+        public bool IsValid => ValidationCode == (int) TxValidationCode.Valid;
 
-
-
-
-
-        public static EnvelopeDeserializer Create(byte[] byteString, byte b)
+        public static EnvelopeDeserializer Create(ByteString byteString, byte b)
         {
             EnvelopeDeserializer ret;
-            int type = byteString.DeserializeProtoBuf<Envelope>().Payload.DeserializeProtoBuf<Payload>().Header.ChannelHeader.DeserializeProtoBuf<ChannelHeader>().Type;
+            int type = ChannelHeader.Parser.ParseFrom(Protos.Common.Payload.Parser.ParseFrom(Envelope.Parser.ParseFrom(byteString).Payload).Header.ChannelHeader).Type;
 
             /*
      
@@ -82,7 +75,6 @@ namespace Hyperledger.Fabric.SDK
             }
 
             return ret;
-
         }
     }
 }

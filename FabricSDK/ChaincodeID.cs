@@ -11,6 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 namespace Hyperledger.Fabric.SDK
 {
 //    package org.hyperledger.fabric.sdk;
@@ -20,50 +21,69 @@ namespace Hyperledger.Fabric.SDK
  */
     public class ChaincodeID
     {
-
-        private readonly Protos.Peer.ChaincodeID fabricChaincodeID;
-
-        public Protos.Peer.ChaincodeID FabricChaincodeID => fabricChaincodeID;
-
         public ChaincodeID(Protos.Peer.ChaincodeID chaincodeID)
         {
-            this.fabricChaincodeID = chaincodeID;
+            FabricChaincodeID = chaincodeID;
         }
+
+        public Protos.Peer.ChaincodeID FabricChaincodeID { get; }
+
+        public string Name
+        {
+            get => FabricChaincodeID.Name;
+            set => FabricChaincodeID.Name = value;
+        }
+
+        public string Path
+        {
+            get => FabricChaincodeID.Path;
+            set => FabricChaincodeID.Path = value;
+        }
+
+        public string Version
+        {
+            get => FabricChaincodeID.Version;
+            set => FabricChaincodeID.Version = value;
+        }
+
         /**
          * @param name of the Chaincode
          * @return Builder
          */
 
-        public ChaincodeID Name(string name)
+        public ChaincodeID SetName(string name)
         {
-            fabricChaincodeID.Name = name;
+            FabricChaincodeID.Name = name;
             return this;
         }
+
         /**
          * Set path of chaincode
          *
          * @param path of chaincode
          * @return Builder
          */
-        public ChaincodeID Path(string path)
+        public ChaincodeID SetPath(string path)
         {
-            fabricChaincodeID.Path = path;
+            FabricChaincodeID.Path = path;
             return this;
         }
+
         /**
          * Set the version of the Chaincode
          *
          * @param version of the chaincode
          * @return Builder
          */
-        public ChaincodeID Version(string version)
+        public ChaincodeID SetVersion(string version)
         {
-            fabricChaincodeID.Version = version;
+            FabricChaincodeID.Version = version;
             return this;
         }
+
         public override string ToString()
         {
-            return "ChaincodeID(" + fabricChaincodeID.Name + ":" + fabricChaincodeID.Path + ":" + fabricChaincodeID.Version + ")";
+            return "ChaincodeID(" + FabricChaincodeID.Name + ":" + FabricChaincodeID.Path + ":" + FabricChaincodeID.Version + ")";
         }
     }
 }

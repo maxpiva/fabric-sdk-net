@@ -15,31 +15,30 @@
  */
 
 using System;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Ledger.Rwset;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Ledger.Rwset;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
+
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ChaincodeActionDeserializer : BaseDeserializer<ChaincodeAction>
     {
-
-        public ChaincodeActionDeserializer(byte[] byteString) : base(byteString)
+        public ChaincodeActionDeserializer(ByteString byteString) : base(byteString)
         {
         }
         public ChaincodeAction ChaincodeAction => Reference;
         
-        public ChaincodeEvent Event => new ChaincodeEvent(ChaincodeAction.Events);
+        public ChaincodeEventDeserializer Event => new ChaincodeEventDeserializer(ChaincodeAction.Events);
         public TxReadWriteSet Results
         {
             get
             {
                 try
                 {
-                    return ChaincodeAction?.Results.DeserializeProtoBuf<TxReadWriteSet>();
+                    return TxReadWriteSet.Parser.ParseFrom(ChaincodeAction?.Results);
                 }
                 catch (Exception e)
                 {
@@ -51,7 +50,7 @@ namespace Hyperledger.Fabric.SDK
 
         public string ResponseMessage => ChaincodeAction?.Response?.Message;
         public int ResponseStatus => ChaincodeAction?.Response?.Status ?? 0;
-        public byte[] ResponsePayload => ChaincodeAction?.Response?.Payload;
+        public ByteString ResponsePayload => ChaincodeAction?.Response?.Payload;
     }
 
 }

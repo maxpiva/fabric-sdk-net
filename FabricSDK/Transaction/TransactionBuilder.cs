@@ -13,104 +13,104 @@
  */
 
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricTransaction;
-using Org.BouncyCastle.Utilities;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {
-
     public class TransactionBuilder
     {
-
         private static readonly ILog logger = LogProvider.GetLogger(typeof(TransactionBuilder));
         private static readonly Config config = Config.GetConfig();
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
-        
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL
-                ? config.GetDiagnosticFileDumper() : null;
-        private Proposal chaincodeProposal;
-        private List<Fabric.SDK.Protos.Peer.Endorsement> endorsements;
-        private byte[] proposalResponsePayload;
 
-        public static TransactionBuilder Ceate() {
+        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
+
+        private Proposal chaincodeProposal;
+        private List<Endorsement> endorsements;
+        private ByteString proposalResponsePayload;
+
+        public static TransactionBuilder Create()
+        {
             return new TransactionBuilder();
         }
 
-        public TransactionBuilder ChaincodeProposal(Proposal chaincodeProposal) {
+        public TransactionBuilder ChaincodeProposal(Proposal chaincodeProposal)
+        {
             this.chaincodeProposal = chaincodeProposal;
             return this;
         }
 
-        public TransactionBuilder Endorsements(List<Endorsement> endorsements) {
+        public TransactionBuilder Endorsements(List<Endorsement> endorsements)
+        {
             this.endorsements = endorsements;
             return this;
         }
 
-        public TransactionBuilder ProposalResponsePayload(byte[] proposalResponsePayload) {
+        public TransactionBuilder ProposalResponsePayload(ByteString proposalResponsePayload)
+        {
             this.proposalResponsePayload = proposalResponsePayload;
             return this;
         }
 
         public Payload Build()
-        { 
+        {
             return CreateTransactionCommonPayload(chaincodeProposal, proposalResponsePayload, endorsements);
         }
 
-        private Payload CreateTransactionCommonPayload(Proposal chaincodeProposal, byte[] proposalResponsePayload,
-                                                              List<Endorsement> endorsements)
+        private Payload CreateTransactionCommonPayload(Proposal chaincodeProposal, ByteString proposalResponsePayload, List<Endorsement> endorsements)
         {
-
             ChaincodeEndorsedAction chaincodeEndorsedAction = new ChaincodeEndorsedAction {ProposalResponsePayload = proposalResponsePayload};
             chaincodeEndorsedAction.Endorsements.AddRange(endorsements);
             //ChaincodeActionPayload
             ChaincodeActionPayload chaincodeActionPayload = new ChaincodeActionPayload {Action = chaincodeEndorsedAction};
 
             //We need to remove any transient fields - they are not part of what the peer uses to calculate hash.
-            ChaincodeProposalPayload chaincodeProposalPayloadNoTrans = new ChaincodeProposalPayload { Input = chaincodeProposal.SerializeProtoBuf()};
-            chaincodeActionPayload.ChaincodeProposalPayload = chaincodeProposalPayloadNoTrans.SerializeProtoBuf();
+            ChaincodeProposalPayload chaincodeProposalPayloadNoTrans = new ChaincodeProposalPayload {Input = chaincodeProposal.ToByteString()};
+            chaincodeActionPayload.ChaincodeProposalPayload = chaincodeProposalPayloadNoTrans.ToByteString();
 
 
-            TransactionAction transactionAction= new TransactionAction();
+            TransactionAction transactionAction = new TransactionAction();
 
-            Header header = chaincodeProposal.Header.DeserializeProtoBuf<Header>();
-            
-            if (config.ExtraLogLevel(10)) {
+            Header header = Header.Parser.ParseFrom(chaincodeProposal.Header);
 
-                if (null != diagnosticFileDumper) {
+            if (config.ExtraLogLevel(10))
+            {
+                if (null != diagnosticFileDumper)
+                {
                     StringBuilder sb = new StringBuilder(10000);
-                    sb.Append("transaction header bytes:" + header.SerializeProtoBuf().ToHexString());
+                    sb.Append("transaction header bytes:" + header.ToByteString().ToHexString());
                     sb.Append("\n");
                     sb.Append("transaction header sig bytes:" + header.SignatureHeader.ToHexString());
-                    logger.Trace("transaction header:  " +
-                            diagnosticFileDumper.CreateDiagnosticFile(sb.ToString()));
+                    logger.Trace("transaction header:  " + diagnosticFileDumper.CreateDiagnosticFile(sb.ToString()));
                 }
             }
 
             transactionAction.Header = header.SignatureHeader;
-            
-            if (config.ExtraLogLevel(10)) {
-                if (null != diagnosticFileDumper) {
-                    logger.Trace("transactionActionBuilder.setPayload: " +
-                            diagnosticFileDumper.CreateDiagnosticFile(chaincodeActionPayload.SerializeProtoBuf().ToHexString()));
+
+            if (config.ExtraLogLevel(10))
+            {
+                if (null != diagnosticFileDumper)
+                {
+                    logger.Trace("transactionActionBuilder.setPayload: " + diagnosticFileDumper.CreateDiagnosticFile(chaincodeActionPayload.ToByteString().ToHexString()));
                 }
             }
-            transactionAction.Payload=chaincodeActionPayload.SerializeProtoBuf();
-                
+
+            transactionAction.Payload = chaincodeActionPayload.ToByteString();
+
             //Transaction
             Protos.Peer.FabricTransaction.Transaction transaction = new Protos.Peer.FabricTransaction.Transaction();
             transaction.Actions.Add(transactionAction);
 
-            return new Payload { Header = header, Data = transaction.SerializeProtoBuf()};
+            return new Payload {Header = header, Data = transaction.ToByteString()};
         }
-
     }
 }

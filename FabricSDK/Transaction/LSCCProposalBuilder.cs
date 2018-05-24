@@ -12,11 +12,10 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {
-
     public class LSCCProposalBuilder : ProposalBuilder
     {
         private static readonly string LSCC_CHAIN_NAME = "lscc";
@@ -30,7 +29,6 @@ namespace Hyperledger.Fabric.SDK.Transaction
 
         public override Proposal Build()
         {
-
             ChaincodeID(CHAINCODE_ID_LSCC);
             return base.Build();
         }

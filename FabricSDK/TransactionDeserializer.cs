@@ -18,6 +18,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
@@ -26,11 +27,11 @@ namespace Hyperledger.Fabric.SDK
 {
     public class TransactionDeserializer : BaseDeserializer<Protos.Peer.FabricTransaction.Transaction>
     {
-        private readonly WeakCache<TransactionActionDeserializer, int> transactionActions = new WeakCache<TransactionActionDeserializer, int>();
+        private readonly WeakDictionary<int, TransactionActionDeserializer> transactionActions;
 
-        public TransactionDeserializer(byte[] byteString) : base(byteString)
+        public TransactionDeserializer(ByteString byteString) : base(byteString)
         {
-            transactionActions.SetCreationFunction((index) => new TransactionActionDeserializer(Transaction.Actions[index]));
+            transactionActions = new WeakDictionary<int, TransactionActionDeserializer>((index) => new TransactionActionDeserializer(Transaction.Actions[index]));
         }
 
         public Protos.Peer.FabricTransaction.Transaction Transaction => Reference;

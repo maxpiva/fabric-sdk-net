@@ -578,7 +578,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
             }
         }
 
-        private void AddCACertificateToTrustStore(X509Certificate2 certificate)
+        public void AddCACertificateToTrustStore(X509Certificate2 certificate)
         {
 
             string alias = certificate.SerialNumber ?? certificate.GetHashCode().ToString();
@@ -924,21 +924,42 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
          * @throws OperatorCreationException
          */
 
-        public string GenerateCertificationRequest(String subject, AsymmetricAlgorithm pair)
+        public string GenerateCertificationRequest(string subject, AsymmetricAlgorithm publickey, AsymmetricAlgorithm privatekey)
         {
             try
             {
                 IDictionary attrs = new Hashtable();
                 attrs.Add(X509Name.CN, "Requested Test Certificate");
-                AsymmetricCipherKeyPair p = DotNetUtilities.GetKeyPair(pair);
-                ISignatureFactory sf = new Asn1SignatureFactory("SHA256withECDSA", p.Private);
-                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(new ArrayList(attrs.Keys), attrs), p.Public, null, p.Private);
+                AsymmetricCipherKeyPair priv = DotNetUtilities.GetKeyPair(publickey);
+                AsymmetricCipherKeyPair pub = DotNetUtilities.GetKeyPair(privatekey);
+                ISignatureFactory sf = new Asn1SignatureFactory("SHA256withECDSA", priv.Private);
+                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(new ArrayList(attrs.Keys), attrs), pub.Public, null, priv.Private);
                 return CertificationRequestToPEM(csr);
             }
             catch (Exception e)
             {
 
                 logger.ErrorException(e.Message,e);
+                throw new InvalidArgumentException(e);
+
+            }
+
+        }
+        public string GenerateCertificationRequest(string subject, AsymmetricAlgorithm keypair)
+        {
+            try
+            {
+                IDictionary attrs = new Hashtable();
+                attrs.Add(X509Name.CN, "Requested Test Certificate");
+                AsymmetricCipherKeyPair keyp = DotNetUtilities.GetKeyPair(keypair);
+                ISignatureFactory sf = new Asn1SignatureFactory("SHA256withECDSA", keyp.Private);
+                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(new ArrayList(attrs.Keys), attrs), keyp.Public, null, keyp.Private);
+                return CertificationRequestToPEM(csr);
+            }
+            catch (Exception e)
+            {
+
+                logger.ErrorException(e.Message, e);
                 throw new InvalidArgumentException(e);
 
             }

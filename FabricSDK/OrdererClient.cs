@@ -11,7 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
+/*
 package org.hyperledger.fabric.sdk;
 
 import java.util.ArrayList;
@@ -36,305 +36,330 @@ import org.hyperledger.fabric.sdk.exception.TransactionException;
 import org.hyperledger.fabric.sdk.helper.Config;
 
 import static java.lang.String.format;
-import static org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse.TypeCase.STATUS;
+import static org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse.TypeCase.STATUS;*/
 
-/**
- * Sample client code that makes gRPC calls to the server.
- */
-class OrdererClient {
-    private static final Config config = Config.getConfig();
-    private static final long ORDERER_WAIT_TIME = config.getOrdererWaitTime();
-    private final String channelName;
-    private final ManagedChannelBuilder channelBuilder;
-    private boolean shutdown = false;
-    private static final Log logger = LogFactory.getLog(OrdererClient.class);
-    private ManagedChannel managedChannel = null;
-    private final String name;
-    private final String url;
-    private final long ordererWaitTimeMilliSecs;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Grpc.Core;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Orderer;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.SDK.NetExtensions;
+using Config = Hyperledger.Fabric.SDK.Helper.Config;
+using Status = Hyperledger.Fabric.Protos.Common.Status;
 
+namespace Hyperledger.Fabric.SDK
+{
     /**
-     * Construct client for accessing Orderer server using the existing managedChannel.
+     * Sample client code that makes gRPC calls to the server.
      */
-    OrdererClient(Orderer orderer, ManagedChannelBuilder<?> channelBuilder, Properties properties) {
+    public class OrdererClient
+    {
+        private static readonly Config config = Config.GetConfig();
+        private static readonly long ORDERER_WAIT_TIME = config.GetOrdererWaitTime();
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(OrdererClient));
+        private readonly Endpoint endPoint;
+        private readonly string channelName;
+        private readonly string name;
+        private readonly long ordererWaitTimeMilliSecs;
+        private readonly string url;
+        private Grpc.Core.Channel managedChannel = null;
+        private bool shutdown = false;
 
-        this.channelBuilder = channelBuilder;
-        name = orderer.getName();
-        url = orderer.getUrl();
-        channelName = orderer.getChannel().getName();
-
-        if (null == properties) {
+        /**
+         * Construct client for accessing Orderer server using the existing managedChannel.
+         */
+        public OrdererClient(Orderer orderer, Endpoint endPoint, Dictionary<string, object> properties)
+        {
+            this.endPoint = endPoint;
+            name = orderer.Name;
+            url = orderer.Url;
+            channelName = orderer.Channel.Name;
 
             ordererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
 
-        } else {
-
-            String ordererWaitTimeMilliSecsString = properties.getProperty("ordererWaitTimeMilliSecs", Long.toString(ORDERER_WAIT_TIME));
-
-            long tempOrdererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
-
-            try {
-                tempOrdererWaitTimeMilliSecs = Long.parseLong(ordererWaitTimeMilliSecsString);
-            } catch (NumberFormatException e) {
-                logger.warn(format("Orderer %s wait time %s not parsable.", name, ordererWaitTimeMilliSecsString), e);
-            }
-
-            ordererWaitTimeMilliSecs = tempOrdererWaitTimeMilliSecs;
-        }
-
-    }
-
-    synchronized void shutdown(boolean force) {
-
-        if (shutdown) {
-            return;
-        }
-        shutdown = true;
-        ManagedChannel lchannel = managedChannel;
-        managedChannel = null;
-        if (lchannel == null) {
-            return;
-        }
-        if (force) {
-            lchannel.shutdownNow();
-        } else {
-            boolean isTerminated = false;
-
-            try {
-                isTerminated = lchannel.shutdown().awaitTermination(3, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                logger.debug(e); //best effort
-            }
-            if (!isTerminated) {
-                lchannel.shutdownNow();
+            if (properties != null && properties.ContainsKey("ordererWaitTimeMilliSecs"))
+            {
+                string ordererWaitTimeMilliSecsString = (string) properties["ordererWaitTimeMilliSecs"];
+                if (!long.TryParse(ordererWaitTimeMilliSecsString, out ordererWaitTimeMilliSecs))
+                {
+                    logger.Warn($"Orderer {name} wait time {ordererWaitTimeMilliSecsString} not parsable.");
+                }
             }
         }
-    }
 
-    @Override
-    public void finalize() {
-        shutdown(true);
-    }
-
-    Ab.BroadcastResponse sendTransaction(Common.Envelope envelope) throws Exception {
-        StreamObserver<Common.Envelope> nso = null;
-
-        if (shutdown) {
-            throw new TransactionException("Orderer client is shutdown");
-        }
-
-        ManagedChannel lmanagedChannel = managedChannel;
-
-        if (lmanagedChannel == null || lmanagedChannel.isTerminated() || lmanagedChannel.isShutdown()) {
-
-            lmanagedChannel = channelBuilder.build();
-            managedChannel = lmanagedChannel;
-
-        }
-
-        try {
-            final CountDownLatch finishLatch = new CountDownLatch(1);
-            AtomicBroadcastGrpc.AtomicBroadcastStub broadcast = AtomicBroadcastGrpc.newStub(lmanagedChannel);
-
-            final Ab.BroadcastResponse[] ret = new Ab.BroadcastResponse[1];
-            final Throwable[] throwable = new Throwable[] {null};
-
-            StreamObserver<Ab.BroadcastResponse> so = new StreamObserver<Ab.BroadcastResponse>() {
-                @Override
-                public void onNext(Ab.BroadcastResponse resp) {
-                    // logger.info("Got Broadcast response: " + resp);
-                    logger.debug("resp status value: " + resp.getStatusValue() + ", resp: " + resp.getStatus());
-                    if (resp.getStatus() == Common.Status.SUCCESS) {
-                        ret[0] = resp;
-                    } else {
-                        throwable[0] = new TransactionException(format("Channel %s orderer %s status returned failure code %d (%s) during order registration",
-                                channelName, name, resp.getStatusValue(), resp.getStatus().name()));
-                    }
-                    finishLatch.countDown();
-
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    if (!shutdown) {
-                        logger.error(format("Received error on channel %s, orderer %s, url %s, %s",
-                                channelName, name, url, t.getMessage()), t);
-                    }
-                    throwable[0] = t;
-                    finishLatch.countDown();
-                }
-
-                @Override
-                public void onCompleted() {
-                    finishLatch.countDown();
-                }
-            };
-
-            nso = broadcast.broadcast(so);
-
-            nso.onNext(envelope);
-
-            try {
-                if (!finishLatch.await(ordererWaitTimeMilliSecs, TimeUnit.MILLISECONDS)) {
-                    TransactionException ste = new TransactionException(format("Channel %s, send transactions failed on orderer %s. Reason:  timeout after %d ms.",
-                            channelName, name, ordererWaitTimeMilliSecs));
-                    logger.error("sendTransaction error " + ste.getMessage(), ste);
-                    throw ste;
-                }
-                if (throwable[0] != null) {
-                    Throwable t = throwable[0];
-                    if (t instanceof StatusRuntimeException) {
-                        StatusRuntimeException sre = (StatusRuntimeException) t;
-                        Status status = sre.getStatus();
-                        logger.error(format("grpc status Code:%s, Description %s, ", status.getDescription(), status.getCode() + ""), sre.getCause());
-                    }
-                    //get full stack trace
-                    TransactionException ste = new TransactionException(format("Channel %s, send transaction failed on orderer %s. Reason: %s",
-                            channelName, name, throwable[0].getMessage()), throwable[0]);
-                    logger.error("sendTransaction error " + ste.getMessage(), ste);
-                    throw ste;
-                }
-                logger.debug("Done waiting for reply! Got:" + ret[0]);
-
-            } catch (InterruptedException e) {
-                logger.error(e);
-
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force)
+        {
+            if (shutdown)
+            {
+                return;
             }
 
-            return ret[0];
-        } catch (Throwable t) {
+            shutdown = true;
+            Grpc.Core.Channel lchannel = managedChannel;
             managedChannel = null;
-            throw t;
-
-        } finally {
-
-            if (null != nso) {
-
-                try {
-                    nso.onCompleted();
-                } catch (Exception e) {  //Best effort only report on debug
-                    logger.debug(format("Exception completing sendTransaction with channel %s,  name %s, url %s %s",
-                            channelName, name, url, e.getMessage()), e);
-                }
+            if (lchannel == null)
+            {
+                return;
             }
 
+            if (force)
+            {
+                lchannel.ShutdownAsync().Wait();
+            }
+            else
+            {
+                bool isTerminated = false;
+
+                try
+                {
+                    isTerminated = lchannel.ShutdownAsync().Wait(3 * 1000);
+                }
+                catch (Exception e)
+                {
+                    logger.DebugException(e.Message, e); //best effort
+                }
+
+                if (!isTerminated)
+                {
+                    lchannel.ShutdownAsync().Wait();
+                }
+            }
         }
-    }
 
-    DeliverResponse[] sendDeliver(Common.Envelope envelope) throws TransactionException {
-
-        if (shutdown) {
-            throw new TransactionException("Orderer client is shutdown");
+        ~OrdererClient()
+        {
+            Shutdown(true);
         }
 
-        StreamObserver<Common.Envelope> nso = null;
+        public BroadcastResponse SendTransaction(Envelope envelope)
+        {
+            if (shutdown)
+                throw new TransactionException("Orderer client is shutdown");
+            Grpc.Core.Channel lmanagedChannel = managedChannel;
 
-        ManagedChannel lmanagedChannel = managedChannel;
+            if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure || lmanagedChannel.State == ChannelState.Shutdown)
+            {
+                lmanagedChannel = endPoint.BuildChannel();
+                managedChannel = lmanagedChannel;
+                AtomicBroadcast.AtomicBroadcastClient nso;
+                try
+                {
+                    CountDownLatch finishLatch = new CountDownLatch(1);
+                    BroadcastResponse ret = null;
+                    Exception throwable = null;
 
-        if (lmanagedChannel == null || lmanagedChannel.isTerminated() || lmanagedChannel.isShutdown()) {
+                    nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+                    using (var call = nso.Broadcast())
+                    {
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                while (await call.ResponseStream.MoveNext())
+                                {
+                                    BroadcastResponse resp = call.ResponseStream.Current;
+                                    logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
+                                    if (resp.Status == Status.Success)
+                                    {
+                                        ret = resp;
+                                    }
+                                    else
+                                    {
+                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status}x ({resp.Info}) during order registration");
+                                    }
 
-            lmanagedChannel = channelBuilder.build();
-            managedChannel = lmanagedChannel;
+                                    finishLatch.Signal();
+                                }
 
-        }
+                                Grpc.Core.Status stats = call.GetStatus();
+                                if (stats.StatusCode != StatusCode.OK)
+                                {
+                                    if (!shutdown)
+                                    {
+                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                if (!shutdown)
+                                {
+                                    logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
+                                }
 
-        try {
+                                throwable = e;
+                            }
 
-            AtomicBroadcastGrpc.AtomicBroadcastStub broadcast = AtomicBroadcastGrpc.newStub(lmanagedChannel);
+                            finishLatch.Signal();
+                        });
+                        call.RequestStream.WriteAsync(envelope).Wait();
+                        try
+                        {
+                            if (!finishLatch.Wait((int) ordererWaitTimeMilliSecs))
+                            {
+                                TransactionException ste = new TransactionException($"Channel {channelName}, send transactions failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
+                                logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                                throw ste;
+                            }
 
-            // final DeliverResponse[] ret = new DeliverResponse[1];
-            final List<DeliverResponse> retList = new ArrayList<>();
-            final List<Throwable> throwableList = new ArrayList<>();
-            final CountDownLatch finishLatch = new CountDownLatch(1);
+                            if (throwable != null)
+                            {
+                                Exception t = throwable;
+                                if (t is RpcException)
+                                {
+                                    RpcException sre = (RpcException) t;
+                                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                                }
 
-            StreamObserver<DeliverResponse> so = new StreamObserver<DeliverResponse>() {
-                boolean done = false;
+                                //get full stack trace
+                                TransactionException ste = new TransactionException($"Channel {channelName}, send transaction failed on orderer {name}. Reason: {throwable.Message}", throwable);
+                                logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                                throw ste;
+                            }
 
-                @Override
-                public void onNext(DeliverResponse resp) {
+                            logger.Debug("Done waiting for reply! Got:" + ret);
+                        }
+                        catch (Exception e)
+                        {
+                            logger.ErrorException(e.Message, e);
+                        }
 
-                    // logger.info("Got Broadcast response: " + resp);
-                    logger.debug("resp status value: " + resp.getStatusValue() + ", resp: " + resp.getStatus() + ", type case: " + resp.getTypeCase());
-
-                    if (done) {
-                        return;
+                        return ret;
                     }
-
-                    if (resp.getTypeCase() == STATUS) {
-                        done = true;
-                        retList.add(0, resp);
-
-                        finishLatch.countDown();
-
-                    } else {
-                        retList.add(resp);
-                    }
-
                 }
-
-                @Override
-                public void onError(Throwable t) {
-                    if (!shutdown) {
-                        logger.error(format("Received error on channel %s, orderer %s, url %s, %s",
-                                channelName, name, url, t.getMessage()), t);
-                    }
-                    throwableList.add(t);
-                    finishLatch.countDown();
+                catch (Exception t)
+                {
+                    managedChannel = null;
+                    throw t;
                 }
-
-                @Override
-                public void onCompleted() {
-                    logger.trace("onCompleted");
-                    finishLatch.countDown();
-                }
-            };
-
-            nso = broadcast.deliver(so);
-            nso.onNext(envelope);
-            //nso.onCompleted();
-
-            try {
-                if (!finishLatch.await(ordererWaitTimeMilliSecs, TimeUnit.MILLISECONDS)) {
-                    TransactionException ex = new TransactionException(format(
-                            "Channel %s sendDeliver time exceeded for orderer %s, timed out at %d ms.", channelName, name, ordererWaitTimeMilliSecs));
-                    logger.error(ex.getMessage(), ex);
-                    throw ex;
-                }
-                logger.trace("Done waiting for reply!");
-
-            } catch (InterruptedException e) {
-                logger.error(e);
             }
 
-            if (!throwableList.isEmpty()) {
-                Throwable throwable = throwableList.get(0);
-                TransactionException e = new TransactionException(format(
-                        "Channel %s sendDeliver failed on orderer %s. Reason: %s", channelName, name, throwable.getMessage()), throwable);
-                logger.error(e.getMessage(), e);
-                throw e;
-            }
-
-            return retList.toArray(new DeliverResponse[retList.size()]);
-        } catch (Throwable t) {
-            managedChannel = null;
-            throw t;
-
-        } finally {
-            if (null != nso) {
-
-                try {
-                    nso.onCompleted();
-                } catch (Exception e) {  //Best effort only report on debug
-                    logger.debug(format("Exception completing sendDeliver with channel %s,  name %s, url %s %s",
-                            channelName, name, url, e.getMessage()), e);
-                }
-
-            }
+            return null;
         }
-    }
 
-    boolean isChannelActive() {
-        ManagedChannel lchannel = managedChannel;
-        return lchannel != null && !lchannel.isShutdown() && !lchannel.isTerminated() && ConnectivityState.READY.equals(lchannel.getState(true));
+        public DeliverResponse[] SendDeliver(Envelope envelope)
+        {
+            if (shutdown)
+                throw new TransactionException("Orderer client is shutdown");
+            Grpc.Core.Channel lmanagedChannel = managedChannel;
+
+            if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure || lmanagedChannel.State == ChannelState.Shutdown)
+            {
+                lmanagedChannel = endPoint.BuildChannel();
+                managedChannel = lmanagedChannel;
+                AtomicBroadcast.AtomicBroadcastClient nso;
+                try
+                {
+                    CountDownLatch finishLatch = new CountDownLatch(1);
+                    List<DeliverResponse> retList = new List<DeliverResponse>();
+                    Exception throwable = null;
+
+                    nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+                    using (var call = nso.Deliver())
+                    {
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                bool done = false;
+                                while (await call.ResponseStream.MoveNext())
+                                {
+                                    // logger.info("Got Broadcast response: " + resp);
+                                    DeliverResponse resp = call.ResponseStream.Current;
+                                    logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
+                                    if (done)
+                                    {
+                                        break;
+                                    }
+
+                                    if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
+                                    {
+                                        done = true;
+                                        retList.Insert(0, resp);
+                                        finishLatch.Signal();
+                                    }
+                                    else
+                                    {
+                                        retList.Add(resp);
+                                    }
+                                }
+
+                                Grpc.Core.Status stats = call.GetStatus();
+                                if (stats.StatusCode != StatusCode.OK)
+                                {
+                                    if (!shutdown)
+                                    {
+                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                if (!shutdown)
+                                {
+                                    logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
+                                }
+
+                                throwable = e;
+                            }
+
+                            finishLatch.Signal();
+                        });
+                        call.RequestStream.WriteAsync(envelope).Wait();
+                        try
+                        {
+                            if (!finishLatch.Wait((int) ordererWaitTimeMilliSecs))
+                            {
+                                TransactionException ste = new TransactionException($"Channel {channelName}, sendDeliver failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
+                                logger.ErrorException("sendDeliver error " + ste.Message, ste);
+                                throw ste;
+                            }
+
+                            if (throwable != null)
+                            {
+                                Exception t = throwable;
+                                if (t is RpcException)
+                                {
+                                    RpcException sre = (RpcException) t;
+                                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                                }
+
+                                //get full stack trace
+                                TransactionException ste = new TransactionException($"Channel {channelName}, sendDeliver  failed on orderer {name}. Reason: {throwable.Message}", throwable);
+                                logger.ErrorException("sendDeliver error " + ste.Message, ste);
+                                throw ste;
+                            }
+
+                            logger.Debug("Done waiting for reply!");
+                        }
+                        catch (Exception e)
+                        {
+                            logger.ErrorException(e.Message, e);
+                        }
+
+                        return retList.ToArray();
+                    }
+                }
+                catch (Exception t)
+                {
+                    managedChannel = null;
+                    throw t;
+                }
+            }
+
+            return null;
+        }
+
+        public bool IsChannelActive()
+        {
+            Grpc.Core.Channel lchannel = managedChannel;
+            return lchannel != null && lchannel.State != ChannelState.Shutdown && lchannel.State != ChannelState.TransientFailure;
+        }
     }
 }

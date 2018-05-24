@@ -14,64 +14,37 @@
  *
  */
 
-using System;
-using System.Collections.Concurrent;
-using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class BlockDeserializer
     {
-        private readonly Block block;
-        private readonly ConcurrentDictionary<int, WeakReference<EnvelopeDeserializer>> envelopes = new ConcurrentDictionary<int, WeakReference<EnvelopeDeserializer>>();
-        public Block Block => block;
+        private readonly WeakDictionary<int, EnvelopeDeserializer> envelopes;
 
         public BlockDeserializer(Block block)
         {
-            this.block = block;
+            Block = block;
+            envelopes = new WeakDictionary<int, EnvelopeDeserializer>((index) => EnvelopeDeserializer.Create(Data?.Data[index], TransActionsMetaData[index]));
         }
 
-        public byte[] PreviousHash
+        public Block Block { get; }
+
+        public ByteString PreviousHash
         {
             get
             {
-                byte[] data = block.Header.DataHash;
-                return block?.Header?.PreviousHash;
+                ByteString _ = Block.Header.DataHash;
+                return Block?.Header?.PreviousHash;
             }
-
         }
 
-        public byte[] DataHash => block?.Header?.DataHash;
-        public long Number => (long) (block?.Header?.Number ?? 0);
-
-
-        public BlockData Data => block?.Data;
-
-        public EnvelopeDeserializer GetData(int index)
-        {
-            EnvelopeDeserializer ret;
-            if (index >= Data.Datas.Count)
-            {
-                return null;
-            }
-
-            if (envelopes.TryGetValue(index, out WeakReference<EnvelopeDeserializer> envelopeWeakReference))
-            {
-                envelopeWeakReference.TryGetTarget(out ret);
-                if (ret != null)
-                    return ret;
-                envelopes.TryRemove(index, out envelopeWeakReference);
-            }
-
-            ret = EnvelopeDeserializer.Create(Data.Datas[index], TransActionsMetaData[index]);
-            envelopes.TryAdd(index, new WeakReference<EnvelopeDeserializer>(ret));
-            return ret;
-        }
-
-
-        public byte[] TransActionsMetaData => block.Metadata.Metadatas[(int)BlockMetadataIndex.TransactionsFilter];
+        public ByteString DataHash => Block?.Header?.DataHash;
+        public long Number => (long) (Block?.Header?.Number ?? 0);
+        public BlockData Data => Block?.Data;
+        public byte[] TransActionsMetaData => Block?.Metadata?.Metadata[(int) BlockMetadataIndex.TransactionsFilter].ToByteArray();
+        public EnvelopeDeserializer GetData(int index) => envelopes.Get(index);
     }
 }
-

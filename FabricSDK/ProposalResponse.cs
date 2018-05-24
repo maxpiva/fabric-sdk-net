@@ -3,6 +3,7 @@
 
  SPDX-License-Identifier: Apache-2.0
 */
+/*
 package org.hyperledger.fabric.sdk;
 
 import java.lang.ref.WeakReference;
@@ -26,275 +27,286 @@ import org.hyperledger.fabric.sdk.exception.ProposalException;
 import org.hyperledger.fabric.sdk.helper.Config;
 import org.hyperledger.fabric.sdk.helper.DiagnosticFileDumper;
 import org.hyperledger.fabric.sdk.security.CryptoSuite;
+*/
 
-public class ProposalResponse extends ChaincodeResponse {
+using System;
+using System.Linq;
+using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Ledger.Rwset;
+using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Security;
+using Config = Hyperledger.Fabric.SDK.Helper.Config;
 
-    private static final Log logger = LogFactory.getLog(ProposalResponse.class);
-    private static final Config config = Config.getConfig();
-    private static final boolean IS_TRACE_LEVEL = logger.isTraceEnabled();
+namespace Hyperledger.Fabric.SDK
+{
+    public class ProposalResponse : ChaincodeResponse
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(ProposalResponse));
+        private static readonly Config config = Config.GetConfig();
+        private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-    private static final DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL
-            ? config.getDiagnosticFileDumper() : null;
+        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
 
-    private boolean isVerified = false;
+        private ChaincodeID chaincodeID = null;
 
-    private WeakReference<ProposalResponsePayloadDeserializer> proposalResponsePayload;
-    private FabricProposal.Proposal proposal;
-    private FabricProposalResponse.ProposalResponse proposalResponse;
-    private Peer peer = null;
-    private ChaincodeID chaincodeID = null;
+        private readonly WeakItem<ProposalResponsePayloadDeserializer, Protos.Peer.FabricProposalResponse.ProposalResponse> proposalResponsePayload;
 
-    ProposalResponse(String transactionID, String chaincodeID, int status, String message) {
-        super(transactionID, chaincodeID, status, message);
-
-    }
-
-    ProposalResponsePayloadDeserializer getProposalResponsePayloadDeserializer() throws InvalidArgumentException {
-        if (isInvalid()) {
-            throw new InvalidArgumentException("Proposal response is invalid.");
+        public ProposalResponse(string transactionID, string chaincodeID, int status, string message) : base(transactionID, chaincodeID, status, message)
+        {
+            proposalResponsePayload = new WeakItem<ProposalResponsePayloadDeserializer, Protos.Peer.FabricProposalResponse.ProposalResponse>((pr) => new ProposalResponsePayloadDeserializer(pr.Payload), () => ProtoProposalResponse);
         }
 
-        ProposalResponsePayloadDeserializer ret = null;
-
-        if (proposalResponsePayload != null) {
-            ret = proposalResponsePayload.get();
-
-        }
-        if (ret == null) {
-
-            try {
-                ret = new ProposalResponsePayloadDeserializer(proposalResponse.getPayload());
-            } catch (Exception e) {
-                throw new InvalidArgumentException(e);
-            }
-
-            proposalResponsePayload = new WeakReference<>(ret);
-        }
-
-        return ret;
-
-    }
-
-    ByteString getPayloadBytes() {
-        return proposalResponse.getPayload();
-
-    }
-
-    public boolean isVerified() {
-        return isVerified;
-    }
-
-    /*
-     * Verifies that a Proposal response is properly signed. The payload is the
-     * concatenation of the response payload byte string and the endorsement The
-     * certificate (public key) is gotten from the Endorsement.Endorser.IdBytes
-     * field
-     *
-     * @param crypto the CryptoPrimitives instance to be used for signing and
-     * verification
-     *
-     * @return true/false depending on result of signature verification
-     */
-    public boolean verify(CryptoSuite crypto) {
-
-        if (isVerified()) { // check if this proposalResponse was already verified   by client code
-            return isVerified();
-        }
-
-        if (isInvalid()) {
-            this.isVerified = false;
-        }
-
-        FabricProposalResponse.Endorsement endorsement = this.proposalResponse.getEndorsement();
-        ByteString sig = endorsement.getSignature();
-
-        try {
-            Identities.SerializedIdentity endorser = Identities.SerializedIdentity
-                    .parseFrom(endorsement.getEndorser());
-            ByteString plainText = proposalResponse.getPayload().concat(endorsement.getEndorser());
-
-            if (config.extraLogLevel(10)) {
-
-                if (null != diagnosticFileDumper) {
-                    StringBuilder sb = new StringBuilder(10000);
-                    sb.append("payload TransactionBuilderbytes in hex: " + DatatypeConverter.printHexBinary(proposalResponse.getPayload().toByteArray()));
-                    sb.append("\n");
-                    sb.append("endorser bytes in hex: "
-                            + DatatypeConverter.printHexBinary(endorsement.getEndorser().toByteArray()));
-                    sb.append("\n");
-                    sb.append("plainText bytes in hex: " + DatatypeConverter.printHexBinary(plainText.toByteArray()));
-
-                    logger.trace("payload TransactionBuilderbytes:  " +
-                            diagnosticFileDumper.createDiagnosticFile(sb.toString()));
+        private ProposalResponsePayloadDeserializer ProposalResponsePayloadDeserializer
+        {
+            get
+            {
+                if (IsInvalid)
+                {
+                    throw new InvalidArgumentException("Proposal response is invalid.");
                 }
 
+                return proposalResponsePayload.Reference;
+            }
+        }
+
+        public ByteString PayloadBytes => ProtoProposalResponse?.Payload;
+
+        public bool IsVerified { get; private set; } = false;
+
+        public Proposal Proposal { get; private set; }
+
+        /**
+         * Get response to the proposal returned by the peer.
+         *
+         * @return peer response.
+         */
+
+        public Protos.Peer.FabricProposalResponse.ProposalResponse ProtoProposalResponse { get; set; }
+
+        /**
+         * The peer this proposal was created on.
+         *
+         * @return See {@link Peer}
+         */
+
+        public Peer Peer { get; set; } = null;
+
+        //    public ByteString getPayload() {
+        //        return proposalResponse.getPayload();
+        //    }
+
+        /**
+         * Chaincode ID that was executed.
+         *
+         * @return See {@link ChaincodeID}
+         * @throws InvalidArgumentException
+         */
+
+        public ChaincodeID ChaincodeID
+        {
+            get
+            {
+                try
+                {
+                    if (chaincodeID == null)
+                    {
+                        Header header = Header.Parser.ParseFrom(Proposal.Header);
+                        ChannelHeader channelHeader = ChannelHeader.Parser.ParseFrom(header.ChannelHeader);
+                        ChaincodeHeaderExtension chaincodeHeaderExtension = ChaincodeHeaderExtension.Parser.ParseFrom(channelHeader.Extension);
+                        chaincodeID = new ChaincodeID(chaincodeHeaderExtension.ChaincodeId);
+                    }
+
+                    return chaincodeID;
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidArgumentException(e);
+                }
+            }
+        }
+
+        /**
+         * ChaincodeActionResponsePayload is the result of the executing chaincode.
+         *
+         * @return the result of the executing chaincode.
+         * @throws InvalidArgumentException
+         */
+
+        public byte[] ChaincodeActionResponsePayload
+        {
+            get
+            {
+                if (IsInvalid)
+                {
+                    throw new InvalidArgumentException("Proposal response is invalid.");
+                }
+
+                try
+                {
+                    ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = ProposalResponsePayloadDeserializer;
+                    ByteString ret = proposalResponsePayloadDeserializer.Extension.ChaincodeAction.Response.Payload;
+                    if (null == ret)
+                    {
+                        return null;
+                    }
+
+                    return ret.ToByteArray();
+                }
+                catch (InvalidArgumentException e)
+                {
+                    throw e;
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidArgumentException(e);
+                }
+            }
+        }
+
+
+        /**
+         * getChaincodeActionResponseStatus returns the what chaincode executions set as the return status.
+         *
+         * @return status code.
+         * @throws InvalidArgumentException
+         */
+
+        public int ChaincodeActionResponseStatus
+        {
+            get
+            {
+                if (IsInvalid)
+                {
+                    throw new InvalidArgumentException("Proposal response is invalid.");
+                }
+
+                try
+                {
+                    ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = ProposalResponsePayloadDeserializer;
+                    return proposalResponsePayloadDeserializer.Extension.ResponseStatus;
+                }
+                catch (InvalidArgumentException e)
+                {
+                    throw e;
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidArgumentException(e);
+                }
+            }
+        }
+
+
+        /**
+         * getChaincodeActionResponseReadWriteSetInfo get this proposals read write set.
+         *
+         * @return The read write set. See {@link TxReadWriteSetInfo}
+         * @throws InvalidArgumentException
+         */
+
+        public TxReadWriteSetInfo ChaincodeActionResponseReadWriteSetInfo
+        {
+            get
+            {
+                if (IsInvalid)
+                {
+                    throw new InvalidArgumentException("Proposal response is invalid.");
+                }
+
+                try
+                {
+                    ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = ProposalResponsePayloadDeserializer;
+
+                    TxReadWriteSet txReadWriteSet = proposalResponsePayloadDeserializer.Extension.Results;
+
+                    if (txReadWriteSet == null)
+                    {
+                        return null;
+                    }
+
+                    return new TxReadWriteSetInfo(txReadWriteSet);
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidArgumentException(e);
+                }
+            }
+        }
+
+        /*
+         * Verifies that a Proposal response is properly signed. The payload is the
+         * concatenation of the response payload byte string and the endorsement The
+         * certificate (public key) is gotten from the Endorsement.Endorser.IdBytes
+         * field
+         *
+         * @param crypto the CryptoPrimitives instance to be used for signing and
+         * verification
+         *
+         * @return true/false depending on result of signature verification
+         */
+        public bool Verify(ICryptoSuite crypto)
+        {
+            if (IsVerified)
+            {
+                // check if this proposalResponse was already verified   by client code
+                return IsVerified;
             }
 
-            this.isVerified = crypto.verify(endorser.getIdBytes().toByteArray(), config.getSignatureAlgorithm(),
-                    sig.toByteArray(), plainText.toByteArray()
-            );
-        } catch (InvalidProtocolBufferException | CryptoException e) {
-            logger.error("verify: Cannot retrieve peer identity from ProposalResponse. Error is: " + e.getMessage(), e);
-            this.isVerified = false;
-        }
-
-        return this.isVerified;
-    } // verify
-
-    public FabricProposal.Proposal getProposal() {
-        return proposal;
-    }
-
-    public void setProposal(FabricProposal.SignedProposal signedProposal) throws ProposalException {
-
-        try {
-            this.proposal = FabricProposal.Proposal.parseFrom(signedProposal.getProposalBytes());
-        } catch (InvalidProtocolBufferException e) {
-            throw new ProposalException("Proposal exception", e);
-
-        }
-    }
-
-    /**
-     * Get response to the proposal returned by the peer.
-     *
-     * @return peer response.
-     */
-
-    public FabricProposalResponse.ProposalResponse getProposalResponse() {
-        return proposalResponse;
-    }
-
-    public void setProposalResponse(FabricProposalResponse.ProposalResponse proposalResponse) {
-        this.proposalResponse = proposalResponse;
-    }
-
-    /**
-     * The peer this proposal was created on.
-     *
-     * @return See {@link Peer}
-     */
-
-    public Peer getPeer() {
-        return this.peer;
-    }
-
-    void setPeer(Peer peer) {
-        this.peer = peer;
-    }
-
-//    public ByteString getPayload() {
-//        return proposalResponse.getPayload();
-//    }
-
-    /**
-     * Chaincode ID that was executed.
-     *
-     * @return See {@link ChaincodeID}
-     * @throws InvalidArgumentException
-     */
-
-    public ChaincodeID getChaincodeID() throws InvalidArgumentException {
-
-        try {
-
-            if (chaincodeID == null) {
-
-                Header header = Header.parseFrom(proposal.getHeader());
-                Common.ChannelHeader channelHeader = Common.ChannelHeader.parseFrom(header.getChannelHeader());
-                ChaincodeHeaderExtension chaincodeHeaderExtension = ChaincodeHeaderExtension.parseFrom(channelHeader.getExtension());
-                chaincodeID = new ChaincodeID(chaincodeHeaderExtension.getChaincodeId());
-            }
-            return chaincodeID;
-
-        } catch (Exception e) {
-            throw new InvalidArgumentException(e);
-        }
-
-    }
-
-    /**
-     * ChaincodeActionResponsePayload is the result of the executing chaincode.
-     *
-     * @return the result of the executing chaincode.
-     * @throws InvalidArgumentException
-     */
-
-    public byte[] getChaincodeActionResponsePayload() throws InvalidArgumentException {
-
-        if (isInvalid()) {
-            throw new InvalidArgumentException("Proposal response is invalid.");
-        }
-
-        try {
-
-            final ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = getProposalResponsePayloadDeserializer();
-            ByteString ret = proposalResponsePayloadDeserializer.getExtension().getChaincodeAction().getResponse().getPayload();
-            if (null == ret) {
-                return null;
-            }
-            return ret.toByteArray();
-        } catch (InvalidArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InvalidArgumentException(e);
-        }
-    }
-
-    /**
-     * getChaincodeActionResponseStatus returns the what chaincode executions set as the return status.
-     *
-     * @return status code.
-     * @throws InvalidArgumentException
-     */
-
-    public int getChaincodeActionResponseStatus() throws InvalidArgumentException {
-        if (isInvalid()) {
-            throw new InvalidArgumentException("Proposal response is invalid.");
-        }
-
-        try {
-
-            final ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = getProposalResponsePayloadDeserializer();
-            return proposalResponsePayloadDeserializer.getExtension().getResponseStatus();
-
-        } catch (InvalidArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InvalidArgumentException(e);
-        }
-
-    }
-
-    /**
-     * getChaincodeActionResponseReadWriteSetInfo get this proposals read write set.
-     *
-     * @return The read write set. See {@link TxReadWriteSetInfo}
-     * @throws InvalidArgumentException
-     */
-
-    public TxReadWriteSetInfo getChaincodeActionResponseReadWriteSetInfo() throws InvalidArgumentException {
-
-        if (isInvalid()) {
-            throw new InvalidArgumentException("Proposal response is invalid.");
-        }
-
-        try {
-
-            final ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = getProposalResponsePayloadDeserializer();
-
-            TxReadWriteSet txReadWriteSet = proposalResponsePayloadDeserializer.getExtension().getResults();
-
-            if (txReadWriteSet == null) {
-                return null;
+            if (IsInvalid)
+            {
+                IsVerified = false;
             }
 
-            return new TxReadWriteSetInfo(txReadWriteSet);
+            Endorsement endorsement = ProtoProposalResponse.Endorsement;
+            ByteString sig = endorsement.Signature;
 
-        } catch (Exception e) {
-            throw new InvalidArgumentException(e);
+            try
+            {
+                SerializedIdentity endorser = SerializedIdentity.Parser.ParseFrom(endorsement.Endorser);
+                ByteString plainText = ByteString.CopyFrom(ProtoProposalResponse.Payload.Concat(endorsement.Endorser).ToArray());
+
+                if (config.ExtraLogLevel(10))
+                {
+                    if (null != diagnosticFileDumper)
+                    {
+                        StringBuilder sb = new StringBuilder(10000);
+                        sb.AppendLine("payload TransactionBuilderbytes in hex: " + ProtoProposalResponse.Payload.ToByteArray().ToHexString());
+                        sb.AppendLine("endorser bytes in hex: " + endorsement.ToByteArray().ToHexString());
+                        sb.Append("plainText bytes in hex: " + plainText.ToByteArray().ToHexString());
+
+                        logger.Trace("payload TransactionBuilderbytes:  " + diagnosticFileDumper.CreateDiagnosticFile(sb.ToString()));
+                    }
+                }
+
+                IsVerified = crypto.Verify(endorser.IdBytes.ToByteArray(), config.GetSignatureAlgorithm(), sig.ToByteArray(), plainText.ToByteArray());
+            }
+            catch (Exception e)
+            {
+                logger.ErrorException("verify: Cannot retrieve peer identity from ProposalResponse. Error is: " + e.Message, e);
+                IsVerified = false;
+            }
+
+            return IsVerified;
+        } // verify
+
+        public void SetProposal(SignedProposal signedProposal)
+        {
+            try
+            {
+                Proposal = Proposal.Parser.ParseFrom(signedProposal.ProposalBytes);
+            }
+            catch (InvalidProtocolBufferException e)
+            {
+                throw new ProposalException("Proposal exception", e);
+            }
         }
-
     }
-
 }

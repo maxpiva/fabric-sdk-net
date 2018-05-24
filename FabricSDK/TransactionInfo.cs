@@ -14,9 +14,9 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Hyperledger.Fabric.SDK.Protos;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.Protos.Protos;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
+
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -43,7 +43,7 @@ namespace Hyperledger.Fabric.SDK
         /**
          * @return the {@link Envelope} of this {@link ProcessedTransaction}
          */
-        public Envelope Envelope => processedTransaction.transactionEnvelope;
+        public Envelope Envelope => processedTransaction.TransactionEnvelope;
 
         /**
          * @return the raw {@link ProcessedTransaction}
@@ -53,7 +53,7 @@ namespace Hyperledger.Fabric.SDK
         /**
          * @return the {@link TxValidationCode} of this {@link ProcessedTransaction}
          */
-        public TxValidationCode ValidationCode => (TxValidationCode) processedTransaction.validationCode;
+        public TxValidationCode ValidationCode => (TxValidationCode) processedTransaction.ValidationCode;
 
     }
 }

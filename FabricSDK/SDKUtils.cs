@@ -14,7 +14,7 @@
  *
  */
 
-package org.hyperledger.fabric.sdk;
+/*    package org.hyperledger.fabric.sdk;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,114 +30,131 @@ import org.bouncycastle.asn1.DERSequenceGenerator;
 import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
 import org.hyperledger.fabric.sdk.security.CryptoSuite;
 
-import static java.lang.String.format;
+import static java.lang.String.format;*/
 
-public class SDKUtils {
-    private SDKUtils() {
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using Google.Protobuf;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Security;
+using Org.BouncyCastle.Asn1;
 
-    }
+namespace Hyperledger.Fabric.SDK
+{
 
-    public static CryptoSuite suite = null;
+    public class SDKUtils {
+        private SDKUtils() {
 
-    /**
-     * used asn1 and get hash
-     *
-     * @param blockNumber
-     * @param previousHash
-     * @param dataHash
-     * @return byte[]
-     * @throws IOException
-     * @throws InvalidArgumentException
-     */
-    public static byte[] calculateBlockHash(HFClient client, long blockNumber, byte[] previousHash, byte[] dataHash) throws IOException, InvalidArgumentException {
-
-        if (previousHash == null) {
-            throw new InvalidArgumentException("previousHash parameter is null.");
-        }
-        if (dataHash == null) {
-            throw new InvalidArgumentException("dataHash parameter is null.");
-        }
-        if (null == client) {
-            throw new InvalidArgumentException("client parameter is null.");
         }
 
-        CryptoSuite cryptoSuite = client.getCryptoSuite();
-        if (null == client) {
-            throw new InvalidArgumentException("Client crypto suite has not  been set.");
-        }
+        public static ICryptoSuite suite = null;
 
-        ByteArrayOutputStream s = new ByteArrayOutputStream();
-        DERSequenceGenerator seq = new DERSequenceGenerator(s);
-        seq.addObject(new ASN1Integer(blockNumber));
-        seq.addObject(new DEROctetString(previousHash));
-        seq.addObject(new DEROctetString(dataHash));
-        seq.close();
-        return cryptoSuite.hash(s.toByteArray());
+        /**
+         * used asn1 and get hash
+         *
+         * @param blockNumber
+         * @param previousHash
+         * @param dataHash
+         * @return byte[]
+         * @throws IOException
+         * @throws InvalidArgumentException
+         */
+        public static byte[] calculateBlockHash(HFClient client, long blockNumber, byte[] previousHash, byte[] dataHash)
+        {
 
-    }
-
-    /**
-     * Check that the proposals all have consistent read write sets
-     *
-     * @param proposalResponses
-     * @return A Collection of sets where each set has consistent proposals.
-     * @throws InvalidArgumentException
-     */
-
-    public static Collection<Set<ProposalResponse>> getProposalConsistencySets(Collection<ProposalResponse> proposalResponses
-    ) throws InvalidArgumentException {
-
-        return getProposalConsistencySets(proposalResponses, new HashSet<ProposalResponse>());
-
-    }
-
-    /**
-     * Check that the proposals all have consistent read write sets
-     *
-     * @param proposalResponses
-     * @param invalid           proposals that were found to be invalid.
-     * @return A Collection of sets where each set has consistent proposals.
-     * @throws InvalidArgumentException
-     */
-
-    public static Collection<Set<ProposalResponse>> getProposalConsistencySets(Collection<ProposalResponse> proposalResponses,
-                                                                               Set<ProposalResponse> invalid) throws InvalidArgumentException {
-
-        if (proposalResponses == null) {
-            throw new InvalidArgumentException("proposalResponses collection is null");
-        }
-
-        if (proposalResponses.isEmpty()) {
-            throw new InvalidArgumentException("proposalResponses collection is empty");
-        }
-
-        if (null == invalid) {
-            throw new InvalidArgumentException("invalid set is null.");
-        }
-
-        HashMap<ByteString, Set<ProposalResponse>> ret = new HashMap<>();
-
-        for (ProposalResponse proposalResponse : proposalResponses) {
-
-            if (proposalResponse.isInvalid()) {
-                invalid.add(proposalResponse);
-            } else {
-                // payload bytes is what's being signed over so it must be consistent.
-                final ByteString payloadBytes = proposalResponse.getPayloadBytes();
-
-                if (payloadBytes == null) {
-                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was null from peer: %s.",
-                            proposalResponse.getPeer()));
-                } else if (payloadBytes.isEmpty()) {
-                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was empty from peer: %s.",
-                            proposalResponse.getPeer()));
-                }
-                Set<ProposalResponse> set = ret.computeIfAbsent(payloadBytes, k -> new HashSet<>());
-                set.add(proposalResponse);
+            if (previousHash == null) {
+                throw new InvalidArgumentException("previousHash parameter is null.");
             }
+            if (dataHash == null) {
+                throw new InvalidArgumentException("dataHash parameter is null.");
+            }
+            if (null == client) {
+                throw new InvalidArgumentException("client parameter is null.");
+            }
+
+            ICryptoSuite cryptoSuite = client.CryptoSuite;
+            if (null == client) {
+                throw new InvalidArgumentException("Client crypto suite has not  been set.");
+            }
+
+            MemoryStream s = new MemoryStream();
+            DerSequenceGenerator seq = new DerSequenceGenerator(s);
+            seq.AddObject(new DerInteger((int)blockNumber));            
+            seq.AddObject(new DerOctetString(previousHash));
+            seq.AddObject(new DerOctetString(dataHash));
+            seq.Close();
+            s.Flush();
+            return cryptoSuite.Hash(s.ToArray());
+
         }
 
-        return ret.values();
+        /**
+         * Check that the proposals all have consistent read write sets
+         *
+         * @param proposalResponses
+         * @return A Collection of sets where each set has consistent proposals.
+         * @throws InvalidArgumentException
+         */
 
+        public static List<HashSet<ProposalResponse>> GetProposalConsistencySets(List<ProposalResponse> proposalResponses)
+        {
+
+            return GetProposalConsistencySets(proposalResponses, new HashSet<ProposalResponse>());
+
+        }
+
+        /**
+         * Check that the proposals all have consistent read write sets
+         *
+         * @param proposalResponses
+         * @param invalid           proposals that were found to be invalid.
+         * @return A Collection of sets where each set has consistent proposals.
+         * @throws InvalidArgumentException
+         */
+
+        public static List<HashSet<ProposalResponse>> GetProposalConsistencySets(List<ProposalResponse> proposalResponses, HashSet<ProposalResponse> invalid) {
+
+            if (proposalResponses == null) {
+                throw new InvalidArgumentException("proposalResponses collection is null");
+            }
+
+            if (proposalResponses.Count==0) {
+                throw new InvalidArgumentException("proposalResponses collection is empty");
+            }
+
+            if (null == invalid) {
+                throw new InvalidArgumentException("invalid set is null.");
+            }
+
+            Dictionary<ByteString, HashSet<ProposalResponse>> ret = new Dictionary<ByteString, HashSet<ProposalResponse>>();
+
+            foreach (ProposalResponse proposalResponse in proposalResponses) {
+
+                if (proposalResponse.IsInvalid) {
+                    invalid.Add(proposalResponse);
+                } else {
+                    // payload bytes is what's being signed over so it must be consistent.
+                    ByteString payloadBytes = proposalResponse.PayloadBytes;
+                    
+                    if (payloadBytes == null)
+                    {
+                        throw new InvalidArgumentException($"proposalResponse.getPayloadBytes() was null from peer: {proposalResponse.Peer}.");
+
+                    } else if (payloadBytes.Length==0) {
+                        throw new InvalidArgumentException($"proposalResponse.getPayloadBytes() was empty from peer: {proposalResponse.Peer}.");
+                    }
+                    if (!ret.ContainsKey(payloadBytes))
+                        ret.Add(payloadBytes,new HashSet<ProposalResponse>());
+
+                    HashSet<ProposalResponse> set = ret[payloadBytes];
+                    set.Add(proposalResponse);
+                }
+            }
+
+            return ret.Values.ToList();
+
+        }
     }
 }

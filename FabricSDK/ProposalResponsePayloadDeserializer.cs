@@ -15,21 +15,24 @@
  */
 
 using System;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
+
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ProposalResponsePayloadDeserializer : BaseDeserializer<ProposalResponsePayload>
     {
-        private WeakReference<ChaincodeActionDeserializer> chaincodeAction;
+        private readonly WeakItem<ChaincodeActionDeserializer, ProposalResponsePayload> chaincodeAction;
 
-        public ProposalResponsePayloadDeserializer(byte[] byteString) : base(byteString)
+        public ProposalResponsePayloadDeserializer(ByteString byteString) : base(byteString)
         {
+            chaincodeAction=new WeakItem<ChaincodeActionDeserializer, ProposalResponsePayload>((ext) => new ChaincodeActionDeserializer(ext.Extension),()=>Reference);
         }
         public ProposalResponsePayload ProposalResponsePayload => Reference;
-        public ChaincodeActionDeserializer Extension => ProposalResponsePayload.Extension.GetOrCreateWR(ref chaincodeAction, (ext) => new ChaincodeActionDeserializer(ext));
+        public ChaincodeActionDeserializer Extension => chaincodeAction.Reference;
 
     }
 }

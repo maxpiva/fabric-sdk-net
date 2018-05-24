@@ -12,111 +12,88 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Security;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+namespace Hyperledger.Fabric.SDK
+{
+    public class HFClient
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(HFClient));
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.peer.Query.ChaincodeInfo;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.NetworkConfigurationException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.hyperledger.fabric.sdk.exception.TransactionException;
-import org.hyperledger.fabric.sdk.helper.Utils;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
+        private readonly Dictionary<string, Channel> channels = new Dictionary<string, Channel>();
+        private ICryptoSuite cryptoSuite;
 
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.User.userContextCheck;
 
-public class HFClient {
 
-    private CryptoSuite cryptoSuite;
+        private IUser userContext;
 
-    static {
-
-        if (null == System.getProperty("org.hyperledger.fabric.sdk.logGRPC")) {
-            // Turn this off by default!
-            Logger.getLogger("io.netty").setLevel(Level.OFF);
-            Logger.getLogger("io.grpc").setLevel(Level.OFF);
-
+        private HFClient()
+        {
         }
-    }
 
-    private final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
-        Thread t = Executors.defaultThreadFactory().newThread(r);
-        t.setDaemon(true);
-        return t;
-    });
+        public ICryptoSuite CryptoSuite
+        {
+            get => cryptoSuite;
+            set
+            {
+                if (null == value)
+                {
+                    throw new InvalidArgumentException("CryptoSuite paramter is null.");
+                }
 
-    ExecutorService getExecutorService() {
-        return executorService;
-    }
+                if (cryptoSuite != null && value != cryptoSuite)
+                {
+                    throw new InvalidArgumentException("CryptoSuite may only be set once.");
+                }
+                //        if (cryptoSuiteFactory == null) {
+                //            cryptoSuiteFactory = cryptoSuite.getCryptoSuiteFactory();
+                //        } else {
+                //            if (cryptoSuiteFactory != cryptoSuite.getCryptoSuiteFactory()) {
+                //                throw new InvalidArgumentException("CryptoSuite is not derivied from cryptosuite factory");
+                //            }
+                //        }
 
-    private static final Log logger = LogFactory.getLog(HFClient.class);
-
-    private final Map<String, Channel> channels = new HashMap<>();
-
-    public User getUserContext() {
-        return userContext;
-    }
-
-    private User userContext;
-
-    private HFClient() {
-
-    }
-
-    public CryptoSuite getCryptoSuite() {
-        return cryptoSuite;
-    }
-
-    public void setCryptoSuite(CryptoSuite cryptoSuite) throws CryptoException, InvalidArgumentException {
-        if (null == cryptoSuite) {
-            throw new InvalidArgumentException("CryptoSuite paramter is null.");
+                cryptoSuite = value;
+            }
         }
-        if (this.cryptoSuite != null && cryptoSuite != this.cryptoSuite) {
-            throw new InvalidArgumentException("CryptoSuite may only be set once.");
 
+
+        public TaskScheduler ExecutorService { get; } = TaskScheduler.Default;
+
+        public IUser UserContext
+        {
+            get => userContext;
+            set
+            {
+                if (null == cryptoSuite)
+                {
+                    throw new InvalidArgumentException("No cryptoSuite has been set.");
+                }
+
+                value.UserContextCheck();
+                userContext = value;
+                logger.Debug($"Setting user context to MSPID: {userContext.MspId} user: {userContext.Name}");
+            }
         }
-        //        if (cryptoSuiteFactory == null) {
-        //            cryptoSuiteFactory = cryptoSuite.getCryptoSuiteFactory();
-        //        } else {
-        //            if (cryptoSuiteFactory != cryptoSuite.getCryptoSuiteFactory()) {
-        //                throw new InvalidArgumentException("CryptoSuite is not derivied from cryptosuite factory");
-        //            }
-        //        }
 
-        this.cryptoSuite = cryptoSuite;
 
-    }
-
-    /**
+        /**
      * createNewInstance create a new instance of the HFClient
      *
      * @return client
      */
-    public static HFClient createNewInstance() {
-        return new HFClient();
-    }
+        public static HFClient Create()
+        {
+            return new HFClient();
+        }
 
-    /**
+        /**
      * Configures a channel based on information loaded from a Network Config file.
      * Note that it is up to the caller to initialize the returned channel.
      *
@@ -125,27 +102,34 @@ public class HFClient {
      * @return The configured channel, or null if the channel is not defined in the configuration
      * @throws InvalidArgumentException
      */
-    public Channel loadChannelFromConfig(String channelName, NetworkConfig networkConfig) throws InvalidArgumentException, NetworkConfigurationException {
-        clientCheck();
+        public Channel LoadChannelFromConfig(string channelName, NetworkConfig networkConfig)
+        {
+            ClientCheck();
 
-        // Sanity checks
-        if (channelName == null || channelName.isEmpty()) {
-            throw new InvalidArgumentException("channelName must be specified");
+            // Sanity checks
+            if (string.IsNullOrEmpty(channelName))
+            {
+                throw new InvalidArgumentException("channelName must be specified");
+            }
+
+            if (networkConfig == null)
+            {
+                throw new InvalidArgumentException("networkConfig must be specified");
+            }
+
+            lock (channels)
+            {
+                if (channels.ContainsKey(channelName))
+                {
+                    throw new InvalidArgumentException($"Channel with name {channelName} already exists");
+                }
+            }
+
+            return networkConfig.LoadChannel(this, channelName);
         }
 
-        if (networkConfig == null) {
-            throw new InvalidArgumentException("networkConfig must be specified");
-        }
 
-        if (channels.containsKey(channelName)) {
-            throw new InvalidArgumentException(format("Channel with name %s already exists", channelName));
-        }
-
-        return networkConfig.loadChannel(this, channelName);
-    }
-
-
-    /**
+        /**
      * newChannel - already configured channel.
      *
      * @param name
@@ -153,28 +137,23 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Channel newChannel(String name) throws InvalidArgumentException {
-        clientCheck();
-        if (Utils.isNullOrEmpty(name)) {
-            throw new InvalidArgumentException("Channel name can not be null or empty string.");
-        }
-
-        synchronized (channels) {
-
-            if (channels.containsKey(name)) {
-                throw new InvalidArgumentException(format("Channel by the name %s already exists", name));
+        public Channel NewChannel(string name)
+        {
+            ClientCheck();
+            if (string.IsNullOrEmpty(name))
+                throw new InvalidArgumentException("Channel name can not be null or empty string.");
+            lock (channels)
+            {
+                if (channels.ContainsKey(name))
+                    throw new InvalidArgumentException($"Channel by the name {name} already exists");
+                logger.Trace($"Creating channel : {name}");
+                Channel newChannel = Channel.Create(name, this);
+                channels.Add(name, newChannel);
+                return newChannel;
             }
-            logger.trace("Creating channel :" + name);
-            Channel newChannel = Channel.createNewInstance(name, this);
-
-            channels.put(name, newChannel);
-            return newChannel;
-
         }
 
-    }
-
-    /**
+        /**
      * Create a new channel
      *
      * @param name                           The channel's name
@@ -187,33 +166,28 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Channel newChannel(String name, Orderer orderer, ChannelConfiguration channelConfiguration,
-            byte[]... channelConfigurationSignatures) throws TransactionException, InvalidArgumentException {
+        public Channel NewChannel(string name, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] channelConfigurationSignatures)
+        {
+            ClientCheck();
+            if (string.IsNullOrEmpty(name))
+                throw new InvalidArgumentException("Channel name can not be null or empty string.");
 
-        clientCheck();
-        if (Utils.isNullOrEmpty(name)) {
-            throw new InvalidArgumentException("Channel name can not be null or empty string.");
-        }
+            lock (channels)
+            {
+                if (channels.ContainsKey(name))
+                {
+                    throw new InvalidArgumentException($"Channel by the name {name} already exits");
+                }
 
-        synchronized (channels) {
+                logger.Trace("Creating channel :" + name);
 
-            if (channels.containsKey(name)) {
-                throw new InvalidArgumentException(format("Channel by the name %s already exits", name));
+                Channel newChannel = Channel.Create(name, this, orderer, channelConfiguration, channelConfigurationSignatures);
+                channels.Add(name, newChannel);
+                return newChannel;
             }
-
-            logger.trace("Creating channel :" + name);
-
-            Channel newChannel = Channel.createNewInstance(name, this, orderer, channelConfiguration,
-                    channelConfigurationSignatures);
-
-            channels.put(name, newChannel);
-            return newChannel;
-
         }
 
-    }
-
-    /**
+        /**
      * Deserialize a channel serialized by {@link Channel#serializeChannel()}
      *
      * @param file a file which contains the bytes to be deserialized.
@@ -222,26 +196,26 @@ public class HFClient {
      * @throws ClassNotFoundException
      * @throws InvalidArgumentException
      */
+        /*
+   public Channel deSerializeChannel(File file) throws IOException, ClassNotFoundException, InvalidArgumentException {
 
-    public Channel deSerializeChannel(File file) throws IOException, ClassNotFoundException, InvalidArgumentException {
+       if (null == file) {
+           throw new InvalidArgumentException("File parameter may not be null");
+       }
 
-        if (null == file) {
-            throw new InvalidArgumentException("File parameter may not be null");
-        }
-
-        return deSerializeChannel(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
-    }
-
-    /**
-     * Deserialize a channel serialized by {@link Channel#serializeChannel()}
-     *
-     * @param channelBytes bytes to be deserialized.
-     * @return A Channel that has not been initialized.
-     * @throws IOException
-     * @throws ClassNotFoundException
-     * @throws InvalidArgumentException
-     */
-
+       return deSerializeChannel(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
+   }
+*/
+        /**
+    * Deserialize a channel serialized by {@link Channel#serializeChannel()}
+    *
+    * @param channelBytes bytes to be deserialized.
+    * @return A Channel that has not been initialized.
+    * @throws IOException
+    * @throws ClassNotFoundException
+    * @throws InvalidArgumentException
+    */
+        /*
     public Channel deSerializeChannel(byte[] channelBytes)
             throws IOException, ClassNotFoundException, InvalidArgumentException {
 
@@ -274,8 +248,8 @@ public class HFClient {
         return channel;
 
     }
-
-    /**
+    */
+        /**
      * newPeer create a new peer
      *
      * @param name       name of peer.
@@ -314,12 +288,13 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Peer newPeer(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
-        clientCheck();
-        return Peer.createNewInstance(name, grpcURL, properties);
-    }
+        public Peer NewPeer(string name, string grpcURL, Dictionary<string, object> properties)
+        {
+            ClientCheck();
+            return Peer.Create(name, grpcURL, properties);
+        }
 
-    /**
+        /**
      * newPeer create a new peer
      *
      * @param name
@@ -328,66 +303,76 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Peer newPeer(String name, String grpcURL) throws InvalidArgumentException {
-        clientCheck();
-        return Peer.createNewInstance(name, grpcURL, null);
-    }
+        public Peer NewPeer(string name, string grpcURL)
+        {
+            ClientCheck();
+            return Peer.Create(name, grpcURL, null);
+        }
 
-    /**
+        /**
      * getChannel by name
      *
      * @param name The channel name
      * @return a channel (or null if the channel does not exist)
      */
 
-    public Channel getChannel(String name) {
-        return channels.get(name);
-    }
+        public Channel GetChannel(string name)
+        {
+            lock (channels)
+            {
+                return channels.GetOrNull(name);
+            }
+        }
 
-    /**
+        /**
      * newInstallProposalRequest get new Install proposal request.
      *
      * @return InstallProposalRequest
      */
-    public InstallProposalRequest newInstallProposalRequest() {
-        return new InstallProposalRequest(userContext);
-    }
+        public InstallProposalRequest NewInstallProposalRequest()
+        {
+            return new InstallProposalRequest(UserContext);
+        }
 
-    /**
+        /**
      * newInstantiationProposalRequest get new instantiation proposal request.
      *
      * @return InstantiateProposalRequest
      */
 
-    public InstantiateProposalRequest newInstantiationProposalRequest() {
-        return new InstantiateProposalRequest(userContext);
-    }
+        public InstantiateProposalRequest NewInstantiationProposalRequest()
+        {
+            return new InstantiateProposalRequest(UserContext);
+        }
 
-    public UpgradeProposalRequest newUpgradeProposalRequest() {
-        return new UpgradeProposalRequest(userContext);
-    }
+        public UpgradeProposalRequest NewUpgradeProposalRequest()
+        {
+            return new UpgradeProposalRequest(UserContext);
+        }
 
-    /**
+        /**
      * newTransactionProposalRequest  get new transaction proposal request.
      *
      * @return TransactionProposalRequest
      */
 
-    public TransactionProposalRequest newTransactionProposalRequest() {
-        return TransactionProposalRequest.newInstance(userContext);
-    }
+        public TransactionProposalRequest NewTransactionProposalRequest()
+        {
+            return TransactionProposalRequest.Create(UserContext);
+        }
 
-    /**
+        /**
      * newQueryProposalRequest get new query proposal request.
      *
      * @return QueryByChaincodeRequest
      */
 
-    public QueryByChaincodeRequest newQueryProposalRequest() {
-        return QueryByChaincodeRequest.newInstance(userContext);
-    }
+        public QueryByChaincodeRequest NewQueryProposalRequest()
+        {
+            return QueryByChaincodeRequest.Create(UserContext);
+        }
 
-    /**
+        /**
      * Set the User context for this client.
      *
      * @param userContext
@@ -395,23 +380,8 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public User setUserContext(User userContext) throws InvalidArgumentException {
 
-        if (null == cryptoSuite) {
-            throw new InvalidArgumentException("No cryptoSuite has been set.");
-        }
-        userContextCheck(userContext);
-
-        User ret = this.userContext;
-        this.userContext = userContext;
-
-        logger.debug(
-                format("Setting user context to MSPID: %s user: %s", userContext.getMspId(), userContext.getName()));
-
-        return ret;
-    }
-
-    /**
+        /**
      * Create a new Eventhub.
      *
      * @param name       name of Orderer.
@@ -445,12 +415,13 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public EventHub newEventHub(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
-        clientCheck();
-        return EventHub.createNewInstance(name, grpcURL, executorService, properties);
-    }
+        public EventHub NewEventHub(string name, string grpcURL, Dictionary<string, object> properties)
+        {
+            ClientCheck();
+            return EventHub.Create(name, grpcURL, ExecutorService, properties);
+        }
 
-    /**
+        /**
      * Create a new event hub
      *
      * @param name    Name of eventhup should match peer's name it's associated with.
@@ -459,12 +430,12 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public EventHub newEventHub(String name, String grpcURL) throws InvalidArgumentException {
-        clientCheck();
-        return newEventHub(name, grpcURL, null);
-    }
+        public EventHub NewEventHub(string name, string grpcURL)
+        {
+            return NewEventHub(name, grpcURL, null);
+        }
 
-    /**
+        /**
      * Create a new urlOrderer.
      *
      * @param name    name of the orderer.
@@ -473,12 +444,12 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Orderer newOrderer(String name, String grpcURL) throws InvalidArgumentException {
-        clientCheck();
-        return newOrderer(name, grpcURL, null);
-    }
+        public Orderer NewOrderer(string name, string grpcURL)
+        {
+            return NewOrderer(name, grpcURL, null);
+        }
 
-    /**
+        /**
      * Create a new orderer.
      *
      * @param name       name of Orderer.
@@ -518,12 +489,13 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public Orderer newOrderer(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
-        clientCheck();
-        return Orderer.createNewInstance(name, grpcURL, properties);
-    }
+        public Orderer NewOrderer(string name, string grpcURL, Dictionary<string, object> properties)
+        {
+            ClientCheck();
+            return Orderer.Create(name, grpcURL, properties);
+        }
 
-    /**
+        /**
      * Query the channels for peers
      *
      * @param peer the peer to query
@@ -531,32 +503,29 @@ public class HFClient {
      * @throws InvalidArgumentException
      * @throws ProposalException
      */
-    public Set<String> queryChannels(Peer peer) throws InvalidArgumentException, ProposalException {
+        public HashSet<string> QueryChannels(Peer peer)
+        {
+            ClientCheck();
+            if (null == peer)
+            {
+                throw new InvalidArgumentException("peer set to null");
+            }
 
-        clientCheck();
+            //Run this on a system channel.
 
-        if (null == peer) {
-
-            throw new InvalidArgumentException("peer set to null");
-
+            try
+            {
+                Channel systemChannel = Channel.CreateSystemChannel(this);
+                return systemChannel.QueryChannels(peer);
+            }
+            catch (ProposalException e)
+            {
+                logger.ErrorException($"queryChannels for peer {peer.Name} failed. {e.Message}", e);
+                throw;
+            }
         }
 
-        //Run this on a system channel.
-
-        try {
-            Channel systemChannel = Channel.newSystemChannel(this);
-
-            return systemChannel.queryChannels(peer);
-        } catch (InvalidArgumentException e) {
-            throw e; //dont log
-        } catch (ProposalException e) {
-            logger.error(format("queryChannels for peer %s failed." + e.getMessage(), peer.getName()), e);
-            throw e;
-        }
-
-    }
-
-    /**
+        /**
      * Query the peer for installed chaincode information
      *
      * @param peer The peer to query.
@@ -565,30 +534,31 @@ public class HFClient {
      * @throws ProposalException
      */
 
-    public List<ChaincodeInfo> queryInstalledChaincodes(Peer peer) throws InvalidArgumentException, ProposalException {
+        public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer)
+        {
+            ClientCheck();
 
-        clientCheck();
+            if (null == peer)
+            {
+                throw new InvalidArgumentException("peer set to null");
+            }
 
-        if (null == peer) {
+            try
+            {
+                //Run this on a system channel.
 
-            throw new InvalidArgumentException("peer set to null");
+                Channel systemChannel = Channel.CreateSystemChannel(this);
 
+                return systemChannel.QueryInstalledChaincodes(peer);
+            }
+            catch (ProposalException e)
+            {
+                logger.ErrorException($"queryInstalledChaincodes for peer {peer.Name} failed. {e.Message}", e);
+                throw;
+            }
         }
 
-        try {
-            //Run this on a system channel.
-
-            Channel systemChannel = Channel.newSystemChannel(this);
-
-            return systemChannel.queryInstalledChaincodes(peer);
-        } catch (ProposalException e) {
-            logger.error(format("queryInstalledChaincodes for peer %s failed." + e.getMessage(), peer.getName()), e);
-            throw e;
-        }
-
-    }
-
-    /**
+        /**
      * Get signature for channel configuration
      *
      * @param channelConfiguration
@@ -597,17 +567,15 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public byte[] getChannelConfigurationSignature(ChannelConfiguration channelConfiguration, User signer)
-            throws InvalidArgumentException {
+        public byte[] GetChannelConfigurationSignature(ChannelConfiguration channelConfiguration, IUser signer)
+        {
+            ClientCheck();
 
-        clientCheck();
+            Channel systemChannel = Channel.CreateSystemChannel(this);
+            return systemChannel.GetChannelConfigurationSignature(channelConfiguration, signer);
+        }
 
-        Channel systemChannel = Channel.newSystemChannel(this);
-        return systemChannel.getChannelConfigurationSignature(channelConfiguration, signer);
-
-    }
-
-    /**
+        /**
      * Get signature for update channel configuration
      *
      * @param updateChannelConfiguration
@@ -616,17 +584,15 @@ public class HFClient {
      * @throws InvalidArgumentException
      */
 
-    public byte[] getUpdateChannelConfigurationSignature(UpdateChannelConfiguration updateChannelConfiguration,
-            User signer) throws InvalidArgumentException {
+        public byte[] GetUpdateChannelConfigurationSignature(UpdateChannelConfiguration updateChannelConfiguration, IUser signer)
+        {
+            ClientCheck();
 
-        clientCheck();
+            Channel systemChannel = Channel.CreateSystemChannel(this);
+            return systemChannel.GetUpdateChannelConfigurationSignature(updateChannelConfiguration, signer);
+        }
 
-        Channel systemChannel = Channel.newSystemChannel(this);
-        return systemChannel.getUpdateChannelConfigurationSignature(updateChannelConfiguration, signer);
-
-    }
-
-    /**
+        /**
      * Send install chaincode request proposal to peers.
      *
      * @param installProposalRequest
@@ -636,34 +602,39 @@ public class HFClient {
      * @throws ProposalException
      */
 
-    public Collection<ProposalResponse> sendInstallProposal(InstallProposalRequest installProposalRequest,
-            Collection<Peer> peers) throws ProposalException, InvalidArgumentException {
+        public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers)
+        {
+            ClientCheck();
 
-        clientCheck();
+            installProposalRequest.SetSubmitted();
 
-        installProposalRequest.setSubmitted();
-        Channel systemChannel = Channel.newSystemChannel(this);
+            Channel systemChannel = Channel.CreateSystemChannel(this);
 
-        return systemChannel.sendInstallProposal(installProposalRequest, peers);
-
-    }
-
-
-    private void clientCheck() throws InvalidArgumentException {
-
-        if (null == cryptoSuite) {
-            throw new InvalidArgumentException("No cryptoSuite has been set.");
+            return systemChannel.SendInstallProposal(installProposalRequest, peers);
         }
 
-        userContextCheck(userContext);
 
-    }
+        private void ClientCheck()
+        {
+            if (null == cryptoSuite)
+            {
+                throw new InvalidArgumentException("No cryptoSuite has been set.");
+            }
 
-    void removeChannel(Channel channel) {
-        synchronized (channels) {
-            final String name = channel.getName();
-            if (channels.get(name) == channel) { // Only remove if it's the same instance.
-                channels.remove(name);
+            userContext.UserContextCheck();
+        }
+
+        public void RemoveChannel(Channel channel)
+        {
+            lock (channels)
+            {
+                string name = channel.Name;
+                Channel ch = channels.GetOrNull(name);
+                if (ch == channel)
+                {
+                    // Only remove if it's the same instance.
+                    channels.Remove(name);
+                }
             }
         }
     }

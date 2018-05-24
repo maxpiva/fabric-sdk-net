@@ -11,7 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
+/*
 package org.hyperledger.fabric.sdk;
 
 import java.io.Serializable;
@@ -43,446 +43,472 @@ import org.hyperledger.fabric.sdk.transaction.TransactionContext;
 
 import static java.lang.String.format;
 import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;
-
+   */
 /**
  * Class to manage fabric events.
  * <p>
  * Feeds Channel event queues with events
  */
 
-public class EventHub implements Serializable {
-    private static final long serialVersionUID = 2882609588201108148L;
-    private static final Log logger = LogFactory.getLog(EventHub.class);
-    private static final Config config = Config.getConfig();
-    private static final long EVENTHUB_CONNECTION_WAIT_TIME = config.getEventHubConnectionWaitTime();
-    private static final long EVENTHUB_RECONNECTION_WARNING_RATE = config.getEventHubReconnectionWarningRate();
-
-    private final transient ExecutorService executorService;
-
-    private final String url;
-    private final String name;
-    private final Properties properties;
-    private transient ManagedChannel managedChannel;
-    private transient boolean connected = false;
-    private transient EventsGrpc.EventsStub events;
-    private transient StreamObserver<PeerEvents.SignedEvent> sender;
-    /**
-     * Event queue for all events from eventhubs in the channel
-     */
-    private transient Channel.ChannelEventQue eventQue;
-    private transient long connectedTime = 0L; // 0 := never connected
-    private transient boolean shutdown = false;
-    private Channel channel;
-    private transient TransactionContext transactionContext;
-    private transient byte[] clientTLSCertificateDigest;
-    private transient long reconnectCount;
-    private transient long lastBlockNumber;
-    private transient BlockEvent lastBlockEvent;
-
-    /**
-     * Get disconnected time.
-     *
-     * @return Time in milli seconds disconnect occurred. Zero if never disconnected
-     */
-    public long getDisconnectedTime() {
-        return disconnectedTime;
-    }
-
-    private long disconnectedTime;
-
-    /**
-     * Is event hub connected.
-     *
-     * @return boolean if true event hub is connected.
-     */
-    public boolean isConnected() {
-        return connected;
-    }
-
-    /**
-     * Get last connect time.
-     *
-     * @return Time in milli seconds the event hub last connected. Zero if never connected.
-     */
-    public long getConnectedTime() {
-        return connectedTime;
-    }
-
-    /**
-     * Get last attempt time to connect the event hub.
-     *
-     * @return Last attempt time to connect the event hub in milli seconds. Zero when never attempted.
-     */
-
-    public long getLastConnectedAttempt() {
-        return lastConnectedAttempt;
-    }
-
-    private long lastConnectedAttempt;
-
-    EventHub(String name, String grpcURL, ExecutorService executorService, Properties properties) throws InvalidArgumentException {
-
-        Exception e = checkGrpcUrl(grpcURL);
-        if (e != null) {
-            throw new InvalidArgumentException("Bad event hub url.", e);
-
-        }
-
-        if (StringUtil.isNullOrEmpty(name)) {
-            throw new InvalidArgumentException("Invalid name for eventHub");
-        }
-
-        this.url = grpcURL;
-        this.name = name;
-        this.executorService = executorService;
-        this.properties = properties == null ? null : (Properties) properties.clone(); //keep our own copy.
-    }
-
-    /**
-     * Create a new instance.
-     *
-     * @param name
-     * @param url
-     * @param properties
-     * @return
-     */
-
-    static EventHub createNewInstance(String name, String url, ExecutorService executorService, Properties properties) throws InvalidArgumentException {
-        return new EventHub(name, url, executorService, properties);
-    }
-
-    /**
-     * Event hub name
-     *
-     * @return event hub name
-     */
-
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Event hub properties
-     *
-     * @return Event hub properties
-     * @see HFClient#newEventHub(String, String, Properties)
-     */
-    public Properties getProperties() {
-        return properties == null ? null : (Properties) properties.clone();
-    }
-
-    private transient StreamObserver<PeerEvents.Event> eventStream = null; // Saved here to avoid potential garbage collection
-
-    synchronized boolean connect(final TransactionContext transactionContext) throws EventHubException {
-        return connect(transactionContext, false);
-    }
-
-    synchronized boolean connect(final TransactionContext transactionContext, final boolean reconnection) throws EventHubException {
-        if (connected) {
-            logger.warn(format("%s already connected.", toString()));
-            return true;
-        }
-        eventStream = null;
-
-        final CountDownLatch finishLatch = new CountDownLatch(1);
-
-        logger.debug(format("EventHub %s is connecting.", name));
-
-        lastConnectedAttempt = System.currentTimeMillis();
-
-        Endpoint endpoint = new Endpoint(url, properties);
-        managedChannel = endpoint.getChannelBuilder().build();
-
-        clientTLSCertificateDigest = endpoint.getClientTLSCertificateDigest();
-
-        events = EventsGrpc.newStub(managedChannel);
-
-        final ArrayList<Throwable> threw = new ArrayList<>();
-
-        final StreamObserver<PeerEvents.Event> eventStreamLocal = new StreamObserver<PeerEvents.Event>() {
-            @Override
-            public void onNext(PeerEvents.Event event) {
-
-                logger.debug(format("EventHub %s got  event type: %s", EventHub.this.name, event.getEventCase().name()));
-
-                if (event.getEventCase() == PeerEvents.Event.EventCase.BLOCK) {
-                    try {
-
-                        BlockEvent blockEvent = new BlockEvent(EventHub.this, event);
-                        setLastBlockSeen(blockEvent);
-
-                        eventQue.addBEvent(blockEvent);  //add to channel queue
-                    } catch (InvalidProtocolBufferException e) {
-                        EventHubException eventHubException = new EventHubException(format("%s onNext error %s", this, e.getMessage()), e);
-                        logger.error(eventHubException.getMessage());
-                        threw.add(eventHubException);
-                    }
-                } else if (event.getEventCase() == PeerEvents.Event.EventCase.REGISTER) {
-
-                    if (reconnectCount > 1) {
-                        logger.info(format("Eventhub %s has reconnecting after %d attempts", name, reconnectCount));
-                    }
-
-                    connected = true;
-                    connectedTime = System.currentTimeMillis();
-                    reconnectCount = 0L;
-
-                    finishLatch.countDown();
-                }
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                connected = false;
-                eventStream = null;
-                disconnectedTime = System.currentTimeMillis();
-                if (shutdown) { //IF we're shutdown don't try anything more.
-                    logger.trace(format("%s was shutdown.", EventHub.this.toString()));
-
-                    finishLatch.countDown();
-                    return;
-                }
-
-                final ManagedChannel lmanagedChannel = managedChannel;
-
-                final boolean isTerminated = lmanagedChannel == null ? true : lmanagedChannel.isTerminated();
-                final boolean isChannelShutdown = lmanagedChannel == null ? true : lmanagedChannel.isShutdown();
-
-                if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1) {
-                    logger.warn(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown,
-                            reconnectCount, t.getMessage()));
-                } else {
-                    logger.trace(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown,
-                            reconnectCount, t.getMessage()));
-                }
-
-                finishLatch.countDown();
-
-                //              logger.error("Error in stream: " + t.getMessage(), new EventHubException(t));
-                if (t instanceof StatusRuntimeException) {
-                    StatusRuntimeException sre = (StatusRuntimeException) t;
-                    Status sreStatus = sre.getStatus();
-                    if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1) {
-                        logger.warn(format("%s :StatusRuntimeException Status %s.  Description %s ", EventHub.this, sreStatus + "", sreStatus.getDescription()));
-                    } else {
-                        logger.trace(format("%s :StatusRuntimeException Status %s.  Description %s ", EventHub.this, sreStatus + "", sreStatus.getDescription()));
-                    }
-
-                    try {
-                        reconnect();
-                    } catch (Exception e) {
-                        logger.warn(format("Eventhub %s Failed shutdown msg:  %s", EventHub.this.name, e.getMessage()));
-                    }
-
-                }
-
-            }
-
-            @Override
-            public void onCompleted() {
-
-                logger.debug(format("Stream completed %s", EventHub.this.toString()));
-                finishLatch.countDown();
-
-            }
-        };
-
-        sender = events.chat(eventStreamLocal);
-        try {
-            blockListen(transactionContext);
-        } catch (CryptoException e) {
-            throw new EventHubException(e);
-        }
-
-        try {
-
-            //On reconnection don't wait here.
-
-            if (!reconnection && !finishLatch.await(EVENTHUB_CONNECTION_WAIT_TIME, TimeUnit.MILLISECONDS)) {
-
-                logger.warn(format("EventHub %s failed to connect in %s ms.", name, EVENTHUB_CONNECTION_WAIT_TIME));
-
-            } else {
-                logger.trace(format("Eventhub %s Done waiting for reply!", name));
-            }
-
-        } catch (InterruptedException e) {
-            logger.error(e);
-        }
-
-        logger.debug(format("Eventhub %s connect is done with connect status: %b ", name, connected));
-
-        if (connected) {
-            eventStream = eventStreamLocal;
-        }
-
-        return connected;
-
-    }
-
-    private void reconnect() throws EventHubException {
-
-        final ManagedChannel lmanagedChannel = managedChannel;
-
-        if (lmanagedChannel != null) {
-            managedChannel = null;
-            lmanagedChannel.shutdownNow();
-        }
-
-        EventHubDisconnected ldisconnectedHandler = disconnectedHandler;
-        if (!shutdown && null != ldisconnectedHandler) {
-            ++reconnectCount;
-            ldisconnectedHandler.disconnected(this);
-
-        }
-
-    }
-
-    private void blockListen(TransactionContext transactionContext) throws CryptoException {
-
-        this.transactionContext = transactionContext;
-
-        PeerEvents.Register register = PeerEvents.Register.newBuilder()
-                .addEvents(PeerEvents.Interest.newBuilder().setEventType(PeerEvents.EventType.BLOCK).build()).build();
-        PeerEvents.Event.Builder blockEventBuilder = PeerEvents.Event.newBuilder().setRegister(register)
-                .setCreator(transactionContext.getIdentity().toByteString())
-                .setTimestamp(ProtoUtils.getCurrentFabricTimestamp());
-
-        if (null != clientTLSCertificateDigest) {
-            logger.trace("Setting clientTLSCertificate digest for event registration to " + DatatypeConverter.printHexBinary(clientTLSCertificateDigest));
-            blockEventBuilder.setTlsCertHash(ByteString.copyFrom(clientTLSCertificateDigest));
-
-        }
-
-        ByteString blockEventByteString = blockEventBuilder.build().toByteString();
-
-        PeerEvents.SignedEvent signedBlockEvent = PeerEvents.SignedEvent.newBuilder()
-                .setEventBytes(blockEventByteString)
-                .setSignature(transactionContext.signByteString(blockEventByteString.toByteArray()))
-                .build();
-        sender.onNext(signedBlockEvent);
-    }
-
-    /**
-     * Get the GRPC URL used to connect.
-     *
-     * @return GRPC URL.
-     */
-    public String getUrl() {
-        return url;
-    }
-
-    /**
-     * Set the channel queue that will receive events
-     *
-     * @param eventQue
-     */
-    void setEventQue(Channel.ChannelEventQue eventQue) {
-        this.eventQue = eventQue;
-    }
-
-    @Override
-    public String toString() {
-        return "EventHub:" + getName();
-    }
-
-    public void shutdown() {
-        shutdown = true;
-        lastBlockEvent = null;
-        lastBlockNumber = 0;
-        connected = false;
-        disconnectedHandler = null;
-        channel = null;
-        eventStream = null;
-        final ManagedChannel lmanagedChannel = managedChannel;
-        managedChannel = null;
-        if (lmanagedChannel != null) {
-            lmanagedChannel.shutdownNow();
-        }
-    }
-
-    void setChannel(Channel channel) throws InvalidArgumentException {
-        if (channel == null) {
-            throw new InvalidArgumentException("setChannel Channel can not be null");
-        }
-
-        if (null != this.channel) {
-            throw new InvalidArgumentException(format("Can not add event hub  %s to channel %s because it already belongs to channel %s.",
-                    name, channel.getName(), this.channel.getName()));
-        }
-
-        this.channel = channel;
-    }
-
-    synchronized void setLastBlockSeen(BlockEvent lastBlockSeen) {
-        long newLastBlockNumber = lastBlockSeen.getBlockNumber();
-        // overkill but make sure.
-        if (lastBlockNumber < newLastBlockNumber) {
-            lastBlockNumber = newLastBlockNumber;
-            this.lastBlockEvent = lastBlockSeen;
-        }
-    }
-
-    /**
-     * Eventhub disconnection notification interface
-     */
-    public interface EventHubDisconnected {
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Force.DeepCloner;
+using Google.Protobuf;
+using Grpc.Core;
+using Hyperledger.Fabric.Protos.Peer.PeerEvents;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Transaction;
+using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
+
+namespace Hyperledger.Fabric.SDK
+{
+    [Serializable]
+    public class EventHub
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHub));
+        private static readonly Config config = Config.GetConfig();
+        private static readonly long EVENTHUB_CONNECTION_WAIT_TIME = config.GetEventHubConnectionWaitTime();
+        private static readonly long EVENTHUB_RECONNECTION_WARNING_RATE = config.GetEventHubReconnectionWarningRate();
+
+        private readonly string url;
+        private readonly string name;
+        private readonly Dictionary<string,object> properties;
+        [NonSerialized]
+        private Grpc.Core.Channel managedChannel;
+        [NonSerialized]
+        private bool connected = false;
+        [NonSerialized]
+        private AsyncDuplexStreamingCall<SignedEvent, Event> sender;
+        /**
+         * Event queue for all events from eventhubs in the channel
+         */
+        [NonSerialized]
+        private Channel.ChannelEventQue eventQue;
+
+    [NonSerialized]
+        private bool shutdown = false;
+        private Channel channel;
+    [NonSerialized]
+        private TransactionContext transactionContext;
+    [NonSerialized]
+        private byte[] clientTLSCertificateDigest;
+    [NonSerialized]
+        private long reconnectCount;
+    [NonSerialized]
+        private long lastBlockNumber;
+    [NonSerialized]
+        private BlockEvent lastBlockEvent;
+
+        [NonSerialized] private TaskScheduler scheduler;
+
+        public TaskScheduler Scheduler => scheduler;
+        public TransactionContext TransactionContext => transactionContext;
 
         /**
-         * Called when a disconnect is detected.
+         * Get disconnected time.
          *
-         * @param eventHub
-         * @throws EventHubException
+         * @return Time in milli seconds disconnect occurred. Zero if never disconnected
          */
-        void disconnected(EventHub eventHub) throws EventHubException;
+        public long DisconnectedTime { get; private set; }
+        
 
-    }
+        /**
+         * Is event hub connected.
+         *
+         * @return boolean if true event hub is connected.
+         */
+        public bool IsConnected => connected;
 
-    /**
-     * Default reconnect event hub implementation.  Applications are free to replace
-     */
+        /**
+         * Get last connect time.
+         *
+         * @return Time in milli seconds the event hub last connected. Zero if never connected.
+         */
+        public long ConnectedTime { get; private set; } = 0;
 
-    protected transient EventHubDisconnected disconnectedHandler = new EventHub.EventHubDisconnected() {
-        @Override
-        public synchronized void disconnected(final EventHub eventHub) {
-            if (reconnectCount == 1) {
-                logger.warn(format("Channel %s detected disconnect on event hub %s (%s)", channel.getName(), eventHub.toString(), url));
+        /**
+         * Get last attempt time to connect the event hub.
+         *
+         * @return Last attempt time to connect the event hub in milli seconds. Zero when never attempted.
+         */
+
+        public long LastConnectedAttempt { get; private set; }
+
+
+        public EventHub(string name, string grpcURL, TaskScheduler scheduler, Dictionary<string, object> properties)  {
+
+            Exception e = Utils.CheckGrpcUrl(grpcURL);
+            if (e != null) {
+                throw new InvalidArgumentException("Bad event hub url.", e);
+
             }
 
-            executorService.execute(() -> {
+            if (string.IsNullOrEmpty(name)) {
+                throw new InvalidArgumentException("Invalid name for eventHub");
+            }
 
-                try {
-                    Thread.sleep(500);
-
-                    if (transactionContext == null) {
-                        logger.warn("Eventhub reconnect failed with no user context");
-                        return;
-                    }
-
-                    eventHub.connect(transactionContext, true);
-
-                } catch (Exception e) {
-
-                    logger.warn(format("Failed %s to reconnect. %s", toString(), e.getMessage()));
-
-                }
-
-            });
+            this.url = grpcURL;
+            this.name = name;
+            this.scheduler = scheduler;
+            this.properties = properties?.DeepClone();
 
         }
-    };
 
-    /**
-     * Set class to handle Event hub disconnects
-     *
-     * @param newEventHubDisconnectedHandler New handler to replace.  If set to null no retry will take place.
-     * @return the old handler.
-     */
+        /**
+         * Create a new instance.
+         *
+         * @param name
+         * @param url
+         * @param properties
+         * @return
+         */
 
-    public EventHubDisconnected setEventHubDisconnectedHandler(EventHubDisconnected newEventHubDisconnectedHandler) {
-        EventHubDisconnected ret = disconnectedHandler;
-        disconnectedHandler = newEventHubDisconnectedHandler;
-        return ret;
+        public static EventHub Create(string name, string url, TaskScheduler executorService, Dictionary<string, object> properties)
+        {
+            return new EventHub(name, url, executorService, properties);
+        }
+
+        /**
+         * Event hub name
+         *
+         * @return event hub name
+         */
+
+        public string Name =>name;
+
+        /**
+         * Event hub properties
+         *
+         * @return Event hub properties
+         * @see HFClient#newEventHub(String, String, Properties)
+         */
+        public Dictionary<string,object> Properties => properties?.DeepClone();
+
+        //private readonly StreamObserver<PeerEvents.Event> eventStream = null; // Saved here to avoid potential garbage collection
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public bool Connect(TransactionContext transactionContext)
+        {
+            return Connect(transactionContext, false);
+        }
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public bool Connect(TransactionContext transactionContext, bool reconnection)
+        {
+            if (connected) {
+                logger.Warn($"{ToString()}%s already connected.");
+                return true;
+            }
+            //eventStream = null;
+
+            CountDownLatch finishLatch = new CountDownLatch(1);
+
+            logger.Debug($"EventHub {name} is connecting.");
+
+            LastConnectedAttempt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            
+            Endpoint endpoint = new Endpoint(url, properties);
+            managedChannel = endpoint.BuildChannel();
+            clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
+            Events.EventsClient events = new Events.EventsClient(managedChannel);
+            var senderLocal = events.Chat();
+            Task.Factory.StartNew(async () =>
+                {
+                    List<Exception> threw=new List<Exception>();
+                    try
+                    {
+                        while (await sender.ResponseStream.MoveNext())
+                        {
+                            Event evnt = senderLocal.ResponseStream.Current;
+                            logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
+                            if (evnt.EventCase == Event.EventOneofCase.Block)
+                            {
+                                try
+                                {
+                                    BlockEvent blockEvent = new BlockEvent(this, evnt);
+                                    SetLastBlockSeen(blockEvent);
+                                    eventQue.AddBEvent(blockEvent);  //add to channel queue
+                                }
+                                catch (InvalidProtocolBufferException e)
+                                {
+                                    EventHubException eventHubException = new EventHubException($"{this.Name} onNext error {e}", e);
+                                    logger.Error(eventHubException.Message);
+                                    threw.Add(eventHubException);
+                                }
+                            }
+                            else if (evnt.EventCase == Event.EventOneofCase.Register)
+                            {
+
+                                if (reconnectCount > 1)
+                                {
+                                    logger.Info($"Eventhub {name} has reconnecting after {reconnectCount} attempts");
+                                }
+
+                                connected = true;
+                                ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                reconnectCount = 0L;
+                                finishLatch.Signal();
+                            }
+                        }
+                        logger.Debug($"Stream completed %s", this.ToString());
+                        finishLatch.Signal();
+                    }
+                    catch (Exception e)
+                    {
+                        connected = false;
+                        if (sender!=null)
+                            sender.Dispose();
+                        sender = null;
+                        DisconnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        if (shutdown)
+                        { //IF we're shutdown don't try anything more.
+                            logger.Trace("${Name} was shutdown.");
+                            finishLatch.Signal();
+                        }
+                        else
+                        {
+                            Grpc.Core.Channel lmanagedChannel = managedChannel;
+                            bool isTerminated = lmanagedChannel == null ? true : lmanagedChannel.State == ChannelState.TransientFailure; //TODO TransientFailure!=Terminated
+                            bool isChannelShutdown = lmanagedChannel == null || lmanagedChannel.State == ChannelState.Shutdown;
+
+                            if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1)
+                            {
+                                logger.Warn($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
+                            }
+                            else
+                            {
+                                logger.Trace($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
+                            }
+
+                            finishLatch.Signal();
+                        }
+                    }                    
+                });
+            try
+            {
+                BlockListen(transactionContext);
+            }
+            catch (CryptoException e)
+            {
+                throw new EventHubException(e);
+            }
+            try
+            {
+
+                //On reconnection don't wait here.
+
+                if (!reconnection && !finishLatch.Wait((int)EVENTHUB_CONNECTION_WAIT_TIME))
+                {
+
+                    logger.Warn($"EventHub {name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
+
+                }
+                else
+                {
+                    logger.Trace("Eventhub {name} Done waiting for reply!");
+                }
+
+            }
+            catch (Exception e)
+            {
+                logger.ErrorException(e.Message,e);
+            }
+
+            logger.Debug($"Eventhub {name} connect is done with connect status: {connected} ");
+
+            if (connected)
+            {
+                sender = senderLocal;
+            }
+
+            return connected;
+        }
+
+        private void Reconnect()
+        {
+
+            Grpc.Core.Channel lmanagedChannel = managedChannel;
+
+            if (lmanagedChannel != null) {
+                managedChannel = null;
+                lmanagedChannel.ShutdownAsync().Wait();
+            }
+
+            IEventHubDisconnected ldisconnectedHandler = disconnectedHandler;
+            if (!shutdown && null != ldisconnectedHandler) {
+                ++reconnectCount;
+                ldisconnectedHandler.Disconnected(this);
+
+            }
+
+        }
+
+        private void BlockListen(TransactionContext transactionContext)
+        {
+
+            this.transactionContext = transactionContext;
+
+            Register register = new Register();
+            register.Events.Add(new Interest { EventType = EventType.Block});
+            Event blockEvent=new Event { Register = register, Creator = transactionContext.Identity.ToByteString(), Timestamp = ProtoUtils.GetCurrentFabricTimestamp()};
+
+            if (null != clientTLSCertificateDigest) {
+                logger.Trace("Setting clientTLSCertificate digest for event registration to " + clientTLSCertificateDigest.ToHexString());
+                blockEvent.TlsCertHash=ByteString.CopyFrom(clientTLSCertificateDigest);
+            }
+
+            ByteString blockEventByteString = blockEvent.ToByteString();
+
+            SignedEvent signedBlockEvent = new SignedEvent { EventBytes = blockEventByteString, Signature = transactionContext.SignByteString(blockEventByteString.ToByteArray())};
+            sender.RequestStream.WriteAsync(signedBlockEvent).Wait();
+        }
+
+        /**
+         * Get the GRPC URL used to connect.
+         *
+         * @return GRPC URL.
+         */
+        public string GetUrl() {
+            return url;
+        }
+
+        /**
+         * Set the channel queue that will receive events
+         *
+         * @param eventQue
+         */
+        public void SetEventQue(Channel.ChannelEventQue eventQue) {
+            this.eventQue = eventQue;
+        }
+
+
+        public override string ToString()
+        {
+            return "EventHub:" + Name;
+        }
+
+        public void Shutdown() {
+            shutdown = true;
+            lastBlockEvent = null;
+            lastBlockNumber = 0;
+            connected = false;
+
+            channel = null;
+            if (sender!=null)
+                sender.Dispose();
+            sender = null;
+            Grpc.Core.Channel lmanagedChannel = managedChannel;
+            managedChannel = null;
+            if (lmanagedChannel != null)
+            {
+                lmanagedChannel.ShutdownAsync().Wait();
+            }
+        }
+
+        public void SetChannel(Channel channel)
+        {
+            if (channel == null) {
+                throw new InvalidArgumentException("setChannel Channel can not be null");
+            }
+
+            if (null != this.channel)
+            {
+                throw new InvalidArgumentException($"Can not add event hub  {name} to channel {channel.Name}%s because it already belongs to channel {this.channel.Name}.");
+            }
+
+            this.channel = channel;
+        }
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void SetLastBlockSeen(BlockEvent lastBlockSeen)
+        {
+            long newLastBlockNumber = lastBlockSeen.BlockNumber;
+            // overkill but make sure.
+            if (lastBlockNumber < newLastBlockNumber) {
+                lastBlockNumber = newLastBlockNumber;
+                this.lastBlockEvent = lastBlockSeen;
+            }
+        }
+
+        /**
+         * Eventhub disconnection notification interface
+         */
+        public interface IEventHubDisconnected {
+
+            /**
+             * Called when a disconnect is detected.
+             *
+             * @param eventHub
+             * @throws EventHubException
+             */
+            void Disconnected(EventHub eventHub);
+
+        }
+
+        public class EventHubDisconnected : IEventHubDisconnected
+        {
+            private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHubDisconnected));
+
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            public void Disconnected(EventHub eventHub)
+            {
+                if (eventHub.reconnectCount == 1)
+                {
+                    logger.Warn($"Channel {eventHub.channel.Name} detected disconnect on event hub {eventHub.ToString()} ({eventHub.url})");
+                }
+
+                Task.Factory.StartNew(async () =>
+                {
+                    await Task.Delay(500);
+                    try
+                    {
+                        if (eventHub.TransactionContext == null)
+                        {
+                            logger.Warn("Eventhub reconnect failed with no user context");
+                        }
+                        else
+                        {
+                            eventHub.Connect(eventHub.TransactionContext, true);
+                        }
+
+
+                    }
+                    catch (Exception e)
+                    {
+
+                        logger.Warn($"Failed {eventHub.ToString()} to reconnect. {e.Message}");
+
+                    }
+                }, default(CancellationToken), TaskCreationOptions.LongRunning, eventHub.Scheduler);
+
+
+            }
+
+            /**
+             * Default reconnect event hub implementation.  Applications are free to replace
+             */
+        }
+
+        protected IEventHubDisconnected disconnectedHandler = new EventHubDisconnected();
+
+
+        /**
+         * Set class to handle Event hub disconnects
+         *
+         * @param newEventHubDisconnectedHandler New handler to replace.  If set to null no retry will take place.
+         * @return the old handler.
+         */
+
+        public IEventHubDisconnected SetEventHubDisconnectedHandler(EventHubDisconnected newEventHubDisconnectedHandler) {
+            IEventHubDisconnected ret = disconnectedHandler;
+            disconnectedHandler = newEventHubDisconnectedHandler;
+            return ret;
+        }
+
     }
-
 }

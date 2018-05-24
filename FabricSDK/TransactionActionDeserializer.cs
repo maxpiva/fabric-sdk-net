@@ -16,30 +16,28 @@
 
 
 using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricTransaction;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class TransactionActionDeserializer : BaseDeserializer<TransactionAction>
     {
+        private readonly WeakItem<ChaincodeActionPayloadDeserializer, TransactionAction> chaincodeActionPayloadDeserializer;
 
-        private WeakReference<ChaincodeActionPayloadDeserializer> chaincodeActionPayloadDeserializer;
-
-        public TransactionActionDeserializer(byte[] byteString) : base(byteString)
+        public TransactionActionDeserializer(ByteString byteString) : base(byteString)
         {
+            chaincodeActionPayloadDeserializer = new WeakItem<ChaincodeActionPayloadDeserializer, TransactionAction>((tac) => new ChaincodeActionPayloadDeserializer(tac.Payload), () => Reference);
         }
 
-        public TransactionActionDeserializer(TransactionAction transactionAction) : base(transactionAction.SerializeProtoBuf())
+        public TransactionActionDeserializer(TransactionAction transactionAction) : base(transactionAction)
         {
-            reference = new WeakReference<TransactionAction>(transactionAction);
+            chaincodeActionPayloadDeserializer = new WeakItem<ChaincodeActionPayloadDeserializer, TransactionAction>((tac) => new ChaincodeActionPayloadDeserializer(tac.Payload), () => Reference);
         }
 
         public TransactionAction TransactionAction => Reference;
 
-        public ChaincodeActionPayloadDeserializer Payload => Payload.GetOrCreateWR(ref chaincodeActionPayloadDeserializer, (payload) => new ChaincodeActionPayloadDeserializer(payload));
-        
+        public ChaincodeActionPayloadDeserializer Payload => chaincodeActionPayloadDeserializer.Reference;
     }
 }

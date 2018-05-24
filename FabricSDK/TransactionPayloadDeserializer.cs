@@ -14,20 +14,21 @@
  *
  */
 
-using System;
-using Hyperledger.Fabric.SDK.NetExtensions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class TransactionPayloadDeserializer : PayloadDeserializer
     {
+        private readonly WeakItem<TransactionDeserializer, Payload> transactionDeserialize;
 
-        private WeakReference<TransactionDeserializer> transactionDeserialize;
-
-        public TransactionPayloadDeserializer(byte[] byteString) : base(byteString)
+        public TransactionPayloadDeserializer(ByteString byteString) : base(byteString)
         {
+            transactionDeserialize = new WeakItem<TransactionDeserializer, Payload>((data) => new TransactionDeserializer(data.Data), () => Payload);
         }
-        public TransactionDeserializer Transaction => Payload.GetOrCreateWR(ref transactionDeserialize, (data) => new TransactionDeserializer(data.Data));
 
+        public TransactionDeserializer Transaction => transactionDeserialize.Reference;
     }
 }

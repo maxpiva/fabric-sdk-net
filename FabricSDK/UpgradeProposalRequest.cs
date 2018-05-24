@@ -12,19 +12,16 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
 
-import java.util.Map;
+using System.Collections.Generic;
+using Hyperledger.Fabric.SDK.Exceptions;
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+namespace Hyperledger.Fabric.SDK
+{
+    public class UpgradeProposalRequest : TransactionRequest {
 
-/**
- * Upgrade chaincode proposal request.
- */
-public class UpgradeProposalRequest extends TransactionRequest {
-
-    UpgradeProposalRequest(User userContext) {
-        super(userContext);
+    public UpgradeProposalRequest(IUser userContext) : base(userContext)
+    { 
     }
 
     /**
@@ -33,12 +30,9 @@ public class UpgradeProposalRequest extends TransactionRequest {
      * @param transientMap Map of strings to bytes that's added to the proposal
      * @throws InvalidArgumentException if the argument is null.
      */
-    public void setTransientMap(Map<String, byte[]> transientMap) throws InvalidArgumentException {
-        if (null == transientMap) {
-
-            throw new InvalidArgumentException("Transient map may not be set to null");
-
-        }
-        this.transientMap = transientMap;
+    public void SetTransientMap(Dictionary<string, byte[]> transientMap)
+    {
+        this.transientMap = transientMap ?? throw new InvalidArgumentException("Transient map may not be set to null");
     }
+}
 }

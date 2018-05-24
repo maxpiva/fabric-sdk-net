@@ -16,11 +16,10 @@
 
 using System;
 using System.Collections.Generic;
+using Hyperledger.Fabric.Protos.Ledger.Rwset;
+using Hyperledger.Fabric.Protos.Ledger.Rwset.Kvrwset;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Kvrwset;
-using Hyperledger.Fabric.SDK.Protos.Ledger.Rwset;
-using Hyperledger.Fabric.SDK.Protos.Ledger.Rwset.Kvrwset;
+
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -32,9 +31,9 @@ namespace Hyperledger.Fabric.SDK
             this.txReadWriteSet = txReadWriteSet;
         }
 
-        public int NsRwsetCount => txReadWriteSet.NsRwsets.Count;
-
-        public NsRwsetInfo GetNsRwsetInfo(int index) => new NsRwsetInfo(txReadWriteSet.NsRwsets[index]);
+        public int NsRwsetCount => txReadWriteSet.NsRwset.Count;
+        
+        public NsRwsetInfo GetNsRwsetInfo(int index) => new NsRwsetInfo(txReadWriteSet.NsRwset[index]);
 
         public IEnumerable<NsRwsetInfo> NsRwsetInfos => new BaseCollection<NsRwsetInfo>(()=>NsRwsetCount,GetNsRwsetInfo);
 
@@ -47,7 +46,7 @@ namespace Hyperledger.Fabric.SDK
                 this.nsReadWriteSet = nsReadWriteSet;
             }
 
-            public KVRWSet Rwset => nsReadWriteSet.Rwset.DeserializeProtoBuf<KVRWSet>();
+            public KVRWSet Rwset => KVRWSet.Parser.ParseFrom(nsReadWriteSet.Rwset);
             public string Namespace => nsReadWriteSet.Namespace;
 
         }

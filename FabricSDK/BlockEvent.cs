@@ -12,7 +12,12 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Protos.Peer;
+
+using System.Collections.Generic;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer.PeerEvents;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -23,59 +28,59 @@ namespace Hyperledger.Fabric.SDK
      */
     public class BlockEvent : BlockInfo
     {
-//    private static final Log logger = LogFactory.getLog(BlockEvent.class);
+    //    private static final Log logger = LogFactory.getLog(BlockEvent.class);
 
-    private readonly EventHub eventHub;
-    private readonly Peer peer;
-    private readonly Event evnt;
+        private readonly EventHub eventHub;
+        private readonly Peer peer;
+        private readonly Event evnt;
 
-    /**
-     * creates a BlockEvent object by parsing the input Block and retrieving its constituent Transactions
-     *
-     * @param eventHub a Hyperledger Fabric Block message
-     * @throws InvalidProtocolBufferException
-     * @see Block
-     */
-    public BlockEvent(EventHub eventHub, Event evnt) : base(evnt.Block)
-    {
-        this.eventHub = eventHub;
-        this.peer = null;
-        this.evnt = evnt;
-    }
+        /**
+         * creates a BlockEvent object by parsing the input Block and retrieving its constituent Transactions
+         *
+         * @param eventHub a Hyperledger Fabric Block message
+         * @throws InvalidProtocolBufferException
+         * @see Block
+         */
+        public BlockEvent(EventHub eventHub, Event evnt) : base(evnt.Block)
+        {
+            this.eventHub = eventHub;
+            this.peer = null;
+            this.evnt = evnt;
+        }
 
-    public BlockEvent(Peer peer, DeliverResponse resp) : base(resp) {
-        eventHub = null;
-        this.peer = peer;
-        this.evnt = null;
+        public BlockEvent(Peer peer, DeliverResponse resp) : base(resp) {
+            eventHub = null;
+            this.peer = peer;
+            this.evnt = null;
 
-    }
+        }
 
-    /**
-     * Get the Event Hub that received the event.
-     *
-     * @return an Event Hub. Maybe null if new peer eventing services is being used.
-     * @deprecated Use new peer eventing services
-     */
-    public EventHub EventHub =>eventHub;
+        /**
+         * Get the Event Hub that received the event.
+         *
+         * @return an Event Hub. Maybe null if new peer eventing services is being used.
+         * @deprecated Use new peer eventing services
+         */
+        public EventHub EventHub =>eventHub;
 
-    /**
-     * The Peer that received this event.
-     *
-     * @return Peer that received this event. Maybe null if source is legacy event hub.
-     */
-    public Peer Peer => peer;
+        /**
+         * The Peer that received this event.
+         *
+         * @return Peer that received this event. Maybe null if source is legacy event hub.
+         */
+        public Peer Peer => peer;
 
-//    /**
-//     * Raw proto buff event.
-//     *
-//     * @return Return raw protobuf event.
-//     */
-//
-//    public Event getEvent() {
-//        return event;
-//    }
+    //    /**
+    //     * Raw proto buff event.
+    //     *
+    //     * @return Return raw protobuf event.
+    //     */
+    //
+    //    public Event getEvent() {
+    //        return event;
+    //    }
 
-        private bool IsBlockEvent
+        public bool IsBlockEvent
         {
             get
             {
@@ -83,130 +88,60 @@ namespace Hyperledger.Fabric.SDK
                 {
                     return true; //peer always returns Block type events;
                 }
-                return evnt != null && evnt.ShouldSerializeBlock();
+
+                return evnt != null && evnt.EventCase == Event.EventOneofCase.Block;
             }
         }
-    TransactionEvent TransactionEvent(int index)
-    {
-        TransactionEvent ret = null;
-
-        EnvelopeInfo envelopeInfo = getEnvelopeInfo(index);
-        if (envelopeInfo.getType() == EnvelopeType.TRANSACTION_ENVELOPE) {
-            if (isFiltered()) {
-                ret = new TransactionEvent(getEnvelopeInfo(index).filteredTx);
-            } else {
-                ret = new TransactionEvent((TransactionEnvelopeInfo) getEnvelopeInfo(index));
-            }
-        }
-
-        return ret;
-    }
-
-    public class TransactionEvent extends TransactionEnvelopeInfo {
-        TransactionEvent(TransactionEnvelopeInfo transactionEnvelopeInfo) {
-            super(transactionEnvelopeInfo.getTransactionDeserializer());
-        }
-
-        TransactionEvent(PeerEvents.FilteredTransaction filteredTransaction) {
-            super(filteredTransaction);
-        }
-
-        /**
-         * The BlockEvent for this TransactionEvent.
-         *
-         * @return BlockEvent for this transaction.
-         */
-
-        public BlockEvent getBlockEvent() {
-
-            return BlockEvent.this;
-
-        }
-
-        /**
-         * The event hub that received this event.
-         *
-         * @return May return null if peer eventing service detected the event.
-         * @deprecated use new peer eventing services {@link #getPeer()}
-         */
-
-        public EventHub getEventHub() {
-
-            return BlockEvent.this.getEventHub();
-        }
-
-        /**
-         * The peer that received this event.
-         *
-         * @return May return null if deprecated eventhubs are still being used, otherwise return the peer.
-         */
-
-        public Peer getPeer() {
-
-            return BlockEvent.this.getPeer();
-        }
-    }
-
-    List<TransactionEvent> getTransactionEventsList() {
-
-        ArrayList<TransactionEvent> ret = new ArrayList<TransactionEvent>(getTransactionCount());
-        for (TransactionEvent transactionEvent : getTransactionEvents()) {
-            ret.add(transactionEvent);
-        }
-
-        return ret;
-
-    }
-
-    public Iterable<TransactionEvent> getTransactionEvents() {
-
-        return new TransactionEventIterable();
-
-    }
-
-    class TransactionEventIterator implements Iterator<TransactionEvent> {
-        final int max;
-        int ci = 0;
-        int returned = 0;
-
-        TransactionEventIterator() {
-            max = getTransactionCount();
-        }
-
-        @Override
-        public boolean hasNext() {
-            return returned < max;
-
-        }
-
-        @Override
-        public TransactionEvent next() {
-
+        public TransactionEvent GetTransactionEvent(int index)
+        {
             TransactionEvent ret = null;
-            // Filter for only transactions but today it's not really needed.
-            //  Blocks with transactions only has transactions or a single pdate.
-            try {
-                do {
 
-                    ret = getTransactionEvent(ci++);
-
-                } while (ret == null);
-
-            } catch (InvalidProtocolBufferException e) {
-                throw new InvalidProtocolBufferRuntimeException(e);
+            EnvelopeInfo envelopeInfo = GetEnvelopeInfo(index);
+            if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
+            {
+                ret = IsFiltered ? new TransactionEvent(this, envelopeInfo.FilteredTX) : new TransactionEvent(this,(TransactionEnvelopeInfo)envelopeInfo);
             }
-            ++returned;
+
             return ret;
         }
-    }
 
-    class TransactionEventIterable implements Iterable<TransactionEvent> {
+        public class TransactionEvent : TransactionEnvelopeInfo
+        {
 
-        @Override
-        public Iterator<TransactionEvent> iterator() {
-            return new TransactionEventIterator();
+            public TransactionEvent(BlockEvent evnt, TransactionEnvelopeInfo transactionEnvelopeInfo) : base(evnt, transactionEnvelopeInfo.TransactionDeserializer) {
+            }
+
+            public TransactionEvent(BlockEvent evnt, FilteredTransaction filteredTransaction) : base(evnt, filteredTransaction)
+            { 
+            }
+
+            /**
+             * The BlockEvent for this TransactionEvent.
+             *
+             * @return BlockEvent for this transaction.
+             */
+
+            public BlockEvent BlockEvent => (BlockEvent)parent;
+
+            /**
+             * The event hub that received this event.
+             *
+             * @return May return null if peer eventing service detected the event.
+             * @deprecated use new peer eventing services {@link #getPeer()}
+             */
+
+            public EventHub EventHub => BlockEvent.EventHub;
+
+            /**
+             * The peer that received this event.
+             *
+             * @return May return null if deprecated eventhubs are still being used, otherwise return the peer.
+             */
+
+            public Peer Peer => BlockEvent.Peer;
         }
-    }
 
-} // BlockEvent
+        public IEnumerable<TransactionEvent> GetTransactionEventsList => new BaseCollection<TransactionEvent>(()=>TransactionCount,GetTransactionEvent);
+
+    } // BlockEvent
 }

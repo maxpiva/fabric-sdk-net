@@ -38,20 +38,17 @@ import static org.hyperledger.fabric.sdk.BlockInfo.EnvelopeType.TRANSACTION_ENVE
 */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Text;
-using Hyperledger.Fabric.SDK;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Ledger.Rwset;
+using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
+using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.Protos.Ledger.Rwset;
-using Hyperledger.Fabric.SDK.Protos.Msp;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricTransaction;
-using Hyperledger.Fabric.SDK.Transaction;
-
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -67,20 +64,19 @@ namespace Hyperledger.Fabric.SDK
     public class BlockInfo
     {
         private readonly BlockDeserializer block; //can be only one or the other.
-        private readonly Protos.Peer.FilteredBlock filteredBlock;
+        private readonly FilteredBlock filteredBlock;
+
+        private int transactionCount = -1;
 
         public BlockInfo(Block block)
         {
-
             filteredBlock = null;
             this.block = new BlockDeserializer(block);
         }
 
         public BlockInfo(DeliverResponse resp)
         {
-
-
-            if (resp.ShouldSerializeBlock())
+            if (resp.TypeCase == DeliverResponse.TypeOneofCase.Block)
             {
                 Block respBlock = resp.Block;
                 filteredBlock = null;
@@ -89,9 +85,9 @@ namespace Hyperledger.Fabric.SDK
                     throw new ArgumentNullException("DeliverResponse type block but block is null");
                 }
 
-                this.block = new BlockDeserializer(respBlock);
+                block = new BlockDeserializer(respBlock);
             }
-            else if (resp.ShouldSerializeFilteredBlock())
+            else if (resp.TypeCase == DeliverResponse.TypeOneofCase.FilteredBlock)
             {
                 filteredBlock = resp.FilteredBlock;
                 block = null;
@@ -99,13 +95,11 @@ namespace Hyperledger.Fabric.SDK
                 {
                     throw new ArgumentNullException("DeliverResponse type filter block but filter block is null");
                 }
-
             }
             else
             {
                 throw new ArgumentException($"DeliverResponse type has unexpected type");
             }
-
         }
 
         public bool IsFiltered
@@ -142,12 +136,12 @@ namespace Hyperledger.Fabric.SDK
         /**
          * @return the {@link Block} previousHash value and null if filtered block.
          */
-        public byte[] PreviousHash => IsFiltered ? null : block.PreviousHash;
+        public byte[] PreviousHash => IsFiltered ? null : block.PreviousHash.ToByteArray();
 
         /**
          * @return the {@link Block} data hash value and null if filtered block.
          */
-        public byte[] DataHash => IsFiltered ? null : block.DataHash;
+        public byte[] DataHash => IsFiltered ? null : block.DataHash.ToByteArray();
 
 
         /**
@@ -159,7 +153,7 @@ namespace Hyperledger.Fabric.SDK
         /**
          * @return the {@link Block} index number
          */
-        public long BlockNumber => IsFiltered ? (long) filteredBlock.Number : (long) block.Number;
+        public long BlockNumber => IsFiltered ? (long) filteredBlock.Number : block.Number;
 
 
         /**
@@ -168,9 +162,7 @@ namespace Hyperledger.Fabric.SDK
          * @return the number of transactions in this block.
          */
 
-        public int EnvelopeCount => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Datas.Count;
-
-        private int transactionCount = -1;
+        public int EnvelopeCount => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Data.Count;
 
         /**
          * Number of endorser transaction found in the block.
@@ -184,7 +176,6 @@ namespace Hyperledger.Fabric.SDK
             {
                 if (IsFiltered)
                 {
-
                     int ltransactionCount = transactionCount;
                     if (ltransactionCount < 0)
                     {
@@ -208,7 +199,6 @@ namespace Hyperledger.Fabric.SDK
                     int ltransactionCount = transactionCount;
                     if (ltransactionCount < 0)
                     {
-
                         ltransactionCount = 0;
                         for (int i = EnvelopeCount - 1; i >= 0; --i)
                         {
@@ -231,10 +221,60 @@ namespace Hyperledger.Fabric.SDK
 
                     return transactionCount;
                 }
-
             }
         }
 
+        public IEnumerable<EnvelopeInfo> EnvelopeInfos => new BaseCollection<EnvelopeInfo>(() => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Data.Count, GetEnvelopeInfo);
+
+
+        /**
+         * Return a specific envelope in the block by it's index.
+         *
+         * @param envelopeIndex
+         * @return EnvelopeInfo that contains information on the envelope.
+         * @throws InvalidProtocolBufferException
+         */
+
+        public EnvelopeInfo GetEnvelopeInfo(int envelopeIndex)
+        {
+            try
+            {
+                EnvelopeInfo ret;
+
+                if (IsFiltered)
+                {
+                    switch (filteredBlock.FilteredTransactions[envelopeIndex].Type)
+                    {
+                        case HeaderType.EndorserTransaction:
+                            ret = new TransactionEnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
+                            break;
+                        default: //just assume base properties.
+                            ret = new EnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
+                            break;
+                    }
+                }
+                else
+                {
+                    EnvelopeDeserializer ed = EnvelopeDeserializer.Create(block.Block.Data.Data[envelopeIndex], block.TransActionsMetaData[envelopeIndex]);
+
+                    switch (ed.Type)
+                    {
+                        case (int) HeaderType.EndorserTransaction:
+                            ret = new TransactionEnvelopeInfo(this, (EndorserTransactionEnvDeserializer) ed);
+                            break;
+                        default: //just assume base properties.
+                            ret = new EnvelopeInfo(this, ed);
+                            break;
+                    }
+                }
+
+                return ret;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
 
 
         /**
@@ -244,16 +284,9 @@ namespace Hyperledger.Fabric.SDK
         public class EnvelopeInfo
         {
             private readonly EnvelopeDeserializer envelopeDeserializer;
-            private readonly HeaderDeserializer headerDeserializer;
             protected readonly FilteredTransaction filteredTx;
+            private readonly HeaderDeserializer headerDeserializer;
             protected readonly BlockInfo parent;
-
-            /**
-             * This block is filtered
-             *
-             * @return true if it's filtered.
-             */
-            public bool IsFiltered => filteredTx != null;
 
             //private final EnvelopeDeserializer envelopeDeserializer;
 
@@ -271,42 +304,22 @@ namespace Hyperledger.Fabric.SDK
                 envelopeDeserializer = null;
                 headerDeserializer = null;
                 this.parent = parent;
-
             }
 
+            /**
+             * This block is filtered
+             *
+             * @return true if it's filtered.
+             */
+            public bool IsFiltered => filteredTx != null;
+
+            public FilteredTransaction FilteredTX => filteredTx;
             /**
              * Get channel id
              *
              * @return The channel id also referred to as channel name.
              */
             public string ChannelId => parent.IsFiltered ? parent.FilteredBlock.ChannelId : headerDeserializer.ChannelHeader.ChannelId;
-
-
-            public class IdentitiesInfo
-            {
-                /**
-                 * The MSPId of the user.
-                 *
-                 * @return The MSPid of the user.
-                 */
-                public string Mspid { get; private set; }
-
-                /**
-                 * The identification of the identity usually the certificate.
-                 *
-                 * @return The certificate of the user in PEM format.
-                 */
-                public string Id { get; private set; }
-
-
-
-                public IdentitiesInfo(SerializedIdentity identity)
-                {
-                    Mspid = identity.Mspid;
-                    Id = Encoding.UTF8.GetString(identity.IdBytes);
-                }
-
-            }
 
             /**
              * This is the creator or submitter of the transaction.
@@ -344,12 +357,20 @@ namespace Hyperledger.Fabric.SDK
              * @return timestamp and null if filtered block.
              */
 
-            public DateTime? Timestamp => parent.IsFiltered ? null : headerDeserializer.ChannelHeader.Timestamp;
+            public DateTime? Timestamp
+            {
+                get
+                {
+                    if (parent.IsFiltered)
+                        return null;
+                    return headerDeserializer.ChannelHeader.Timestamp.ToDateTime();
+                }
+            }
 
             /**
              * @return whether this Transaction is marked as TxValidationCode.VALID
              */
-            public bool IsValid => parent.IsFiltered ? (filteredTx.TxValidationCode == TxValidationCode.Valid) : envelopeDeserializer.IsValid;
+            public bool IsValid => parent.IsFiltered ? filteredTx.TxValidationCode == TxValidationCode.Valid : envelopeDeserializer.IsValid;
 
             /**
              * @return the validation code of this Transaction (enumeration TxValidationCode in Transaction.proto)
@@ -364,14 +385,11 @@ namespace Hyperledger.Fabric.SDK
 
                     if (parent.IsFiltered)
                     {
-
                         type = (int) filteredTx.Type;
-
                     }
                     else
                     {
                         type = headerDeserializer.ChannelHeader.Type;
-
                     }
 
                     switch (type)
@@ -386,67 +404,28 @@ namespace Hyperledger.Fabric.SDK
             }
 
 
-
-        }
-
-
-
-        /**
-         * Return a specific envelope in the block by it's index.
-         *
-         * @param envelopeIndex
-         * @return EnvelopeInfo that contains information on the envelope.
-         * @throws InvalidProtocolBufferException
-         */
-
-        public EnvelopeInfo GetEnvelopeInfo(int envelopeIndex)
-        {
-
-            try
+            public class IdentitiesInfo
             {
-
-                EnvelopeInfo ret;
-
-                if (IsFiltered)
+                public IdentitiesInfo(SerializedIdentity identity)
                 {
-
-                    switch (filteredBlock.FilteredTransactions[envelopeIndex].Type)
-                    {
-                        case HeaderType.EndorserTransaction:
-                            ret = new TransactionEnvelopeInfo(this, this.filteredBlock.FilteredTransactions[envelopeIndex]);
-                            break;
-                        default: //just assume base properties.
-                            ret = new EnvelopeInfo(this, this.filteredBlock.FilteredTransactions[envelopeIndex]);
-                            break;
-                    }
-
-                }
-                else
-                {
-
-                    EnvelopeDeserializer ed = EnvelopeDeserializer.Create(block.Block.Data.Datas[envelopeIndex], block.TransActionsMetaData[envelopeIndex]);
-
-                    switch (ed.Type)
-                    {
-                        case (int) HeaderType.EndorserTransaction:
-                            ret = new TransactionEnvelopeInfo(this, (EndorserTransactionEnvDeserializer) ed);
-                            break;
-                        default: //just assume base properties.
-                            ret = new EnvelopeInfo(this, ed);
-                            break;
-
-                    }
-
+                    Mspid = identity.Mspid;
+                    Id = identity.IdBytes.ToStringUtf8();
                 }
 
-                return ret;
+                /**
+                 * The MSPId of the user.
+                 *
+                 * @return The MSPid of the user.
+                 */
+                public string Mspid { get; }
 
+                /**
+                 * The identification of the identity usually the certificate.
+                 *
+                 * @return The certificate of the user in PEM format.
+                 */
+                public string Id { get; }
             }
-            catch (Exception e)
-            {
-                throw e;
-            }
-
         }
 
         /**
@@ -456,14 +435,18 @@ namespace Hyperledger.Fabric.SDK
          */
 
 
-
         public class TransactionEnvelopeInfo : EnvelopeInfo
         {
             protected readonly EndorserTransactionEnvDeserializer transactionDeserializer;
 
             public TransactionEnvelopeInfo(BlockInfo parent, FilteredTransaction filteredTx) : base(parent, filteredTx)
             {
-                this.transactionDeserializer = null;
+                transactionDeserializer = null;
+            }
+
+            public TransactionEnvelopeInfo(BlockInfo parent, EndorserTransactionEnvDeserializer transactionDeserializer) : base(parent, transactionDeserializer)
+            {
+                this.transactionDeserializer = transactionDeserializer;
             }
 
             /**
@@ -473,33 +456,30 @@ namespace Hyperledger.Fabric.SDK
              */
             public byte[] Signature => transactionDeserializer.Signature;
 
-            public TransactionEnvelopeInfo(BlockInfo parent, EndorserTransactionEnvDeserializer transactionDeserializer) : base(parent, transactionDeserializer)
-            {
-
-                this.transactionDeserializer = transactionDeserializer;
-            }
-
             public EndorserTransactionEnvDeserializer TransactionDeserializer => transactionDeserializer;
 
             public int TransactionActionInfoCount => parent.IsFiltered ? filteredTx.TransactionActions.ChaincodeActions.Count : transactionDeserializer.Payload.Transaction.ActionsCount;
 
+            public TransactionActionInfo GetTransactionActionInfo(int index)
+            {
+                return parent.IsFiltered ? new TransactionActionInfo(parent, filteredTx.TransactionActions.ChaincodeActions[index]) : new TransactionActionInfo(parent, transactionDeserializer.Payload.Transaction.GetTransactionAction(index));
+            }
 
+            public IEnumerable<TransactionActionInfo> TransactionActionInfos => new BaseCollection<TransactionActionInfo>(() => TransactionActionInfoCount, GetTransactionActionInfo);
 
             public class TransactionActionInfo
             {
-                private BlockInfo parent;
-                private readonly TransactionActionDeserializer transactionAction;
                 private readonly FilteredChaincodeAction filteredAction;
-                private WeakCache<EndorserInfo, int> infos = new WeakCache<EndorserInfo, int>();
-
-                public bool IsFiltered => filteredAction != null;
+                private readonly TransactionActionDeserializer transactionAction;
+                private readonly WeakDictionary<int, EndorserInfo> infos;
+                private readonly BlockInfo parent;
 
                 public TransactionActionInfo(BlockInfo parent, TransactionActionDeserializer transactionAction)
                 {
                     this.parent = parent;
                     this.transactionAction = transactionAction;
                     filteredAction = null;
-                    infos.SetCreationFunction((index) => new EndorserInfo(transactionAction.Payload.Action.ChaincodeEndorsedAction.Endorsements[index]));
+                    infos = new WeakDictionary<int, EndorserInfo>((index) => new EndorserInfo(transactionAction.Payload.Action.ChaincodeEndorsedAction.Endorsements[index]));
                 }
 
                 public TransactionActionInfo(BlockInfo parent, FilteredChaincodeAction filteredAction)
@@ -507,8 +487,10 @@ namespace Hyperledger.Fabric.SDK
                     this.parent = parent;
                     this.filteredAction = filteredAction;
                     transactionAction = null;
-                    infos.SetCreationFunction((index) => new EndorserInfo(transactionAction.Payload.Action.ChaincodeEndorsedAction.Endorsements[index]));
+                    infos = new WeakDictionary<int, EndorserInfo>((index) => new EndorserInfo(transactionAction.Payload.Action.ChaincodeEndorsedAction.Endorsements[index]));
                 }
+
+                public bool IsFiltered => filteredAction != null;
 
                 public byte[] ResponseMessageBytes => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponseMessage.ToBytes();
 
@@ -516,14 +498,11 @@ namespace Hyperledger.Fabric.SDK
 
                 public int ResponseStatus => IsFiltered ? -1 : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponseStatus;
                 public int ChaincodeInputArgsCount => IsFiltered ? 0 : transactionAction.Payload.ChaincodeProposalPayload.ChaincodeInvocationSpec.ChaincodeInput.ChaincodeInput.Args.Count;
-                public byte[] GetChaincodeInputArgs(int index) => IsFiltered ? null : transactionAction.Payload.ChaincodeProposalPayload.ChaincodeInvocationSpec.ChaincodeInput.ChaincodeInput.Args[index];
                 public int EndorsementsCount => IsFiltered ? 0 : transactionAction.Payload.Action.EndorsementsCount;
-
-                public EndorserInfo GetEndorsementInfo(int index) => IsFiltered ? null : infos.Get(index);
 
                 public byte[] ProposalResponseMessageBytes => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponseMessage.ToBytes();
 
-                public byte[] ProposalResponsePayload => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponsePayload;
+                public byte[] ProposalResponsePayload => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponsePayload?.ToByteArray();
 
                 public int ProposalResponseStatus => IsFiltered ? -1 : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponseStatus;
 
@@ -541,7 +520,6 @@ namespace Hyperledger.Fabric.SDK
                         if (parent.IsFiltered)
                         {
                             return null;
-
                         }
 
                         TxReadWriteSet txReadWriteSet = transactionAction.Payload.Action.ProposalResponsePayload.Extension.Results;
@@ -551,7 +529,6 @@ namespace Hyperledger.Fabric.SDK
                         }
 
                         return new TxReadWriteSetInfo(txReadWriteSet);
-
                     }
                 }
 
@@ -561,20 +538,21 @@ namespace Hyperledger.Fabric.SDK
                  * @return A chaincode event if the chaincode set an event otherwise null.
                  */
 
-                public ChaincodeEvent Event
+                public ChaincodeEventDeserializer Event
                 {
                     get
                     {
                         if (IsFiltered)
-                            return new ChaincodeEvent(filteredAction.ChaincodeEvent.SerializeProtoBuf());
+                            return new ChaincodeEventDeserializer(filteredAction.ChaincodeEvent.ToByteString());
                         return transactionAction.Payload.Action.ProposalResponsePayload.Extension.Event;
                     }
-
                 }
+
+                public byte[] GetChaincodeInputArgs(int index) => IsFiltered ? null : transactionAction.Payload.ChaincodeProposalPayload.ChaincodeInvocationSpec.ChaincodeInput.ChaincodeInput.Args[index].ToByteArray();
+
+                public EndorserInfo GetEndorsementInfo(int index) => IsFiltered ? null : infos.Get(index);
             }
         }
-
-        public IEnumerable<EnvelopeInfo> EnvelopeInfos => new BaseCollection<EnvelopeInfo>(() => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Datas.Count, GetEnvelopeInfo);
 
 
         public class EndorserInfo
@@ -583,21 +561,20 @@ namespace Hyperledger.Fabric.SDK
 
             public EndorserInfo(Endorsement endorsement)
             {
-
                 this.endorsement = endorsement;
             }
 
-            public byte[] Signature => endorsement.Signature;
+            public byte[] Signature => endorsement.Signature.ToByteArray();
 
             /**
              * @return
              * @deprecated use getId and getMspid
              */
-            public byte[] Endorser => endorsement.Endorser;
+            public byte[] Endorser => endorsement.Endorser.ToByteArray();
 
-            public string Id => endorsement.Endorser.DeserializeProtoBuf<SerializedIdentity>().IdBytes.ToUTF8String();
+            public string Id => SerializedIdentity.Parser.ParseFrom(endorsement.Endorser).IdBytes.ToStringUtf8();
 
-            public string Mspid => endorsement.Endorser.DeserializeProtoBuf<SerializedIdentity>().Mspid;
+            public string Mspid => SerializedIdentity.Parser.ParseFrom(endorsement.Endorser).Mspid;
         }
     }
 }

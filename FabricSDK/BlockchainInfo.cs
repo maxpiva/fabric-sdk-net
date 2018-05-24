@@ -12,7 +12,7 @@
  *  limitations under the License.
  */
 
-
+ using Hyperledger.Fabric.Protos.Common;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -21,33 +21,30 @@ namespace Hyperledger.Fabric.SDK
 	 */
     public class BlockchainInfo
     {
-
-        private Protos.Common.BlockchainInfo blockchainInfo;
-
         public BlockchainInfo(Protos.Common.BlockchainInfo blockchainInfo)
         {
-            this.blockchainInfo = blockchainInfo;
+            this.ProtoBlockchainInfo = blockchainInfo;
         }
 
         /**
          * @return the current ledger blocks height
          */
-        public long Height => blockchainInfo.Height;
+        public long Height => (long)ProtoBlockchainInfo.Height;
 
         /**
          * @return the current bloch hash
          */
-        public byte[] CurrentBlockHash => blockchainInfo.currentBlockHash;
+        public byte[] CurrentBlockHash => ProtoBlockchainInfo.CurrentBlockHash.ToByteArray();
 
         /**
          * @return the previous block hash
          */
-        public byte[] PreviousBlockHash => blockchainInfo.previousBlockHash;
+        public byte[] PreviousBlockHash => ProtoBlockchainInfo.PreviousBlockHash.ToByteArray();
 
         /**
          * @return the protobuf BlockchainInfo struct this object is based on.
          */
-        public Protos.Common.BlockchainInfo ProtoBlockchainInfo => blockchainInfo;
+        public Protos.Common.BlockchainInfo ProtoBlockchainInfo { get; }
     }
 }
 

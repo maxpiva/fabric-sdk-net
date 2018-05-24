@@ -17,14 +17,14 @@ namespace Hyperledger.Fabric.SDK.Exceptions
 {
     public class TransactionEventException : TransactionException
     {
-        public TransactionEvent TransactionEvent { get; }
+        public BlockEvent.TransactionEvent TransactionEvent { get; }
         /**
            * save the TransactionEvent in the exception so that caller can use for debugging
            *
            * @param message
            * @param transactionEvent
            */
-        public TransactionEventException(string message, TransactionEvent transactionEvent) : base(message)
+        public TransactionEventException(string message, BlockEvent.TransactionEvent transactionEvent) : base(message)
         {
             TransactionEvent = transactionEvent;
         }
@@ -35,7 +35,7 @@ namespace Hyperledger.Fabric.SDK.Exceptions
          * @param transactionEvent
          * @param throwable
          */
-        public TransactionEventException(string message, TransactionEvent transactionEvent, Exception parent) : base(message,parent)
+        public TransactionEventException(string message, BlockEvent.TransactionEvent transactionEvent, Exception parent) : base(message,parent)
         {
             TransactionEvent = transactionEvent;
         }

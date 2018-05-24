@@ -14,25 +14,25 @@
  *
  */
 
-using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricTransaction;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ChaincodeActionPayloadDeserializer : BaseDeserializer<ChaincodeActionPayload>
     {
-        private WeakReference<ChaincodeEndorsedActionDeserializer> chaincodeEndorsedActionDeserializer;
-        private WeakReference<ChaincodeProposalPayloadDeserializer> chaincodeProposalPayloadDeserializer;
+        private readonly WeakItem<ChaincodeEndorsedActionDeserializer, ChaincodeActionPayload> chaincodeEndorsedActionDeserializer;
+        private readonly WeakItem<ChaincodeProposalPayloadDeserializer, ChaincodeActionPayload> chaincodeProposalPayloadDeserializer;
 
-        public ChaincodeActionPayloadDeserializer(byte[] byteString) : base(byteString)
+        public ChaincodeActionPayloadDeserializer(ByteString byteString) : base(byteString)
         {
+            chaincodeEndorsedActionDeserializer = new WeakItem<ChaincodeEndorsedActionDeserializer, ChaincodeActionPayload>((action) => new ChaincodeEndorsedActionDeserializer(action.Action), () => Reference);
+            chaincodeProposalPayloadDeserializer = new WeakItem<ChaincodeProposalPayloadDeserializer, ChaincodeActionPayload>((payload) => new ChaincodeProposalPayloadDeserializer(payload.ChaincodeProposalPayload), () => Reference);
         }
 
         public ChaincodeActionPayload ChaincodeActionPayload => Reference;
-        public ChaincodeEndorsedActionDeserializer Action => ChaincodeActionPayload.Action.GetOrCreateWR(ref chaincodeEndorsedActionDeserializer, (action) => new ChaincodeEndorsedActionDeserializer(action));
-        public ChaincodeProposalPayloadDeserializer ChaincodeProposalPayload => ChaincodeActionPayload.ChaincodeProposalPayload.GetOrCreateWR(ref chaincodeProposalPayloadDeserializer, (payload) => new ChaincodeProposalPayloadDeserializer(payload));
+        public ChaincodeEndorsedActionDeserializer Action => chaincodeEndorsedActionDeserializer.Reference;
+        public ChaincodeProposalPayloadDeserializer ChaincodeProposalPayload => chaincodeProposalPayloadDeserializer.Reference;
     }
 }

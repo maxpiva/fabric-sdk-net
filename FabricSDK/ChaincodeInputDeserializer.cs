@@ -14,24 +14,19 @@
  *
  */
 
-using System;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ChaincodeInputDeserializer : BaseDeserializer<ChaincodeInput>
     {
-
-        public ChaincodeInputDeserializer(ChaincodeInput chaincodeInput) : base(chaincodeInput.SerializeProtoBuf())
+        public ChaincodeInputDeserializer(ChaincodeInput chaincodeInput) : base(chaincodeInput.ToByteString())
         {
-            this.reference=new WeakReference<ChaincodeInput>(chaincodeInput);
+            Reference = chaincodeInput;
         }
 
         public ChaincodeInput ChaincodeInput => Reference;
-
     }
-
 }

@@ -28,6 +28,6 @@ namespace Hyperledger.Fabric.SDK
          * @param blockEvent     The block event information that contained the chaincode event. See {@link BlockEvent}
          * @param chaincodeEvent The chaincode event. see {@link ChaincodeEvent}
          */
-        void Received(string handle, BlockEvent blockEvent, ChaincodeEvent chaincodeEvent);
+        void Received(string handle, BlockEvent blockEvent, ChaincodeEventDeserializer chaincodeEvent);
     }
 }

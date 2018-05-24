@@ -12,8 +12,8 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {
@@ -31,7 +31,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
 
         public override Proposal Build()
         {
-            CcType(ChaincodeSpec.Type.Golang);
+            CcType(ChaincodeSpec.Types.Type.Golang);
             ChaincodeID(CHAINCODE_ID_CSCC);
             return base.Build();
         }

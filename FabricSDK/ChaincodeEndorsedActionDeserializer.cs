@@ -16,36 +16,36 @@
 
 using System;
 using System.Collections.Generic;
-using Hyperledger.Fabric.SDK.Exceptions;
+using System.Linq;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricTransaction;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class ChaincodeEndorsedActionDeserializer : BaseDeserializer<ChaincodeEndorsedAction>
     {
-        private WeakReference<ProposalResponsePayloadDeserializer> proposalResponsePayload;
+        private readonly WeakItem<ProposalResponsePayloadDeserializer, ChaincodeEndorsedAction> proposalResponsePayload;
 
-        public ChaincodeEndorsedActionDeserializer(ChaincodeEndorsedAction action) : base(action.SerializeProtoBuf())
+        public ChaincodeEndorsedActionDeserializer(ChaincodeEndorsedAction action) : base(action.ToByteString())
         {
             reference = new WeakReference<ChaincodeEndorsedAction>(action);
+            proposalResponsePayload = new WeakItem<ProposalResponsePayloadDeserializer, ChaincodeEndorsedAction>((payload) => new ProposalResponsePayloadDeserializer(payload.ProposalResponsePayload), () => Reference);
         }
 
-        public ChaincodeEndorsedAction ChaincodeEndorsedAction => byteString.GetOrDeserializeProtoBufWR(ref chaincodeEndorsedAction);
+        public ChaincodeEndorsedAction ChaincodeEndorsedAction => Reference;
 
         public int EndorsementsCount => ChaincodeEndorsedAction?.Endorsements?.Count ?? 0;
 
 
-        public List<Endorsement> Endorsements => ChaincodeEndorsedAction?.Endorsements;
+        public List<Endorsement> Endorsements => ChaincodeEndorsedAction?.Endorsements.ToList();
+
+        public ProposalResponsePayloadDeserializer ProposalResponsePayload => proposalResponsePayload.Reference;
 
         public byte[] GetEndorsementSignature(int index)
         {
-
-            return ChaincodeEndorsedAction?.Endorsements[index]?.Signature;
+            return ChaincodeEndorsedAction?.Endorsements[index]?.Signature.ToByteArray();
         }
-
-        public ProposalResponsePayloadDeserializer ProposalResponsePayload => ChaincodeEndorsedAction.ProposalResponsePayload.GetOrCreateWR(ref proposalResponsePayload, (payload) => new ProposalResponsePayloadDeserializer(payload));
     }
 }

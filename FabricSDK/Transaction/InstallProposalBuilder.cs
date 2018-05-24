@@ -16,12 +16,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.SDK.Transaction
@@ -50,7 +51,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
     {
     }
 
-    public static InstallProposalBuilder Create() {
+    public new static InstallProposalBuilder Create() {
         return new InstallProposalBuilder();
 
     }
@@ -116,7 +117,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
             throw new ArgumentException("Both chaincodeSource and chaincodeInputStream in InstallRequest were set. Specify one or the other");
         }
 
-        ChaincodeSpec.Type ccType;
+        ChaincodeSpec.Types.Type ccType;
         DirectoryInfo projectSourceDir = null;
         String targetPathPrefix = null;
         String dplang;
@@ -174,7 +175,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
                 }
 
                 dplang = "Go";
-                ccType = ChaincodeSpec.Type.Golang;
+                ccType = ChaincodeSpec.Types.Type.Golang;
                 if (null != chaincodeSource) {
 
                     projectSourceDir = new DirectoryInfo(Path.Combine(chaincodeSource.FullName,"src", chaincodePath));
@@ -193,7 +194,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
                 }
 
                 dplang = "Java";
-                ccType = ChaincodeSpec.Type.Java;
+                ccType = ChaincodeSpec.Types.Type.Java;
                 if (null != chaincodeSource) {
                     targetPathPrefix = "src";
                     projectSourceDir = chaincodeSource;
@@ -212,7 +213,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
                 }
 
                 dplang = "Node";
-                ccType = ChaincodeSpec.Type.Node;
+                ccType = ChaincodeSpec.Types.Type.Node;
                 if (null != chaincodeSource)
                 {
 
@@ -269,7 +270,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
         
         // set args
         AddArg(action);
-        AddArg(depspec.SerializeProtoBuf());
+        AddArg(depspec.ToByteString());
 
     }
   

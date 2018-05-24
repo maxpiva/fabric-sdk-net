@@ -48,4 +48,16 @@ import static java.lang.String.format;
         string Cert { get; }
 
     }
+
+    public class Enrollment : IEnrollment
+    {
+        public AsymmetricAlgorithm Key { get; }
+        public string Cert { get; }
+
+        public Enrollment(AsymmetricAlgorithm key, string cert)
+        {
+            Key = key;
+            Cert = cert;
+        }
+    }
 }

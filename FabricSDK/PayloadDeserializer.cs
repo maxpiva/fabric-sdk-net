@@ -13,25 +13,20 @@
  *  limitations under the License.
  *
  */
-using System;
-using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
+
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Msp;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class PayloadDeserializer : BaseDeserializer<Payload>
     {
-        public PayloadDeserializer(byte[] byteString) : base(byteString)
+        public PayloadDeserializer(ByteString byteString) : base(byteString)
         {
         }
-
         public Payload Payload => Reference;
 
         public HeaderDeserializer Header => Payload?.Header != null ? new HeaderDeserializer(Payload?.Header) : null;
-
     }
 }

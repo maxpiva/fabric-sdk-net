@@ -12,33 +12,31 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
+using System.Collections.Generic;
+using Hyperledger.Fabric.SDK.Exceptions;
 
-import java.util.Map;
-
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-
-/**
- * Instantiate request.
- */
-public class InstantiateProposalRequest extends TransactionRequest {
-
-    InstantiateProposalRequest(User userContext) {
-        super(userContext);
-    }
-
+namespace Hyperledger.Fabric.SDK
+{
     /**
-     * Transient data added to the proposal that is not added to the ledger.
-     *
-     * @param transientMap Map of strings to bytes that's added to the proposal
-     * @throws InvalidArgumentException if the argument is null.
+     * Instantiate request.
      */
-    public void setTransientMap(Map<String, byte[]> transientMap) throws InvalidArgumentException {
-        if (null == transientMap) {
+    public class InstantiateProposalRequest : TransactionRequest
+    {
 
-            throw new InvalidArgumentException("Transient map may not be set to null");
+        public InstantiateProposalRequest(IUser userContext) : base(userContext)
+        {
 
         }
-        this.transientMap = transientMap;
+
+        /**
+         * Transient data added to the proposal that is not added to the ledger.
+         *
+         * @param transientMap Map of strings to bytes that's added to the proposal
+         * @throws InvalidArgumentException if the argument is null.
+         */
+        public void SetTransientMap(Dictionary<string, byte[]> transientMap)
+        {
+            this.transientMap = transientMap ?? throw new InvalidArgumentException("Transient map may not be set to null");
+        }
     }
 }

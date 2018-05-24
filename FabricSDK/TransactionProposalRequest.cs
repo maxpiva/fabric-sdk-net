@@ -11,39 +11,34 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.hyperledger.fabric.sdk;
 
-import java.util.Map;
+using System.Collections.Generic;
+using Hyperledger.Fabric.SDK.Exceptions;
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+namespace Hyperledger.Fabric.SDK
+{
 
-public class TransactionProposalRequest extends TransactionRequest {
+    public class TransactionProposalRequest : TransactionRequest {
 
-    TransactionProposalRequest(User userContext) {
-        super(userContext);
-    }
-
-    public static TransactionProposalRequest newInstance(User userContext) {
-        return new TransactionProposalRequest(userContext);
-
-    }
-
-    public void setChaincodeLanguage(Type chaincodeLanguage) {
-        this.chaincodeLanguage = chaincodeLanguage;
-    }
-
-    /**
-     * Transient data added to the proposal that is not added to the ledger.
-     *
-     * @param transientMap Map of strings to bytes that's added to the proposal
-     * @throws InvalidArgumentException if the argument is null.
-     */
-    public void setTransientMap(Map<String, byte[]> transientMap) throws InvalidArgumentException {
-        if (null == transientMap) {
-
-            throw new InvalidArgumentException("Transient map may not be set to null");
+        TransactionProposalRequest(IUser userContext) : base(userContext)
+        {
 
         }
-        this.transientMap = transientMap;
+
+        public static TransactionProposalRequest Create(IUser userContext) {
+            return new TransactionProposalRequest(userContext);
+
+        }
+
+        /**
+         * Transient data added to the proposal that is not added to the ledger.
+         *
+         * @param transientMap Map of strings to bytes that's added to the proposal
+         * @throws InvalidArgumentException if the argument is null.
+         */
+        public void SetTransientMap(Dictionary<string, byte[]> transientMap)
+        {
+            this.transientMap = transientMap ?? throw new InvalidArgumentException("Transient map may not be set to null");
+        }
     }
 }

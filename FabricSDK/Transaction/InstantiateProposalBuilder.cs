@@ -15,102 +15,93 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {
     public class InstantiateProposalBuilder : LSCCProposalBuilder
     {
-
         private static readonly ILog logger = LogProvider.GetLogger(typeof(InstantiateProposalBuilder));
-        
-        private string chaincodePath;
+        protected string action = "deploy";
 
         private string chaincodeName;
-        private List<string> argsList;
-        private string chaincodeVersion;
-        private TransactionRequest.Type chaincodeType = TransactionRequest.Type.GO_LANG;
+        private string chaincodePath;
 
-        private byte[] chaincodePolicy = null;
-        protected String action = "deploy";
+        private byte[] chaincodePolicy;
+        private TransactionRequest.Type chaincodeType = TransactionRequest.Type.GO_LANG;
+        private string chaincodeVersion;
+        private List<string> iargList = new List<string>();
+
+        protected InstantiateProposalBuilder()
+        {
+        }
 
         public void SetTransientMap(Dictionary<string, byte[]> transientMap)
         {
             this.transientMap = transientMap ?? throw new InvalidArgumentException("Transient map may not be null");
         }
 
-        protected InstantiateProposalBuilder()
-        {
-
-        }
-
-        public static InstantiateProposalBuilder Create()
+        public new static InstantiateProposalBuilder Create()
         {
             return new InstantiateProposalBuilder();
-
         }
 
         public InstantiateProposalBuilder ChaincodePath(string chaincodePath)
         {
-
             this.chaincodePath = chaincodePath;
             return this;
-
         }
 
         public InstantiateProposalBuilder ChaincodeName(string chaincodeName)
         {
-
             this.chaincodeName = chaincodeName;
             return this;
         }
 
         public InstantiateProposalBuilder ChaincodeType(TransactionRequest.Type chaincodeType)
         {
-
             this.chaincodeType = chaincodeType;
             return this;
-
         }
 
-        public void ChaincodEndorsementPolicy(ChaincodeEndorsementPolicy policy)
+        public void ChaincodeEndorsementPolicy(ChaincodeEndorsementPolicy policy)
         {
             if (policy != null)
             {
-                this.chaincodePolicy = policy.getChaincodeEndorsementPolicyAsBytes();
+                chaincodePolicy = policy.ChaincodeEndorsementPolicyAsBytes;
             }
         }
-        /*
+
         public InstantiateProposalBuilder Argss(List<string> argList)
         {
-            this.argsList = argList;
+            iargList = argList;
             return this;
         }
-        */
-            
+
+
         public override Proposal Build()
         {
-
             ConstructInstantiateProposal();
             return base.Build();
         }
 
         private void ConstructInstantiateProposal()
         {
-
-            try {
-
+            try
+            {
                 CreateNetModeTransaction();
-
-            } catch (InvalidArgumentException exp) {
+            }
+            catch (InvalidArgumentException exp)
+            {
                 logger.ErrorException(exp.Message, exp);
-                throw exp;
-            } catch (Exception exp) {
+                throw;
+            }
+            catch (Exception exp)
+            {
                 logger.ErrorException(exp.Message, exp);
                 throw new ProposalException("IO Error while creating install transaction", exp);
             }
@@ -119,41 +110,43 @@ namespace Hyperledger.Fabric.SDK.Transaction
         private void CreateNetModeTransaction()
         {
             logger.Debug("NetModeTransaction");
-
+            /*
             if (chaincodeType == null)
             {
                 throw new InvalidArgumentException("Chaincode type is required");
             }
-
+            */
             LinkedList<string> modlist = new LinkedList<string>();
             modlist.AddFirst("init");
-            argsList.ForEach(a=>modlist.AddAfter(modlist.Last,a));
+            iargList.ForEach(a => modlist.AddAfter(modlist.Last, a));
 
-            switch (chaincodeType) {
+            switch (chaincodeType)
+            {
                 case TransactionRequest.Type.JAVA:
-                    CcType(ChaincodeSpec.Type.Java);
+                    CcType(ChaincodeSpec.Types.Type.Java);
                     break;
                 case TransactionRequest.Type.NODE:
-                    CcType(ChaincodeSpec.Type.Node);
+                    CcType(ChaincodeSpec.Types.Type.Node);
                     break;
                 case TransactionRequest.Type.GO_LANG:
-                    CcType(ChaincodeSpec.Type.Golang);
+                    CcType(ChaincodeSpec.Types.Type.Golang);
                     break;
                 default:
                     throw new InvalidArgumentException("Requested chaincode type is not supported: " + chaincodeType);
             }
 
             ChaincodeDeploymentSpec depspec = ProtoUtils.CreateDeploymentSpec(ccType, chaincodeName, chaincodePath, chaincodeVersion, modlist.ToList(), null);
-                
-            List<byte[]> argList = new List<byte[]>();
-            argList.Add(Encoding.UTF8.GetBytes(action).CloneBytes());
-            argList.Add(Encoding.UTF8.GetBytes(context.ChannelID).CloneBytes());
-            argList.Add(depspec.SerializeProtoBuf());
+
+            List<ByteString> argsList = new List<ByteString>();
+            argsList.Add(ByteString.CopyFromUtf8(action));
+            argsList.Add(ByteString.CopyFromUtf8(context.ChannelID));
+            argsList.Add(depspec.ToByteString());
             if (chaincodePolicy != null)
             {
-                argList.Add(chaincodePolicy.CloneBytes());
+                argsList.Add(ByteString.CopyFrom(chaincodePolicy));
             }
-            Args(argList);
+
+            Args(argsList);
         }
 
         public void SetChaincodeVersion(string chaincodeVersion)
@@ -161,5 +154,4 @@ namespace Hyperledger.Fabric.SDK.Transaction
             this.chaincodeVersion = chaincodeVersion;
         }
     }
-
 }

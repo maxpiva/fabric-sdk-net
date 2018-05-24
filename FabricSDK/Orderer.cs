@@ -11,7 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
+/*
 package org.hyperledger.fabric.sdk;
 
 import java.io.Serializable;
@@ -27,187 +27,191 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
 import org.hyperledger.fabric.sdk.exception.TransactionException;
 
 import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;
+import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;*/
 
-/**
- * The Orderer class represents a orderer to which SDK sends deploy, invoke, or query requests.
- */
-public class Orderer implements Serializable {
-    private static final Log logger = LogFactory.getLog(Orderer.class);
-    private static final long serialVersionUID = 4281642068914263247L;
-    private final Properties properties;
-    private final String name;
-    private final String url;
-    private transient boolean shutdown = false;
-    private Channel channel;
-    private transient volatile OrdererClient ordererClient = null;
-    private transient byte[] clientTLSCertificateDigest;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Force.DeepCloner;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Orderer;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Logging;
 
-    Orderer(String name, String url, Properties properties) throws InvalidArgumentException {
-
-        if (StringUtil.isNullOrEmpty(name)) {
-            throw new InvalidArgumentException("Invalid name for orderer");
-        }
-        Exception e = checkGrpcUrl(url);
-        if (e != null) {
-            throw new InvalidArgumentException(e);
-        }
-
-        this.name = name;
-        this.url = url;
-        this.properties = properties == null ? null : (Properties) properties.clone(); //keep our own copy.
-
-    }
-
-    static Orderer createNewInstance(String name, String url, Properties properties) throws InvalidArgumentException {
-        return new Orderer(name, url, properties);
-
-    }
-
-    byte[] getClientTLSCertificateDigest() {
-        if (null == clientTLSCertificateDigest) {
-            clientTLSCertificateDigest = new Endpoint(url, properties).getClientTLSCertificateDigest();
-        }
-        return clientTLSCertificateDigest;
-    }
-
+namespace Hyperledger.Fabric.SDK
+{
     /**
-     * Get Orderer properties.
-     *
-     * @return properties
+     * The Orderer class represents a orderer to which SDK sends deploy, invoke, or query requests.
      */
+    [Serializable]
+    public class Orderer
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(Orderer));
+        private readonly Dictionary<string, object> properties;
+        private Channel channel;
 
-    public Properties getProperties() {
+        [NonSerialized] private byte[] clientTLSCertificateDigest;
 
-        return properties == null ? null : (Properties) properties.clone();
-    }
+        [NonSerialized] private OrdererClient ordererClient = null;
 
-    /**
-     * Return Orderer's name
-     *
-     * @return orderer's name.
-     */
-    public String getName() {
-        return name;
-    }
+        [NonSerialized] private bool shutdown = false;
 
-    /**
-     * getUrl - the Grpc url of the Orderer
-     *
-     * @return the Grpc url of the Orderer
-     */
-    public String getUrl() {
-        return url;
-    }
+        public Orderer(string name, string url, Dictionary<string, object> properties)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new InvalidArgumentException("Invalid name for orderer");
+            }
 
-    void unsetChannel() {
+            Exception e = Utils.CheckGrpcUrl(url);
+            if (e != null)
+            {
+                throw new InvalidArgumentException(e);
+            }
 
-        channel = null;
-
-    }
-
-    /**
-     * Get the channel of which this orderer is a member.
-     *
-     * @return {Channel} The channel of which this orderer is a member.
-     */
-    Channel getChannel() {
-        return channel;
-    }
-
-    void setChannel(Channel channel) throws InvalidArgumentException {
-        if (channel == null) {
-            throw new InvalidArgumentException("setChannel Channel can not be null");
+            Name = name;
+            Url = url;
+            this.properties = properties?.DeepClone();
         }
 
-        if (null != this.channel && this.channel != channel) {
-            throw new InvalidArgumentException(format("Can not add orderer %s to channel %s because it already belongs to channel %s.",
-                    name, channel.getName(), this.channel.getName()));
+        public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = new Endpoint(Url, properties).GetClientTLSCertificateDigest());
+
+        /**
+         * Get Orderer properties.
+         *
+         * @return properties
+         */
+
+        public Dictionary<string, object> Properties => properties?.DeepClone();
+
+        /**
+         * Return Orderer's name
+         *
+         * @return orderer's name.
+         */
+        public string Name { get; }
+
+        /**
+         * getUrl - the Grpc url of the Orderer
+         *
+         * @return the Grpc url of the Orderer
+         */
+        public string Url { get; }
+
+        /**
+         * Get the channel of which this orderer is a member.
+         *
+         * @return {Channel} The channel of which this orderer is a member.
+         */
+        public Channel Channel
+        {
+            get => channel;
+            set
+            {
+                if (value == null)
+                    throw new InvalidArgumentException("Channel can not be null");
+
+                if (null != channel && channel != value)
+                    throw new InvalidArgumentException($"Can not add orderer {Name} to channel {value.Name} because it already belongs to channel {channel.Name}.");
+                channel = value;
+            }
         }
 
-        this.channel = channel;
-
-    }
-
-    /**
-     * Send transaction to Order
-     *
-     * @param transaction transaction to be sent
-     */
-
-    Ab.BroadcastResponse sendTransaction(Common.Envelope transaction) throws Exception {
-        if (shutdown) {
-            throw new TransactionException(format("Orderer %s was shutdown.", name));
+        public static Orderer Create(string name, string url, Dictionary<string, object> properties)
+        {
+            return new Orderer(name, url, properties);
         }
 
-        logger.debug(format("Order.sendTransaction name: %s, url: %s", name, url));
 
-        OrdererClient localOrdererClient = ordererClient;
-
-        if (localOrdererClient == null || !localOrdererClient.isChannelActive()) {
-            ordererClient = new OrdererClient(this, new Endpoint(url, properties).getChannelBuilder(), properties);
-            localOrdererClient = ordererClient;
+        public void UnsetChannel()
+        {
+            channel = null;
         }
 
-        try {
 
-            return localOrdererClient.sendTransaction(transaction);
-        } catch (Throwable t) {
-            ordererClient = null;
-            throw t;
+        /**
+         * Send transaction to Order
+         *
+         * @param transaction transaction to be sent
+         */
 
+        public BroadcastResponse SendTransaction(Envelope transaction)
+        {
+            if (shutdown)
+                throw new TransactionException($"Orderer {Name} was shutdown.");
+
+            logger.Debug($"Order.sendTransaction name: {Name}, url: {Url}");
+
+            OrdererClient localOrdererClient = ordererClient;
+
+            if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
+            {
+                ordererClient = new OrdererClient(this, new Endpoint(Url, properties), properties);
+                localOrdererClient = ordererClient;
+            }
+
+            try
+            {
+                return localOrdererClient.SendTransaction(transaction);
+            }
+            catch (Exception t)
+            {
+                ordererClient = null;
+                throw t;
+            }
         }
 
-    }
+        public DeliverResponse[] SendDeliver(Envelope transaction)
+        {
+            if (shutdown)
+                throw new TransactionException($"Orderer {Name} was shutdown.");
+            OrdererClient localOrdererClient = ordererClient;
 
-    DeliverResponse[] sendDeliver(Common.Envelope transaction) throws TransactionException {
+            logger.Debug($"Order.sendDeliver name: {Name}, url: {Url}");
 
-        if (shutdown) {
-            throw new TransactionException(format("Orderer %s was shutdown.", name));
+            if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
+            {
+                localOrdererClient = new OrdererClient(this, new Endpoint(Url, properties), properties);
+                ordererClient = localOrdererClient;
+            }
+
+            try
+            {
+                return localOrdererClient.SendDeliver(transaction);
+            }
+            catch (Exception t)
+            {
+                ordererClient = null;
+                throw t;
+            }
         }
 
-        OrdererClient localOrdererClient = ordererClient;
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force)
+        {
+            if (shutdown)
+            {
+                return;
+            }
 
-        logger.debug(format("Order.sendDeliver name: %s, url: %s", name, url));
-        if (localOrdererClient == null || !localOrdererClient.isChannelActive()) {
-            localOrdererClient = new OrdererClient(this, new Endpoint(url, properties).getChannelBuilder(), properties);
-            ordererClient = localOrdererClient;
+            shutdown = true;
+            channel = null;
+
+            if (ordererClient != null)
+            {
+                OrdererClient torderClientDeliver = ordererClient;
+                ordererClient = null;
+                torderClientDeliver.Shutdown(force);
+            }
         }
 
-        try {
-
-            return localOrdererClient.sendDeliver(transaction);
-        } catch (Throwable t) {
-            ordererClient = null;
-            throw t;
-
+        ~Orderer()
+        {
+            Shutdown(true);
         }
 
-    }
 
-    synchronized void shutdown(boolean force) {
-        if (shutdown) {
-            return;
-        }
-        shutdown = true;
-        channel = null;
-
-        if (ordererClient != null) {
-            OrdererClient torderClientDeliver = ordererClient;
-            ordererClient = null;
-            torderClientDeliver.shutdown(force);
-        }
-
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        shutdown(true);
-        super.finalize();
-    }
-
-    @Override
-    public String toString() {
-        return "Orderer: " + name + "(" + url + ")";
-    }
-} // end Orderer
+        public override string ToString() => "Orderer: " + Name + "(" + Url + ")";
+    } // end Orderer
+}

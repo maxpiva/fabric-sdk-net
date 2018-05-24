@@ -14,13 +14,15 @@
  *
  */
 
+using Google.Protobuf;
+
 namespace Hyperledger.Fabric.SDK
 {
 
     public class EndorserTransactionEnvDeserializer : EnvelopeDeserializer
     {
 
-        public EndorserTransactionEnvDeserializer(byte[] byteString, byte validcode) : base(byteString, validcode)
+        public EndorserTransactionEnvDeserializer(ByteString byteString, byte validcode) : base(byteString, validcode)
         {
 
         }

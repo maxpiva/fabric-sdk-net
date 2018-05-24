@@ -27,8 +27,6 @@
 
 // ReSharper disable PossibleNullReferenceException
 
-// Define LIBLOG_PORTABLE conditional compilation symbol for PCL compatibility
-//
 // Define LIBLOG_PUBLIC to enable ability to GET a logger (LogProvider.For<>() etc) from outside this library. NOTE:
 // this can have unintended consequences of consumers of your library using your library to resolve a logger. If the
 // reason is because you want to open this functionality to other projects within your solution,
@@ -39,12 +37,18 @@
 
 #pragma warning disable 1591
 
+#if !LIBLOG_NETSTANDARD
+#if NETSTANDARD1_0 || NETSTANDARD1_1 || NETSTANDARD1_2 || NETSTANDARD1_3 || NETSTANDARD1_4 || NETSTANDARD1_5 || NETSTANDARD1_6 || NETSTANDARD2_0 || NETCOREAPP1_0 || NETCOREAPP1_1
+#define LIBLOG_NETSTANDARD
+#endif
+#endif
+
 using System.Diagnostics.CodeAnalysis;
 
-[assembly: SuppressMessage("Microsoft.Design", "CA1020:AvoidNamespacesWithFewTypes", Scope = "namespace", Target = "YourRootNamespace.Logging")]
-[assembly: SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Scope = "member", Target = "YourRootNamespace.Logging.Logger.#Invoke(YourRootNamespace.Logging.LogLevel,System.Func`1<System.String>,System.Exception,System.Object[])")]
+[assembly: SuppressMessage("Microsoft.Design", "CA1020:AvoidNamespacesWithFewTypes", Scope = "namespace", Target = "Hyperledger.Fabric.SDK.Logging")]
+[assembly: SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Scope = "member", Target = "Hyperledger.Fabric.SDK.Logging.Logger.#Invoke(Hyperledger.Fabric.SDK.Logging.LogLevel,System.Func`1<System.String>,System.Exception,System.Object[])")]
 
-// If you copied this file manually, you need to change all "YourRootNameSpace" so not to clash with other libraries
+// If you copied this file manually, you need to change all "Hyperledger.Fabric.SDK" so not to clash with other libraries
 // that use LibLog
 #if LIBLOG_PROVIDERS_ONLY
 namespace Hyperledger.Fabric.SDK.LibLog
@@ -62,9 +66,7 @@ namespace Hyperledger.Fabric.SDK.Logging
     using System;
 #if !LIBLOG_PROVIDERS_ONLY
     using System.Diagnostics;
-#if !LIBLOG_PORTABLE
     using System.Runtime.CompilerServices;
-#endif
 #endif
 
 #if LIBLOG_PROVIDERS_ONLY
@@ -122,7 +124,7 @@ namespace Hyperledger.Fabric.SDK.Logging
     }
 
 #if !LIBLOG_PROVIDERS_ONLY
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
 #if LIBLOG_PUBLIC
@@ -430,20 +432,14 @@ namespace Hyperledger.Fabric.SDK.Logging
         }
 
         // Avoid the closure allocation, see https://gist.github.com/AArnott/d285feef75c18f6ecd2b
-        private static Func<T> AsFunc<T>(this T value) where T : class
-        {
-            return value.Return;
-        }
+        private static Func<T> AsFunc<T>(this T value) where T : class => value.Return;
 
-        private static T Return<T>(this T value)
-        {
-            return value;
-        }
+        private static T Return<T>(this T value) => value;
 
         // Allow passing callsite-logger-type to LogProviderBase using messageFunc
         internal static Func<string> WrapLogSafeInternal(LoggerExecutionWrapper logger, Func<string> messageFunc)
         {
-            Func<string> wrappedMessageFunc = () =>
+            string WrappedMessageFunc()
             {
                 try
                 {
@@ -454,18 +450,17 @@ namespace Hyperledger.Fabric.SDK.Logging
                     logger.WrappedLogger(LogLevel.Error, () => LoggerExecutionWrapper.FailedToGenerateLogMessage, ex);
                 }
                 return null;
-            };
-            return wrappedMessageFunc;
+            }
+
+            return WrappedMessageFunc;
         }
 
         // Allow passing callsite-logger-type to LogProviderBase using messageFunc
         private static Func<string> WrapLogInternal(Func<string> messageFunc)
         {
-            Func<string> wrappedMessageFunc = () =>
-            {
-                return messageFunc();
-            };
-            return wrappedMessageFunc;
+            string WrappedMessageFunc() => messageFunc();
+
+            return WrappedMessageFunc;
         }
     }
 #endif
@@ -506,7 +501,7 @@ namespace Hyperledger.Fabric.SDK.Logging
     /// <summary>
     /// Provides a mechanism to create instances of <see cref="ILog" /> objects.
     /// </summary>
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
 #if LIBLOG_PROVIDERS_ONLY
@@ -521,7 +516,7 @@ namespace Hyperledger.Fabric.SDK.Logging
                                                "with a non-null value first.";
         private static dynamic s_currentLogProvider;
         private static Action<ILogProvider> s_onCurrentLogProviderSet;
-        private static Lazy<ILogProvider> s_resolvedLogProvider = new Lazy<ILogProvider>(() => ForceResolveLogProvider());
+        private static readonly Lazy<ILogProvider> ResolvedLogProvider = new Lazy<ILogProvider>(ForceResolveLogProvider);
 
         [SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
         static LogProvider()
@@ -563,13 +558,7 @@ namespace Hyperledger.Fabric.SDK.Logging
             }
         }
 
-        internal static ILogProvider CurrentLogProvider
-        {
-            get
-            {
-                return s_currentLogProvider;
-            }
-        }
+        internal static ILogProvider CurrentLogProvider => s_currentLogProvider;
 
         /// <summary>
         /// Gets a logger for the specified type.
@@ -581,12 +570,9 @@ namespace Hyperledger.Fabric.SDK.Logging
 #else
         internal
 #endif
-        static ILog For<T>()
-        {
-            return GetLogger(typeof(T));
-        }
+        static ILog For<T>() => GetLogger(typeof(T));
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         /// <summary>
         /// Gets a logger for the current class.
         /// </summary>
@@ -615,11 +601,9 @@ namespace Hyperledger.Fabric.SDK.Logging
 #else
         internal
 #endif
-        static ILog GetLogger(Type type, string fallbackTypeName = "System.Object")
-        {
+        static ILog GetLogger(Type type, string fallbackTypeName = "System.Object") =>
             // If the type passed in is null then fallback to the type name specified
-            return GetLogger(type != null ? type.FullName : fallbackTypeName);
-        }
+            GetLogger(type != null ? type.FullName : fallbackTypeName);
 
         /// <summary>
         /// Gets a logger with the specified name.
@@ -633,7 +617,7 @@ namespace Hyperledger.Fabric.SDK.Logging
 #endif
         static ILog GetLogger(string name)
         {
-            ILogProvider logProvider = CurrentLogProvider ?? ResolveLogProvider();
+            var logProvider = CurrentLogProvider ?? ResolveLogProvider();
             return logProvider == null
                 ? NoOpLogger.Instance
                 : (ILog)new LoggerExecutionWrapper(logProvider.GetLogger(name), () => IsDisabled);
@@ -652,7 +636,7 @@ namespace Hyperledger.Fabric.SDK.Logging
 #endif
         static IDisposable OpenNestedContext(string message)
         {
-            ILogProvider logProvider = CurrentLogProvider ?? ResolveLogProvider();
+            var logProvider = CurrentLogProvider ?? ResolveLogProvider();
 
             return logProvider == null
                 ? new DisposableAction(() => { })
@@ -673,7 +657,7 @@ namespace Hyperledger.Fabric.SDK.Logging
 #endif
         static IDisposable OpenMappedContext(string key, object value, bool destructure = false)
         {
-            ILogProvider logProvider = CurrentLogProvider ?? ResolveLogProvider();
+            var logProvider = CurrentLogProvider ?? ResolveLogProvider();
 
             return logProvider == null
                 ? new DisposableAction(() => { })
@@ -706,7 +690,6 @@ namespace Hyperledger.Fabric.SDK.Logging
             new Tuple<IsLoggerAvailable, CreateLogProvider>(SerilogLogProvider.IsLoggerAvailable, () => new SerilogLogProvider()),
             new Tuple<IsLoggerAvailable, CreateLogProvider>(NLogLogProvider.IsLoggerAvailable, () => new NLogLogProvider()),
             new Tuple<IsLoggerAvailable, CreateLogProvider>(Log4NetLogProvider.IsLoggerAvailable, () => new Log4NetLogProvider()),
-            new Tuple<IsLoggerAvailable, CreateLogProvider>(EntLibLogProvider.IsLoggerAvailable, () => new EntLibLogProvider()),
             new Tuple<IsLoggerAvailable, CreateLogProvider>(LoupeLogProvider.IsLoggerAvailable, () => new LoupeLogProvider()),
             };
 
@@ -722,7 +705,7 @@ namespace Hyperledger.Fabric.SDK.Logging
 
         internal static ILogProvider ResolveLogProvider()
         {
-            return s_resolvedLogProvider.Value;
+            return ResolvedLogProvider.Value;
         }
 
         [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", MessageId = "System.Console.WriteLine(System.String,System.Object,System.Object)")]
@@ -741,11 +724,7 @@ namespace Hyperledger.Fabric.SDK.Logging
             }
             catch (Exception ex)
             {
-#if LIBLOG_PORTABLE
                 Debug.WriteLine(
-#else
-                Console.WriteLine(
-#endif
                     "Exception occurred resolving a log provider. Logging for this assembly {0} is disabled. {1}",
                     typeof(LogProvider).GetAssemblyPortable().FullName,
                     ex);
@@ -754,7 +733,7 @@ namespace Hyperledger.Fabric.SDK.Logging
         }
 
 #if !LIBLOG_PROVIDERS_ONLY
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         [ExcludeFromCodeCoverage]
 #endif
         internal class NoOpLogger : ILog
@@ -770,7 +749,7 @@ namespace Hyperledger.Fabric.SDK.Logging
     }
 
 #if !LIBLOG_PROVIDERS_ONLY
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class LoggerExecutionWrapper : ILog
@@ -779,8 +758,7 @@ namespace Hyperledger.Fabric.SDK.Logging
         private readonly ICallSiteExtension _callsiteLogger;
         private readonly Func<bool> _getIsDisabled;
         internal const string FailedToGenerateLogMessage = "Failed to generate log message";
-
-        Func<string> _lastExtensionMethod;
+        private Func<string> _lastExtensionMethod;
 
         internal LoggerExecutionWrapper(Logger logger, Func<bool> getIsDisabled = null)
         {
@@ -789,10 +767,7 @@ namespace Hyperledger.Fabric.SDK.Logging
             _getIsDisabled = getIsDisabled ?? (() => false);
         }
 
-        internal Logger WrappedLogger
-        {
-            get { return _logger; }
-        }
+        internal Logger WrappedLogger => _logger;
 
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
         public bool Log(LogLevel logLevel, Func<string> messageFunc, Exception exception = null, params object[] formatParameters)
@@ -805,8 +780,7 @@ namespace Hyperledger.Fabric.SDK.Logging
             {
                 return _logger(logLevel, null);
             }
-
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
             // Callsite HACK - Using the messageFunc to provide the callsite-logger-type
             var lastExtensionMethod = _lastExtensionMethod;
             if (lastExtensionMethod == null || !lastExtensionMethod.Equals(messageFunc))
@@ -826,10 +800,11 @@ namespace Hyperledger.Fabric.SDK.Logging
                 _lastExtensionMethod = lastExtensionMethod;
                 return _logger(logLevel, LogExtensions.WrapLogSafeInternal(this, messageFunc), exception, formatParameters);
             }
+
             else
 #endif
             {
-                Func<string> wrappedMessageFunc = () =>
+                string WrappedMessageFunc()
                 {
                     try
                     {
@@ -840,21 +815,30 @@ namespace Hyperledger.Fabric.SDK.Logging
                         _logger(LogLevel.Error, () => FailedToGenerateLogMessage, ex);
                     }
                     return null;
-                };
+                }
 
                 // Callsite HACK - Need to ensure proper callsite stack without inlining, so calling the logger within a virtual interface method
-                return _callsiteLogger.Log(_logger, logLevel, wrappedMessageFunc, exception, formatParameters);
+                return _callsiteLogger.Log(_logger, logLevel, WrappedMessageFunc, exception, formatParameters);
             }
         }
 
-        interface ICallSiteExtension
+        private interface ICallSiteExtension
         {
-            bool Log(Logger logger, LogLevel logLevel, Func<string> messageFunc, Exception exception, object[] formatParameters);
+            bool Log(
+                Logger logger,
+                LogLevel logLevel,
+                Func<string> messageFunc,
+                Exception exception, object[] formatParameters);
         }
 
-        class CallSiteExtension : ICallSiteExtension
+        private class CallSiteExtension : ICallSiteExtension
         {
-            bool ICallSiteExtension.Log(Logger logger, LogLevel logLevel, Func<string> messageFunc, Exception exception, object[] formatParameters)
+            bool ICallSiteExtension.Log(
+                Logger logger,
+                LogLevel logLevel,
+                Func<string> messageFunc,
+                Exception exception,
+                object[] formatParameters)
             {
                 return logger(logLevel, messageFunc, exception, formatParameters);
             }
@@ -872,19 +856,14 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
-#if !LIBLOG_PORTABLE
-    using System.Diagnostics;
-#endif
     using System.Globalization;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
-#if !LIBLOG_PORTABLE
-    using System.Text;
-#endif
     using System.Text.RegularExpressions;
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
+    using System.Diagnostics;
     [ExcludeFromCodeCoverage]
 #endif
     internal abstract class LogProviderBase : ILogProvider
@@ -906,34 +885,24 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         public abstract Logger GetLogger(string name);
 
-        public IDisposable OpenNestedContext(string message)
-        {
-            return _lazyOpenNdcMethod.Value(message);
-        }
+        public IDisposable OpenNestedContext(string message) => _lazyOpenNdcMethod.Value(message);
 
         public IDisposable OpenMappedContext(string key, object value, bool destructure = false)
-        {
-            return _lazyOpenMdcMethod.Value(key, value, destructure);
-        }
+            => _lazyOpenMdcMethod.Value(key, value, destructure);
 
         protected virtual OpenNdc GetOpenNdcMethod()
-        {
-            return _ => NoopDisposableInstance;
-        }
+            => _ => NoopDisposableInstance;
 
         protected virtual OpenMdc GetOpenMdcMethod()
-        {
-            return (_, __, ___) => NoopDisposableInstance;
-        }
+            => (_, __, ___) => NoopDisposableInstance;
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class NLogLogProvider : LogProviderBase
     {
         private readonly Func<string, object> _getLoggerByNameDelegate;
-        private static bool s_providerIsAvailableOverride = true;
 
         [SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "LogManager")]
         [SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "NLog")]
@@ -946,47 +915,37 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             _getLoggerByNameDelegate = GetGetLoggerMethodCall();
         }
 
-        public static bool ProviderIsAvailableOverride
-        {
-            get { return s_providerIsAvailableOverride; }
-            set { s_providerIsAvailableOverride = value; }
-        }
+        public static bool ProviderIsAvailableOverride { get; set; } = true;
 
-        public override Logger GetLogger(string name)
-        {
-            return new NLogLogger(_getLoggerByNameDelegate(name)).Log;
-        }
+        public override Logger GetLogger(string name) => new NLogLogger(_getLoggerByNameDelegate(name)).Log;
 
-        public static bool IsLoggerAvailable()
-        {
-            return ProviderIsAvailableOverride && GetLogManagerType() != null;
-        }
+        public static bool IsLoggerAvailable() => ProviderIsAvailableOverride && GetLogManagerType() != null;
 
         protected override OpenNdc GetOpenNdcMethod()
         {
-            Type ndcContextType = Type.GetType("NLog.NestedDiagnosticsContext, NLog");
-            MethodInfo pushMethod = ndcContextType.GetMethodPortable("Push", typeof(string));
-            ParameterExpression messageParam = Expression.Parameter(typeof(string), "message");
-            MethodCallExpression pushMethodCall = Expression.Call(null, pushMethod, messageParam);
+            var ndcContextType = Type.GetType("NLog.NestedDiagnosticsContext, NLog");
+            var pushMethod = ndcContextType.GetMethodPortable("Push", typeof(string));
+            var messageParam = Expression.Parameter(typeof(string), "message");
+            var pushMethodCall = Expression.Call(null, pushMethod, messageParam);
             return Expression.Lambda<OpenNdc>(pushMethodCall, messageParam).Compile();
         }
 
         protected override OpenMdc GetOpenMdcMethod()
         {
-            Type mdcContextType = Type.GetType("NLog.MappedDiagnosticsContext, NLog");
+            var mdcContextType = Type.GetType("NLog.MappedDiagnosticsContext, NLog");
 
-            MethodInfo setMethod = mdcContextType.GetMethodPortable("Set", typeof(string), typeof(string));
-            MethodInfo removeMethod = mdcContextType.GetMethodPortable("Remove", typeof(string));
-            ParameterExpression keyParam = Expression.Parameter(typeof(string), "key");
-            ParameterExpression valueParam = Expression.Parameter(typeof(string), "value");
+            var setMethod = mdcContextType.GetMethodPortable("Set", typeof(string), typeof(string));
+            var removeMethod = mdcContextType.GetMethodPortable("Remove", typeof(string));
+            var keyParam = Expression.Parameter(typeof(string), "key");
+            var valueParam = Expression.Parameter(typeof(string), "value");
 
-            MethodCallExpression setMethodCall = Expression.Call(null, setMethod, keyParam, valueParam);
-            MethodCallExpression removeMethodCall = Expression.Call(null, removeMethod, keyParam);
+            var setMethodCall = Expression.Call(null, setMethod, keyParam, valueParam);
+            var removeMethodCall = Expression.Call(null, removeMethod, keyParam);
 
-            Action<string, string> set = Expression
+            var set = Expression
                 .Lambda<Action<string, string>>(setMethodCall, keyParam, valueParam)
                 .Compile();
-            Action<string> remove = Expression
+            var remove = Expression
                 .Lambda<Action<string>>(removeMethodCall, keyParam)
                 .Compile();
 
@@ -1004,14 +963,14 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         private static Func<string, object> GetGetLoggerMethodCall()
         {
-            Type logManagerType = GetLogManagerType();
+            var logManagerType = GetLogManagerType();
             MethodInfo method = logManagerType.GetMethodPortable("GetLogger", typeof(string));
-            ParameterExpression nameParam = Expression.Parameter(typeof(string), "name");
-            MethodCallExpression methodCall = Expression.Call(null, method, nameParam);
+            var nameParam = Expression.Parameter(typeof(string), "name");
+            var methodCall = Expression.Call(null, method, nameParam);
             return Expression.Lambda<Func<string, object>>(methodCall, nameParam).Compile();
         }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         [ExcludeFromCodeCoverage]
 #endif
         internal class NLogLogger
@@ -1051,16 +1010,16 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                         throw new InvalidOperationException("Type NLog.LogEventInfo was not found.");
                     }
 
-                    ConstructorInfo loggingEventConstructor =
+                    var loggingEventConstructor =
                         logEventInfoType.GetConstructorPortable(logEventLevelType, typeof(string), typeof(IFormatProvider), typeof(string), typeof(object[]), typeof(Exception));
 
-                    ParameterExpression loggerNameParam = Expression.Parameter(typeof(string));
-                    ParameterExpression levelParam = Expression.Parameter(typeof(object));
-                    ParameterExpression messageParam = Expression.Parameter(typeof(string));
-                    ParameterExpression exceptionParam = Expression.Parameter(typeof(Exception));
-                    UnaryExpression levelCast = Expression.Convert(levelParam, logEventLevelType);
+                    var loggerNameParam = Expression.Parameter(typeof(string));
+                    var levelParam = Expression.Parameter(typeof(object));
+                    var messageParam = Expression.Parameter(typeof(string));
+                    var exceptionParam = Expression.Parameter(typeof(Exception));
+                    var levelCast = Expression.Convert(levelParam, logEventLevelType);
 
-                    NewExpression newLoggingEventExpression =
+                    var newLoggingEventExpression =
                         Expression.New(loggingEventConstructor,
                                        levelCast,
                                         loggerNameParam,
@@ -1088,33 +1047,35 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 {
                     return IsLogLevelEnable(logLevel);
                 }
-
+#if !LIBLOG_NETSTANDARD
                 var callsiteMessageFunc = messageFunc;
+#endif
                 messageFunc = LogMessageFormatter.SimulateStructuredLogging(messageFunc, formatParameters);
 
                 if (_logEventInfoFact != null)
                 {
-                    if (IsLogLevelEnable(logLevel))
+                    if (!IsLogLevelEnable(logLevel))
                     {
-                        Type callsiteLoggerType = typeof(NLogLogger);
-#if !LIBLOG_PORTABLE
-                        // Callsite HACK - Extract the callsite-logger-type from the messageFunc
-                        var methodType = callsiteMessageFunc.Method.DeclaringType;
-                        if (methodType == typeof(LogExtensions) || (methodType != null && methodType.DeclaringType == typeof(LogExtensions)))
-                        {
-                            callsiteLoggerType = typeof(LogExtensions);
-                        }
-                        else if (methodType == typeof(LoggerExecutionWrapper) || (methodType != null && methodType.DeclaringType == typeof(LoggerExecutionWrapper)))
-                        {
-                            callsiteLoggerType = typeof(LoggerExecutionWrapper);
-                        }
-#endif
-                        var nlogLevel = this.TranslateLevel(logLevel);
-                        var nlogEvent = _logEventInfoFact(_logger.Name, nlogLevel, messageFunc(), exception);
-                        _logger.Log(callsiteLoggerType, nlogEvent);
-                        return true;
+                        return false;
                     }
-                    return false;
+                    var callsiteLoggerType = typeof(NLogLogger);
+
+#if !LIBLOG_NETSTANDARD
+                    // Callsite HACK - Extract the callsite-logger-type from the messageFunc
+                    var methodType = callsiteMessageFunc.Method.DeclaringType;
+                    if (methodType == typeof(LogExtensions) || (methodType != null && methodType.DeclaringType == typeof(LogExtensions)))
+                    {
+                        callsiteLoggerType = typeof(LogExtensions);
+                    }
+                    else if (methodType == typeof(LoggerExecutionWrapper) || (methodType != null && methodType.DeclaringType == typeof(LoggerExecutionWrapper)))
+                    {
+                        callsiteLoggerType = typeof(LoggerExecutionWrapper);
+                    }
+#endif
+                    var nlogLevel = TranslateLevel(logLevel);
+                    var nlogEvent = _logEventInfoFact(_logger.Name, nlogLevel, messageFunc(), exception);
+                    _logger.Log(callsiteLoggerType, nlogEvent);
+                    return true;
                 }
 
                 if (exception != null)
@@ -1263,13 +1224,12 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class Log4NetLogProvider : LogProviderBase
     {
         private readonly Func<string, object> _getLoggerByNameDelegate;
-        private static bool s_providerIsAvailableOverride = true;
 
         [SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "LogManager")]
         public Log4NetLogProvider()
@@ -1281,36 +1241,26 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             _getLoggerByNameDelegate = GetGetLoggerMethodCall();
         }
 
-        public static bool ProviderIsAvailableOverride
-        {
-            get { return s_providerIsAvailableOverride; }
-            set { s_providerIsAvailableOverride = value; }
-        }
+        public static bool ProviderIsAvailableOverride { get; set; } = true;
 
-        public override Logger GetLogger(string name)
-        {
-            return new Log4NetLogger(_getLoggerByNameDelegate(name)).Log;
-        }
+        public override Logger GetLogger(string name) => new Log4NetLogger(_getLoggerByNameDelegate(name)).Log;
 
-        internal static bool IsLoggerAvailable()
-        {
-            return ProviderIsAvailableOverride && GetLogManagerType() != null;
-        }
+        internal static bool IsLoggerAvailable() => ProviderIsAvailableOverride && GetLogManagerType() != null;
 
         protected override OpenNdc GetOpenNdcMethod()
         {
-            Type logicalThreadContextType = Type.GetType("log4net.LogicalThreadContext, log4net");
-            PropertyInfo stacksProperty = logicalThreadContextType.GetPropertyPortable("Stacks");
-            Type logicalThreadContextStacksType = stacksProperty.PropertyType;
-            PropertyInfo stacksIndexerProperty = logicalThreadContextStacksType.GetPropertyPortable("Item");
-            Type stackType = stacksIndexerProperty.PropertyType;
-            MethodInfo pushMethod = stackType.GetMethodPortable("Push");
+            var logicalThreadContextType = Type.GetType("log4net.LogicalThreadContext, log4net");
+            var stacksProperty = logicalThreadContextType.GetPropertyPortable("Stacks");
+            var logicalThreadContextStacksType = stacksProperty.PropertyType;
+            var stacksIndexerProperty = logicalThreadContextStacksType.GetPropertyPortable("Item");
+            var stackType = stacksIndexerProperty.PropertyType;
+            var pushMethod = stackType.GetMethodPortable("Push");
 
-            ParameterExpression messageParameter =
+            var messageParameter =
                 Expression.Parameter(typeof(string), "message");
 
             // message => LogicalThreadContext.Stacks.Item["NDC"].Push(message);
-            MethodCallExpression callPushBody =
+            var callPushBody =
                 Expression.Call(
                     Expression.Property(Expression.Property(null, stacksProperty),
                                         stacksIndexerProperty,
@@ -1318,7 +1268,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                     pushMethod,
                     messageParameter);
 
-            OpenNdc result =
+            var result =
                 Expression.Lambda<OpenNdc>(callPushBody, messageParameter)
                           .Compile();
 
@@ -1327,29 +1277,29 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         protected override OpenMdc GetOpenMdcMethod()
         {
-            Type logicalThreadContextType = Type.GetType("log4net.LogicalThreadContext, log4net");
-            PropertyInfo propertiesProperty = logicalThreadContextType.GetPropertyPortable("Properties");
-            Type logicalThreadContextPropertiesType = propertiesProperty.PropertyType;
-            PropertyInfo propertiesIndexerProperty = logicalThreadContextPropertiesType.GetPropertyPortable("Item");
+            var logicalThreadContextType = Type.GetType("log4net.LogicalThreadContext, log4net");
+            var propertiesProperty = logicalThreadContextType.GetPropertyPortable("Properties");
+            var logicalThreadContextPropertiesType = propertiesProperty.PropertyType;
+            var propertiesIndexerProperty = logicalThreadContextPropertiesType.GetPropertyPortable("Item");
 
-            MethodInfo removeMethod = logicalThreadContextPropertiesType.GetMethodPortable("Remove");
+            var removeMethod = logicalThreadContextPropertiesType.GetMethodPortable("Remove");
 
-            ParameterExpression keyParam = Expression.Parameter(typeof(string), "key");
-            ParameterExpression valueParam = Expression.Parameter(typeof(string), "value");
+            var keyParam = Expression.Parameter(typeof(string), "key");
+            var valueParam = Expression.Parameter(typeof(string), "value");
 
-            MemberExpression propertiesExpression = Expression.Property(null, propertiesProperty);
+            var propertiesExpression = Expression.Property(null, propertiesProperty);
 
             // (key, value) => LogicalThreadContext.Properties.Item[key] = value;
-            BinaryExpression setProperties = Expression.Assign(Expression.Property(propertiesExpression, propertiesIndexerProperty, keyParam), valueParam);
+            var setProperties = Expression.Assign(Expression.Property(propertiesExpression, propertiesIndexerProperty, keyParam), valueParam);
 
             // key => LogicalThreadContext.Properties.Remove(key);
-            MethodCallExpression removeMethodCall = Expression.Call(propertiesExpression, removeMethod, keyParam);
+            var removeMethodCall = Expression.Call(propertiesExpression, removeMethod, keyParam);
 
-            Action<string, string> set = Expression
+            var set = Expression
                 .Lambda<Action<string, string>>(setProperties, keyParam, valueParam)
                 .Compile();
 
-            Action<string> remove = Expression
+            var remove = Expression
                 .Lambda<Action<string>>(removeMethodCall, keyParam)
                 .Compile();
 
@@ -1367,14 +1317,17 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         private static Func<string, object> GetGetLoggerMethodCall()
         {
-            Type logManagerType = GetLogManagerType();
-            MethodInfo method = logManagerType.GetMethodPortable("GetLogger", typeof(string));
-            ParameterExpression nameParam = Expression.Parameter(typeof(string), "name");
-            MethodCallExpression methodCall = Expression.Call(null, method, nameParam);
-            return Expression.Lambda<Func<string, object>>(methodCall, nameParam).Compile();
+            var logManagerType = GetLogManagerType();
+            var log4netAssembly = logManagerType.GetAssemblyPortable();
+            var method = logManagerType.GetMethodPortable("GetLogger", typeof(Assembly), typeof(string));
+            var repositoryAssemblyParam = Expression.Parameter(typeof(Assembly), "repositoryAssembly");
+            var nameParam = Expression.Parameter(typeof(string), "name");
+            var methodCall = Expression.Call(null, method, repositoryAssemblyParam, nameParam);
+            var lambda = Expression.Lambda<Func<Assembly, string, object>>(methodCall, repositoryAssemblyParam, nameParam).Compile();
+            return name => lambda(log4netAssembly, name);
         }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         [ExcludeFromCodeCoverage]
 #endif
         internal class Log4NetLogger
@@ -1414,13 +1367,13 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 {
                     throw new InvalidOperationException("Type log4net.Core.ILogger, was not found.");
                 }
-                ParameterExpression instanceParam = Expression.Parameter(typeof(object));
-                UnaryExpression instanceCast = Expression.Convert(instanceParam, loggerType);
-                ParameterExpression levelParam = Expression.Parameter(typeof(object));
-                UnaryExpression levelCast = Expression.Convert(levelParam, logEventLevelType);
+                var instanceParam = Expression.Parameter(typeof(object));
+                var instanceCast = Expression.Convert(instanceParam, loggerType);
+                var levelParam = Expression.Parameter(typeof(object));
+                var levelCast = Expression.Convert(levelParam, logEventLevelType);
                 _isEnabledForDelegate = GetIsEnabledFor(loggerType, logEventLevelType, instanceCast, levelCast, instanceParam, levelParam);
 
-                Type loggingEventType = Type.GetType("log4net.Core.LoggingEvent, log4net");
+                var loggingEventType = Type.GetType("log4net.Core.LoggingEvent, log4net");
 
                 _createLoggingEvent = GetCreateLoggingEvent(instanceParam, instanceCast, levelParam, levelCast, loggingEventType);
 
@@ -1440,13 +1393,13 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             {
                 //Action<object, object, string, Exception> Log =
                 //(logger, callerStackBoundaryDeclaringType, level, message, exception) => { ((ILogger)logger).Log(new LoggingEvent(callerStackBoundaryDeclaringType, logger.Repository, logger.Name, level, message, exception)); }
-                MethodInfo writeExceptionMethodInfo = loggerType.GetMethodPortable("Log",
+                var writeExceptionMethodInfo = loggerType.GetMethodPortable("Log",
                                                                                    loggingEventType);
 
-                ParameterExpression loggingEventParameter =
+                var loggingEventParameter =
                     Expression.Parameter(typeof(object), "loggingEvent");
 
-                UnaryExpression loggingEventCasted =
+                var loggingEventCasted =
                     Expression.Convert(loggingEventParameter, loggingEventType);
 
                 var writeMethodExp = Expression.Call(
@@ -1464,9 +1417,9 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
             private static Func<object, Type, object, string, Exception, object> GetCreateLoggingEvent(ParameterExpression instanceParam, UnaryExpression instanceCast, ParameterExpression levelParam, UnaryExpression levelCast, Type loggingEventType)
             {
-                ParameterExpression callerStackBoundaryDeclaringTypeParam = Expression.Parameter(typeof(Type));
-                ParameterExpression messageParam = Expression.Parameter(typeof(string));
-                ParameterExpression exceptionParam = Expression.Parameter(typeof(Exception));
+                var callerStackBoundaryDeclaringTypeParam = Expression.Parameter(typeof(Type));
+                var messageParam = Expression.Parameter(typeof(string));
+                var exceptionParam = Expression.Parameter(typeof(Exception));
 
                 PropertyInfo repositoryProperty = loggingEventType.GetPropertyPortable("Repository");
                 PropertyInfo levelProperty = loggingEventType.GetPropertyPortable("Level");
@@ -1476,7 +1429,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
                 //Func<object, object, string, Exception, object> Log =
                 //(logger, callerStackBoundaryDeclaringType, level, message, exception) => new LoggingEvent(callerStackBoundaryDeclaringType, ((ILogger)logger).Repository, ((ILogger)logger).Name, (Level)level, message, exception); }
-                NewExpression newLoggingEventExpression =
+                var newLoggingEventExpression =
                     Expression.New(loggingEventConstructor,
                                    callerStackBoundaryDeclaringTypeParam,
                                    Expression.Property(instanceCast, "Repository"),
@@ -1504,10 +1457,10 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                                                                       ParameterExpression instanceParam,
                                                                       ParameterExpression levelParam)
             {
-                MethodInfo isEnabledMethodInfo = loggerType.GetMethodPortable("IsEnabledFor", logEventLevelType);
-                MethodCallExpression isEnabledMethodCall = Expression.Call(instanceCast, isEnabledMethodInfo, levelCast);
+                var isEnabledMethodInfo = loggerType.GetMethodPortable("IsEnabledFor", logEventLevelType);
+                var isEnabledMethodCall = Expression.Call(instanceCast, isEnabledMethodInfo, levelCast);
 
-                Func<object, object, bool> result =
+                var result =
                     Expression.Lambda<Func<object, object, bool>>(isEnabledMethodCall, instanceParam, levelParam)
                               .Compile();
 
@@ -1516,9 +1469,9 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
             private static Action<object, string, object> GetLoggingEventPropertySetter(Type loggingEventType)
             {
-                ParameterExpression loggingEventParameter = Expression.Parameter(typeof(object), "loggingEvent");
-                ParameterExpression keyParameter = Expression.Parameter(typeof(string), "key");
-                ParameterExpression valueParameter = Expression.Parameter(typeof(object), "value");
+                var loggingEventParameter = Expression.Parameter(typeof(object), "loggingEvent");
+                var keyParameter = Expression.Parameter(typeof(string), "key");
+                var valueParameter = Expression.Parameter(typeof(object), "value");
 
                 PropertyInfo propertiesProperty = loggingEventType.GetPropertyPortable("Properties");
                 PropertyInfo item = propertiesProperty.PropertyType.GetPropertyPortable("Item");
@@ -1530,7 +1483,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                             Expression.Property(Expression.Convert(loggingEventParameter, loggingEventType),
                                                 propertiesProperty), item, keyParameter), valueParameter);
 
-                Action<object, string, object> result =
+                var result =
                     Expression.Lambda<Action<object, string, object>>
                               (body, loggingEventParameter, keyParameter,
                                valueParameter)
@@ -1551,23 +1504,21 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                     return false;
                 }
 
-                string message = messageFunc();
+                var message = messageFunc();
 
-                IEnumerable<string> patternMatches;
-
-                string formattedMessage =
+                var formattedMessage =
                     LogMessageFormatter.FormatStructuredMessage(message,
                                                                 formatParameters,
-                                                                out patternMatches);
+                                                                out var patternMatches);
 
                 // determine correct caller - this might change due to jit optimizations with method inlining
                 if (s_callerStackBoundaryType == null)
                 {
                     lock (CallerStackBoundaryTypeSync)
                     {
-#if !LIBLOG_PORTABLE
-                        StackTrace stack = new StackTrace();
-                        Type thisType = GetType();
+#if !LIBLOG_NETSTANDARD
+                        var stack = new StackTrace();
+                        var thisType = GetType();
                         s_callerStackBoundaryType = Type.GetType("LoggerExecutionWrapper");
                         for (var i = 1; i < stack.FrameCount; i++)
                         {
@@ -1578,7 +1529,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                             }
                         }
 #else
-                        s_callerStackBoundaryType = typeof (LoggerExecutionWrapper);
+                        s_callerStackBoundaryType = typeof(LoggerExecutionWrapper);
 #endif
                     }
                 }
@@ -1596,11 +1547,11 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
             private void PopulateProperties(object loggingEvent, IEnumerable<string> patternMatches, object[] formatParameters)
             {
-                IEnumerable<KeyValuePair<string, object>> keyToValue =
+                var keyToValue =
                     patternMatches.Zip(formatParameters,
                                        (key, value) => new KeyValuePair<string, object>(key, value));
 
-                foreach (KeyValuePair<string, object> keyValuePair in keyToValue)
+                foreach (var keyValuePair in keyToValue)
                 {
                     _loggingEventPropertySetter(loggingEvent, keyValuePair.Key, keyValuePair.Value);
                 }
@@ -1647,194 +1598,13 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
-    [ExcludeFromCodeCoverage]
-#endif
-    internal class EntLibLogProvider : LogProviderBase
-    {
-        private const string TypeTemplate = "Microsoft.Practices.EnterpriseLibrary.Logging.{0}, Microsoft.Practices.EnterpriseLibrary.Logging";
-        private static bool s_providerIsAvailableOverride = true;
-        private static readonly Type LogEntryType;
-        private static readonly Type LoggerType;
-        private static readonly Type TraceEventTypeType;
-        private static readonly Action<string, string, int> WriteLogEntry;
-        private static readonly Func<string, int, bool> ShouldLogEntry;
-
-        [SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
-        static EntLibLogProvider()
-        {
-            LogEntryType = Type.GetType(string.Format(CultureInfo.InvariantCulture, TypeTemplate, "LogEntry"));
-            LoggerType = Type.GetType(string.Format(CultureInfo.InvariantCulture, TypeTemplate, "Logger"));
-            TraceEventTypeType = TraceEventTypeValues.Type;
-            if (LogEntryType == null
-                 || TraceEventTypeType == null
-                 || LoggerType == null)
-            {
-                return;
-            }
-            WriteLogEntry = GetWriteLogEntry();
-            ShouldLogEntry = GetShouldLogEntry();
-        }
-
-        [SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "EnterpriseLibrary")]
-        public EntLibLogProvider()
-        {
-            if (!IsLoggerAvailable())
-            {
-                throw new InvalidOperationException("Microsoft.Practices.EnterpriseLibrary.Logging.Logger not found");
-            }
-        }
-
-        public static bool ProviderIsAvailableOverride
-        {
-            get { return s_providerIsAvailableOverride; }
-            set { s_providerIsAvailableOverride = value; }
-        }
-
-        public override Logger GetLogger(string name)
-        {
-            return new EntLibLogger(name, WriteLogEntry, ShouldLogEntry).Log;
-        }
-
-        internal static bool IsLoggerAvailable()
-        {
-            return ProviderIsAvailableOverride
-                 && TraceEventTypeType != null
-                 && LogEntryType != null;
-        }
-
-        private static Action<string, string, int> GetWriteLogEntry()
-        {
-            // new LogEntry(...)
-            var logNameParameter = Expression.Parameter(typeof(string), "logName");
-            var messageParameter = Expression.Parameter(typeof(string), "message");
-            var severityParameter = Expression.Parameter(typeof(int), "severity");
-
-            MemberInitExpression memberInit = GetWriteLogExpression(
-                messageParameter,
-                Expression.Convert(severityParameter, TraceEventTypeType),
-                logNameParameter);
-
-            //Logger.Write(new LogEntry(....));
-            MethodInfo writeLogEntryMethod = LoggerType.GetMethodPortable("Write", LogEntryType);
-            var writeLogEntryExpression = Expression.Call(writeLogEntryMethod, memberInit);
-
-            return Expression.Lambda<Action<string, string, int>>(
-                writeLogEntryExpression,
-                logNameParameter,
-                messageParameter,
-                severityParameter).Compile();
-        }
-
-        private static Func<string, int, bool> GetShouldLogEntry()
-        {
-            // new LogEntry(...)
-            var logNameParameter = Expression.Parameter(typeof(string), "logName");
-            var severityParameter = Expression.Parameter(typeof(int), "severity");
-
-            MemberInitExpression memberInit = GetWriteLogExpression(
-                Expression.Constant("***dummy***"),
-                Expression.Convert(severityParameter, TraceEventTypeType),
-                logNameParameter);
-
-            //Logger.Write(new LogEntry(....));
-            MethodInfo writeLogEntryMethod = LoggerType.GetMethodPortable("ShouldLog", LogEntryType);
-            var writeLogEntryExpression = Expression.Call(writeLogEntryMethod, memberInit);
-
-            return Expression.Lambda<Func<string, int, bool>>(
-                writeLogEntryExpression,
-                logNameParameter,
-                severityParameter).Compile();
-        }
-
-        private static MemberInitExpression GetWriteLogExpression(Expression message,
-            Expression severityParameter, ParameterExpression logNameParameter)
-        {
-            var entryType = LogEntryType;
-            MemberInitExpression memberInit = Expression.MemberInit(Expression.New(entryType),
-                Expression.Bind(entryType.GetPropertyPortable("Message"), message),
-                Expression.Bind(entryType.GetPropertyPortable("Severity"), severityParameter),
-                Expression.Bind(
-                    entryType.GetPropertyPortable("TimeStamp"),
-                    Expression.Property(null, typeof(DateTime).GetPropertyPortable("UtcNow"))),
-                Expression.Bind(
-                    entryType.GetPropertyPortable("Categories"),
-                    Expression.ListInit(
-                        Expression.New(typeof(List<string>)),
-                        typeof(List<string>).GetMethodPortable("Add", typeof(string)),
-                        logNameParameter)));
-            return memberInit;
-        }
-
-#if !LIBLOG_PORTABLE
-        [ExcludeFromCodeCoverage]
-#endif
-        internal class EntLibLogger
-        {
-            private readonly string _loggerName;
-            private readonly Action<string, string, int> _writeLog;
-            private readonly Func<string, int, bool> _shouldLog;
-
-            internal EntLibLogger(string loggerName, Action<string, string, int> writeLog, Func<string, int, bool> shouldLog)
-            {
-                _loggerName = loggerName;
-                _writeLog = writeLog;
-                _shouldLog = shouldLog;
-            }
-
-            public bool Log(LogLevel logLevel, Func<string> messageFunc, Exception exception, params object[] formatParameters)
-            {
-                var severity = MapSeverity(logLevel);
-                if (messageFunc == null)
-                {
-                    return _shouldLog(_loggerName, severity);
-                }
-
-
-                messageFunc = LogMessageFormatter.SimulateStructuredLogging(messageFunc, formatParameters);
-                if (exception != null)
-                {
-                    return LogException(logLevel, messageFunc, exception);
-                }
-                _writeLog(_loggerName, messageFunc(), severity);
-                return true;
-            }
-
-            public bool LogException(LogLevel logLevel, Func<string> messageFunc, Exception exception)
-            {
-                var severity = MapSeverity(logLevel);
-                var message = messageFunc() + Environment.NewLine + exception;
-                _writeLog(_loggerName, message, severity);
-                return true;
-            }
-
-            private static int MapSeverity(LogLevel logLevel)
-            {
-                switch (logLevel)
-                {
-                    case LogLevel.Fatal:
-                        return TraceEventTypeValues.Critical;
-                    case LogLevel.Error:
-                        return TraceEventTypeValues.Error;
-                    case LogLevel.Warn:
-                        return TraceEventTypeValues.Warning;
-                    case LogLevel.Info:
-                        return TraceEventTypeValues.Information;
-                    default:
-                        return TraceEventTypeValues.Verbose;
-                }
-            }
-        }
-    }
-
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class SerilogLogProvider : LogProviderBase
     {
         private readonly Func<string, object> _getLoggerByNameDelegate;
-        private static bool s_providerIsAvailableOverride = true;
-        private static Func<string, object, bool, IDisposable> _pushProperty;
+        private static Func<string, object, bool, IDisposable> s_pushProperty;
 
         [SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "Serilog")]
         public SerilogLogProvider()
@@ -1844,50 +1614,38 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 throw new InvalidOperationException("Serilog.Log not found");
             }
             _getLoggerByNameDelegate = GetForContextMethodCall();
-            _pushProperty = GetPushProperty();
+            s_pushProperty = GetPushProperty();
         }
 
-        public static bool ProviderIsAvailableOverride
-        {
-            get { return s_providerIsAvailableOverride; }
-            set { s_providerIsAvailableOverride = value; }
-        }
+        public static bool ProviderIsAvailableOverride { get; set; } = true;
 
         public override Logger GetLogger(string name)
-        {
-            return new SerilogLogger(_getLoggerByNameDelegate(name)).Log;
-        }
+            => new SerilogLogger(_getLoggerByNameDelegate(name)).Log;
 
         internal static bool IsLoggerAvailable()
-        {
-            return ProviderIsAvailableOverride && GetLogManagerType() != null;
-        }
+            => ProviderIsAvailableOverride && GetLogManagerType() != null;
 
         protected override OpenNdc GetOpenNdcMethod()
-        {
-            return message => _pushProperty("NDC", message, false);
-        }
+            => message => s_pushProperty("NDC", message, false);
 
         protected override OpenMdc GetOpenMdcMethod()
-        {
-            return (key, value, destructure) => _pushProperty(key, value, destructure);
-        }
+            => (key, value, destructure) => s_pushProperty(key, value, destructure);
 
         private static Func<string, object, bool, IDisposable> GetPushProperty()
         {
-            Type ndcContextType = Type.GetType("Serilog.Context.LogContext, Serilog") ??
+            var ndcContextType = Type.GetType("Serilog.Context.LogContext, Serilog") ??
                                   Type.GetType("Serilog.Context.LogContext, Serilog.FullNetFx");
 
-            MethodInfo pushPropertyMethod = ndcContextType.GetMethodPortable(
+            var pushPropertyMethod = ndcContextType.GetMethodPortable(
                 "PushProperty",
                 typeof(string),
                 typeof(object),
                 typeof(bool));
 
-            ParameterExpression nameParam = Expression.Parameter(typeof(string), "name");
-            ParameterExpression valueParam = Expression.Parameter(typeof(object), "value");
-            ParameterExpression destructureObjectParam = Expression.Parameter(typeof(bool), "destructureObjects");
-            MethodCallExpression pushPropertyMethodCall = Expression
+            var nameParam = Expression.Parameter(typeof(string), "name");
+            var valueParam = Expression.Parameter(typeof(object), "value");
+            var destructureObjectParam = Expression.Parameter(typeof(bool), "destructureObjects");
+            var pushPropertyMethodCall = Expression
                 .Call(null, pushPropertyMethod, nameParam, valueParam, destructureObjectParam);
             var pushProperty = Expression
                 .Lambda<Func<string, object, bool, IDisposable>>(
@@ -1907,12 +1665,12 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         private static Func<string, object> GetForContextMethodCall()
         {
-            Type logManagerType = GetLogManagerType();
-            MethodInfo method = logManagerType.GetMethodPortable("ForContext", typeof(string), typeof(object), typeof(bool));
-            ParameterExpression propertyNameParam = Expression.Parameter(typeof(string), "propertyName");
-            ParameterExpression valueParam = Expression.Parameter(typeof(object), "value");
-            ParameterExpression destructureObjectsParam = Expression.Parameter(typeof(bool), "destructureObjects");
-            MethodCallExpression methodCall = Expression.Call(null, method, new Expression[]
+            var logManagerType = GetLogManagerType();
+            var method = logManagerType.GetMethodPortable("ForContext", typeof(string), typeof(object), typeof(bool));
+            var propertyNameParam = Expression.Parameter(typeof(string), "propertyName");
+            var valueParam = Expression.Parameter(typeof(object), "value");
+            var destructureObjectsParam = Expression.Parameter(typeof(bool), "destructureObjects");
+            var methodCall = Expression.Call(null, method, new Expression[]
             {
                 propertyNameParam,
                 valueParam,
@@ -1927,7 +1685,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             return name => func("SourceContext", name, false);
         }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         [ExcludeFromCodeCoverage]
 #endif
         internal class SerilogLogger
@@ -1968,20 +1726,20 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 {
                     throw new InvalidOperationException("Type Serilog.ILogger was not found.");
                 }
-                MethodInfo isEnabledMethodInfo = loggerType.GetMethodPortable("IsEnabled", logEventLevelType);
-                ParameterExpression instanceParam = Expression.Parameter(typeof(object));
-                UnaryExpression instanceCast = Expression.Convert(instanceParam, loggerType);
-                ParameterExpression levelParam = Expression.Parameter(typeof(object));
-                UnaryExpression levelCast = Expression.Convert(levelParam, logEventLevelType);
-                MethodCallExpression isEnabledMethodCall = Expression.Call(instanceCast, isEnabledMethodInfo, levelCast);
+                var isEnabledMethodInfo = loggerType.GetMethodPortable("IsEnabled", logEventLevelType);
+                var instanceParam = Expression.Parameter(typeof(object));
+                var instanceCast = Expression.Convert(instanceParam, loggerType);
+                var levelParam = Expression.Parameter(typeof(object));
+                var levelCast = Expression.Convert(levelParam, logEventLevelType);
+                var isEnabledMethodCall = Expression.Call(instanceCast, isEnabledMethodInfo, levelCast);
                 IsEnabled = Expression.Lambda<Func<object, object, bool>>(isEnabledMethodCall, instanceParam, levelParam).Compile();
 
                 // Action<object, object, string> Write =
                 // (logger, level, message, params) => { ((SeriLog.ILoggerILogger)logger).Write(level, message, params); }
                 MethodInfo writeMethodInfo = loggerType.GetMethodPortable("Write", logEventLevelType, typeof(string), typeof(object[]));
-                ParameterExpression messageParam = Expression.Parameter(typeof(string));
-                ParameterExpression propertyValuesParam = Expression.Parameter(typeof(object[]));
-                MethodCallExpression writeMethodExp = Expression.Call(
+                var messageParam = Expression.Parameter(typeof(string));
+                var propertyValuesParam = Expression.Parameter(typeof(object[]));
+                var writeMethodExp = Expression.Call(
                     instanceCast,
                     writeMethodInfo,
                     levelCast,
@@ -2002,7 +1760,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                     typeof(Exception),
                     typeof(string),
                     typeof(object[]));
-                ParameterExpression exceptionParam = Expression.Parameter(typeof(Exception));
+                var exceptionParam = Expression.Parameter(typeof(Exception));
                 writeMethodExp = Expression.Call(
                     instanceCast,
                     writeExceptionMethodInfo,
@@ -2020,9 +1778,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             }
 
             internal SerilogLogger(object logger)
-            {
-                _logger = logger;
-            }
+                => _logger = logger;
 
             public bool Log(LogLevel logLevel, Func<string> messageFunc, Exception exception, params object[] formatParameters)
             {
@@ -2050,14 +1806,10 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             }
 
             private void LogMessage(object translatedLevel, Func<string> messageFunc, object[] formatParameters)
-            {
-                Write(_logger, translatedLevel, messageFunc(), formatParameters);
-            }
+                => Write(_logger, translatedLevel, messageFunc(), formatParameters);
 
             private void LogException(object logLevel, Func<string> messageFunc, Exception exception, object[] formatParams)
-            {
-                WriteException(_logger, logLevel, exception, messageFunc(), formatParams);
-            }
+                => WriteException(_logger, logLevel, exception, messageFunc(), formatParams);
 
             private static object TranslateLevel(LogLevel logLevel)
             {
@@ -2080,7 +1832,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class LoupeLogProvider : LogProviderBase
@@ -2102,8 +1854,8 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             params object[] args
             );
 
-        private static bool s_providerIsAvailableOverride = true;
         private readonly WriteDelegate _logWriteDelegate;
+        private const string LoupeAgentDll = "Loupe.Agent.NETCore";
 
         public LoupeLogProvider()
         {
@@ -2121,34 +1873,21 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         /// <value>
         /// <c>true</c> if [provider is available override]; otherwise, <c>false</c>.
         /// </value>
-        public static bool ProviderIsAvailableOverride
-        {
-            get { return s_providerIsAvailableOverride; }
-            set { s_providerIsAvailableOverride = value; }
-        }
+        public static bool ProviderIsAvailableOverride { get; set; } = true;
 
-        public override Logger GetLogger(string name)
-        {
-            return new LoupeLogger(name, _logWriteDelegate).Log;
-        }
+        public override Logger GetLogger(string name) => new LoupeLogger(name, _logWriteDelegate).Log;
 
-        public static bool IsLoggerAvailable()
-        {
-            return ProviderIsAvailableOverride && GetLogManagerType() != null;
-        }
+        public static bool IsLoggerAvailable() => ProviderIsAvailableOverride && GetLogManagerType() != null;
 
-        private static Type GetLogManagerType()
-        {
-            return Type.GetType("Gibraltar.Agent.Log, Gibraltar.Agent");
-        }
+        private static Type GetLogManagerType() => Type.GetType($"Gibraltar.Agent.Log, {LoupeAgentDll}");
 
         private static WriteDelegate GetLogWriteDelegate()
         {
-            Type logManagerType = GetLogManagerType();
-            Type logMessageSeverityType = Type.GetType("Gibraltar.Agent.LogMessageSeverity, Gibraltar.Agent");
-            Type logWriteModeType = Type.GetType("Gibraltar.Agent.LogWriteMode, Gibraltar.Agent");
+            var logManagerType = GetLogManagerType();
+            var logMessageSeverityType = Type.GetType($"Gibraltar.Agent.LogMessageSeverity, {LoupeAgentDll}");
+            var logWriteModeType = Type.GetType($"Gibraltar.Agent.LogWriteMode, {LoupeAgentDll}");
 
-            MethodInfo method = logManagerType.GetMethodPortable(
+            var method = logManagerType.GetMethodPortable(
                 "Write",
                 logMessageSeverityType, typeof(string), typeof(int), typeof(Exception), typeof(bool),
                 logWriteModeType, typeof(string), typeof(string), typeof(string), typeof(string), typeof(object[]));
@@ -2157,7 +1896,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
             return callDelegate;
         }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         [ExcludeFromCodeCoverage]
 #endif
         internal class LoupeLogger
@@ -2218,7 +1957,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal static class TraceEventTypeValues
@@ -2248,14 +1987,13 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal static class LogMessageFormatter
     {
-        //private static readonly Regex Pattern = new Regex(@"\{@?\w{1,}\}");
-#if LIBLOG_PORTABLE
-        private static readonly Regex Pattern = new Regex(@"(?<!{){@?(?<arg>[^\d{][^ }]*)}");
+#if NETSTANDARD1_0 || NETSTANDARD1_1 || NETSTANDARD1_2
+        private static readonly Regex Pattern = new Regex(@"(?<!{){@?(?<arg>[^ :{}]+)(?<format>:[^}]+)?}");
 #else
         private static readonly Regex Pattern = new Regex(@"(?<!{){@?(?<arg>[^ :{}]+)(?<format>:[^}]+)?}", RegexOptions.Compiled);
 #endif
@@ -2279,15 +2017,14 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
             return () =>
             {
-                string targetMessage = messageBuilder();
-                IEnumerable<string> patternMatches;
-                return FormatStructuredMessage(targetMessage, formatParameters, out patternMatches);
+                var targetMessage = messageBuilder();
+                return FormatStructuredMessage(targetMessage, formatParameters, out _);
             };
         }
 
         private static string ReplaceFirst(string text, string search, string replace)
         {
-            int pos = text.IndexOf(search, StringComparison.Ordinal);
+            var pos = text.IndexOf(search, StringComparison.Ordinal);
             if (pos < 0)
             {
                 return text;
@@ -2303,7 +2040,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 return targetMessage;
             }
 
-            List<string> processedArguments = new List<string>();
+            var processedArguments = new List<string>();
             patternMatches = processedArguments;
 
             foreach (Match match in Pattern.Matches(targetMessage))
@@ -2313,7 +2050,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
                 int notUsed;
                 if (!int.TryParse(arg, out notUsed))
                 {
-                    int argumentIndex = processedArguments.IndexOf(arg);
+                    var argumentIndex = processedArguments.IndexOf(arg);
                     if (argumentIndex == -1)
                     {
                         argumentIndex = processedArguments.Count;
@@ -2335,14 +2072,14 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal static class TypeExtensions
     {
         internal static ConstructorInfo GetConstructorPortable(this Type type, params Type[] types)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetTypeInfo().DeclaredConstructors.FirstOrDefault
                        (constructor =>
                             constructor.GetParameters()
@@ -2355,7 +2092,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static MethodInfo GetMethodPortable(this Type type, string name)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetRuntimeMethods().SingleOrDefault(m => m.Name == name);
 #else
             return type.GetMethod(name);
@@ -2364,7 +2101,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static MethodInfo GetMethodPortable(this Type type, string name, params Type[] types)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetRuntimeMethod(name, types);
 #else
             return type.GetMethod(name, types);
@@ -2373,7 +2110,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static PropertyInfo GetPropertyPortable(this Type type, string name)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetRuntimeProperty(name);
 #else
             return type.GetProperty(name);
@@ -2382,7 +2119,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static IEnumerable<FieldInfo> GetFieldsPortable(this Type type)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetRuntimeFields();
 #else
             return type.GetFields();
@@ -2391,14 +2128,14 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static Type GetBaseTypePortable(this Type type)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetTypeInfo().BaseType;
 #else
             return type.BaseType;
 #endif
         }
 
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
         internal static MethodInfo GetGetMethod(this PropertyInfo propertyInfo)
         {
             return propertyInfo.GetMethod;
@@ -2410,7 +2147,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
 #endif
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
         internal static object CreateDelegate(this MethodInfo methodInfo, Type delegateType)
         {
             return Delegate.CreateDelegate(delegateType, methodInfo);
@@ -2419,7 +2156,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
 
         internal static Assembly GetAssemblyPortable(this Type type)
         {
-#if LIBLOG_PORTABLE
+#if LIBLOG_NETSTANDARD
             return type.GetTypeInfo().Assembly;
 #else
             return type.Assembly;
@@ -2427,7 +2164,7 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         }
     }
 
-#if !LIBLOG_PORTABLE
+#if !LIBLOG_NETSTANDARD
     [ExcludeFromCodeCoverage]
 #endif
     internal class DisposableAction : IDisposable
@@ -2435,16 +2172,9 @@ namespace Hyperledger.Fabric.SDK.Logging.LogProviders
         private readonly Action _onDispose;
 
         public DisposableAction(Action onDispose = null)
-        {
-            _onDispose = onDispose;
-        }
+            => _onDispose = onDispose;
 
-        public void Dispose()
-        {
-            if (_onDispose != null)
-            {
-                _onDispose();
-            }
-        }
+        public void Dispose() =>
+            _onDispose?.Invoke();
     }
 }

@@ -12,41 +12,44 @@
  *  limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Org.BouncyCastle.Utilities;
 
 namespace Hyperledger.Fabric.SDK
 {
-
     /**
      * A base transaction request common for InstallProposalRequest,trRequest, and QueryRequest.
      */
     public class TransactionRequest
     {
-
-
-        bool submitted = false;
-
-        private Config config => Config.GetConfig();
-        // The local path containing the chaincode to deploy in network mode.
-        protected string chaincodePath;
-
+        //Mirror Fabric try not expose any of its classes
+        public enum Type
+        {
+            JAVA,
+            GO_LANG,
+            NODE
+        }
 
 
         // The chaincode ID as provided by the 'submitted' event emitted by a TransactionContext
         private ChaincodeID chaincodeID;
 
+        // The local path containing the chaincode to deploy in network mode.
+        protected string chaincodePath;
 
 
-
-
-        
         protected Dictionary<string, byte[]> transientMap;
+
+        protected TransactionRequest(IUser userContext)
+        {
+            UserContext = userContext;
+            ProposalWaitTime = config.GetProposalWaitTime();
+        }
+
+        private Config config => Config.GetConfig();
 
         /**
          * The user context to use on this request.
@@ -67,7 +70,7 @@ namespace Hyperledger.Fabric.SDK
          * @return Map of strings to bytes that's added to the proposal
          */
 
-        public Dictionary<String, byte[]> TransientMap => transientMap;
+        public Dictionary<string, byte[]> TransientMap => transientMap;
 
         /**
          * Determines whether an empty channel ID should be set on proposals built
@@ -96,99 +99,39 @@ namespace Hyperledger.Fabric.SDK
             set => chaincodePath = value;
         }
 
-        public TransactionRequest SetChaincodePath(string chaincodePath) {
-
-            this.chaincodePath = chaincodePath;
-            return this;
-        }
         public string ChaincodeName { get; set; }
-
-        public TransactionRequest SetChaincodeName(string chaincodeName)
-        {
-            ChaincodeName = chaincodeName;
-            return this;
-        }
         public string ChaincodeVersion { get; set; }
-        public TransactionRequest SetChaincodeVersion(string chaincodeVersion) {
-            ChaincodeVersion = chaincodeVersion;
-            return this;
-        }
 
-        public ChaincodeID ChaincodeID
+        public virtual ChaincodeID ChaincodeID
         {
             get => chaincodeID;
             set
             {
                 if (ChaincodeName != null)
                 {
-
                     throw new InvalidArgumentException("Chaincode name has already been set.");
                 }
+
                 if (ChaincodeVersion != null)
                 {
-
                     throw new InvalidArgumentException("Chaincode version has already been set.");
                 }
 
                 if (chaincodePath != null)
                 {
-
                     throw new InvalidArgumentException("Chaincode path has already been set.");
                 }
 
-                this.chaincodeID = value;
+                chaincodeID = value;
                 ChaincodeName = chaincodeID.Name;
                 chaincodePath = chaincodeID.Path;
                 ChaincodeVersion = chaincodeID.Version;
             }
         }
+
         public string Fcn { get; set; }
-      
-
-        public TransactionRequest setFcn(string fcn)
-        {
-            this.Fcn = fcn;
-            return this;
-        }
         public List<string> Args { get; set; }
-
-
-        public TransactionRequest SetArgs(params string[] args)
-        {
-            this.Args = new List<string>(args);
-            return this;
-        }
         public List<byte[]> ArgsBytes { get; set; }
-        public TransactionRequest SetArgBytes(List<byte[]> args)
-        {
-            ArgsBytes = args;
-            return this;
-        }
-        public TransactionRequest SetArgBytes(byte[][] args)
-        {
-
-            this.ArgsBytes = args.ToList();
-            return this;
-        }
-
-        public TransactionRequest SetArgs(List<String> args)
-        {
-            this.Args = args;
-            return this;
-        }
-
-        public TransactionRequest SetArgs(params byte[][] args)
-        {
-            this.ArgsBytes = args.ToList();
-            return this;
-        }
-
-        //Mirror Fabric try not expose any of its classes
-        public enum Type {
-            JAVA,
-            GO_LANG,
-            NODE
-        }
 
         /**
          * The chaincode language type: default type Type.GO_LANG
@@ -202,6 +145,7 @@ namespace Hyperledger.Fabric.SDK
          * @see ChaincodeEndorsementPolicy
          */
         public Type ChaincodeLanguage { get; set; } = Type.GO_LANG;
+
         /**
          * returns the Policy object associated with the chaincode of this transaction
          *
@@ -221,9 +165,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @param proposalWaitTime the timeout for a single proposal request to endorser in milliseconds
          */
-        public long ProposalWaitTime { get; set; } = config.GetProposalWaitTime();
-
-
+        public long ProposalWaitTime { get; set; }
 
 
         /**
@@ -232,21 +174,74 @@ namespace Hyperledger.Fabric.SDK
          * @return true if the already submitted.
          */
 
-        public bool IsSubmitted => submitted;
+        public bool IsSubmitted { get; private set; }
+
+        public TransactionRequest SetChaincodePath(string chainCodePath)
+        {
+            chaincodePath = chainCodePath;
+            return this;
+        }
+
+        public TransactionRequest SetChaincodeName(string chaincodeName)
+        {
+            ChaincodeName = chaincodeName;
+            return this;
+        }
+
+        public TransactionRequest SetChaincodeVersion(string chaincodeVersion)
+        {
+            ChaincodeVersion = chaincodeVersion;
+            return this;
+        }
+
+
+        public TransactionRequest SetFcn(string fcn)
+        {
+            Fcn = fcn;
+            return this;
+        }
+
+
+        public TransactionRequest SetArgs(params string[] args)
+        {
+            Args = new List<string>(args);
+            return this;
+        }
+
+        public TransactionRequest SetArgBytes(List<byte[]> args)
+        {
+            ArgsBytes = args;
+            return this;
+        }
+
+        public TransactionRequest SetArgBytes(byte[][] args)
+        {
+            ArgsBytes = args.ToList();
+            return this;
+        }
+
+        public TransactionRequest SetArgs(List<string> args)
+        {
+            Args = args;
+            return this;
+        }
+
+        public TransactionRequest SetArgs(params byte[][] args)
+        {
+            ArgsBytes = args.ToList();
+            return this;
+        }
 
         public void SetSubmitted()
         {
-            if (submitted)
+            if (IsSubmitted)
             {
                 // Has already been submitted.
                 throw new InvalidArgumentException("Request has been already submitted and can not be reused.");
             }
-            UserContext.UserContextCheck();
-            submitted = true;
-        }
 
-        protected TransactionRequest(IUser userContext) {
-            this.UserContext = userContext;
+            UserContext.UserContextCheck();
+            IsSubmitted = true;
         }
     }
 }

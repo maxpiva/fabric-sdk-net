@@ -17,11 +17,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
+using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Utilities;
 using Org.BouncyCastle.Utilities.Encoders;
 using SharpCompress.Archives.Tar;
@@ -50,6 +54,19 @@ namespace Hyperledger.Fabric.SDK.Helper
             digest.BlockUpdate(input, 0, input.Length);
             digest.DoFinal(retValue, 0);
             return retValue;
+        }
+
+
+        private static readonly int NONONCE_LENGTH = 24;
+
+        private static RNGCryptoServiceProvider RANDOM = new RNGCryptoServiceProvider();
+
+        public static byte[] GenerateNonce()
+        {
+
+            byte[] values = new byte[NONONCE_LENGTH];
+            RANDOM.GetBytes(values);
+            return values;
         }
 
         /**
@@ -153,7 +170,7 @@ namespace Hyperledger.Fabric.SDK.Helper
      *
      * @return String representation of {@link UUID}
      */
-    public static string generateUUID()
+    public static string GenerateUUID()
     {
         return Guid.NewGuid().ToString().Replace("-", string.Empty);
     }
@@ -163,7 +180,7 @@ namespace Hyperledger.Fabric.SDK.Helper
      *
      * @return timestamp
      */
-    public static DateTime generateTimestamp()
+    public static DateTime GenerateTimestamp()
     {
         return DateTime.UtcNow;
     }
@@ -191,18 +208,62 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
 
         }
+        public static (string Protocol, string Host, int Port) ParseGrpcUrl(string url)
+        {
+            (string Protocol, string Host, int Port) ret;
+            if (string.IsNullOrEmpty(url))
+                throw new ArgumentException("URL cannot be null or empty");
+            Dictionary<string, string> props = new Dictionary<string, string>();
+            Regex p = new Regex("([^:]+)[:]//([^:]+)[:]([0-9]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            Match m = p.Match(url);
+            if (m.Success)
+            {
+                ret.Protocol = m.Groups[1].Value;
+                ret.Host = m.Groups[2].Value;
+                string ports = m.Groups[3].Value;
+                int port;
+                if (!int.TryParse(ports,out port))
+                    throw new ArgumentException("Invalid port");
+                ret.Port = port;
+                if (!"grpc".Equals(ret.Protocol,StringComparison.InvariantCultureIgnoreCase) && !"grpcs".Equals(ret.Protocol, StringComparison.InvariantCultureIgnoreCase))
+                    throw new ArgumentException($"Invalid protocol expected grpc or grpcs and found {ret.Protocol}.");
+                return ret;
+            }
+            throw new ArgumentException("URL must be of the format protocol://host:port");
 
-
-
-
-/**
- * Read a file from classpath
+            // TODO: allow all possible formats of the URL
+        }
+        /**
+ * Check if the strings Grpc url is valid
  *
- * @param fileName
- * @return byte[] data
- * @throws IOException
+ * @param url
+ * @return Return the exception that indicates the error or null if ok.
  */
-public static byte[] readFileFromClasspath(String fileName) throws IOException
+        public static Exception CheckGrpcUrl(String url)
+        {
+            try
+            {
+
+                ParseGrpcUrl(url);
+                return null;
+
+            }
+            catch (Exception e)
+            {
+                return e;
+            }
+        }
+
+
+        /**
+         * Read a file from classpath
+         *
+         * @param fileName
+         * @return byte[] data
+         * @throws IOException
+         */
+        /*
+        public static byte[] readFileFromClasspath(String fileName) throws IOException
 {
     InputStream is = Utils.class.getClassLoader().getResourceAsStream(fileName);
 byte[] data = ByteStreams.toByteArray(is);
@@ -212,121 +273,20 @@ byte[] data = ByteStreams.toByteArray(is);
         }
         return data;
     }
+    */
+   
 
-    public static Properties parseGrpcUrl(String url)
-{
-    if (StringUtil.isNullOrEmpty(url))
-    {
-        throw new RuntimeException("URL cannot be null or empty");
-    }
 
-    Properties props = new Properties();
-    Pattern p = Pattern.compile("([^:]+)[:]//([^:]+)[:]([0-9]+)", Pattern.CASE_INSENSITIVE);
-    Matcher m = p.matcher(url);
-    if (m.matches())
-    {
-        props.setProperty("protocol", m.group(1));
-        props.setProperty("host", m.group(2));
-        props.setProperty("port", m.group(3));
 
-        String protocol = props.getProperty("protocol");
-        if (!"grpc".equals(protocol) && !"grpcs".equals(protocol))
-        {
-            throw new RuntimeException(format("Invalid protocol expected grpc or grpcs and found %s.", protocol));
-        }
-    }
-    else
-    {
-        throw new RuntimeException("URL must be of the format protocol://host:port");
-    }
 
-    // TODO: allow all possible formats of the URL
-    return props;
-}
 
-/**
- * Check if the strings Grpc url is valid
- *
- * @param url
- * @return Return the exception that indicates the error or null if ok.
- */
-public static Exception checkGrpcUrl(String url)
-{
-    try
-    {
 
-        parseGrpcUrl(url);
-        return null;
+        /**
+         * Private constructor to prevent instantiation.
+         */
+
 
     }
-    catch (Exception e)
-    {
-        return e;
-    }
-}
-
-/**
- * Check if a string is null or empty.
- *
- * @param url the string to test.
- * @return {@code true} if the string is null or empty; otherwise {@code false}.
- */
-public static boolean isNullOrEmpty(String url)
-{
-    return url == null || url.isEmpty();
-}
-
-/**
- * Makes logging strings which can be long or with unprintable characters be logged and trimmed.
- *
- * @param string Unsafe string too long
- * @return returns a string which does not have unprintable characters and trimmed in length.
- */
-
-
-private static final int NONONCE_LENGTH = 24;
-
-private static final SecureRandom RANDOM = new SecureRandom();
-
-public static byte[] generateNonce()
-{
-
-    byte[] values = new byte[NONONCE_LENGTH];
-    RANDOM.nextBytes(values);
-
-    return values;
-}
-
-public static String toHexString(ByteString byteString)
-{
-    if (byteString == null)
-    {
-        return null;
-    }
-
-    return encodeHexString(byteString.toByteArray());
-
-}
-
-public static String toHexString(byte[] bytes)
-{
-    if (bytes == null)
-    {
-        return null;
-    }
-
-    return encodeHexString(bytes);
-
-}
-
-/**
- * Private constructor to prevent instantiation.
- */
-private Utils()
-{
-}
-
-}
 
 }
 

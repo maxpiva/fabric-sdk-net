@@ -12,45 +12,44 @@
  *  limitations under the License.
  */
 
-using System.Collections.Generic;
-using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {
     public class JoinPeerProposalBuilder : CSCCProposalBuilder
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(JoinPeerProposalBuilder));
-        
+
+        private JoinPeerProposalBuilder()
+        {
+        }
+
         public JoinPeerProposalBuilder GenesisBlock(Block genesisBlock)
         {
-            if (genesisBlock == null) {
+            if (genesisBlock == null)
+            {
                 ProposalException exp = new ProposalException("No genesis block for Join proposal.");
                 logger.ErrorException(exp.Message, exp);
                 throw exp;
             }
+
             AddArg("JoinChain");
-            AddArg(genesisBlock.SerializeProtoBuf());
+            AddArg(genesisBlock.ToByteString());
             return this;
         }
 
-        private JoinPeerProposalBuilder() {
-
-        }
-
-        public new JoinPeerProposalBuilder Context(TransactionContext context)
+        public new JoinPeerProposalBuilder Context(TransactionContext tcontext)
         {
-            base.Context(context);
+            base.Context(tcontext);
             return this;
         }
 
-        public new static JoinPeerProposalBuilder Create() {
+        public new static JoinPeerProposalBuilder Create()
+        {
             return new JoinPeerProposalBuilder();
         }
-
     }
 }
-

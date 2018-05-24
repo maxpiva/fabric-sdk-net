@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Hyperledger.Fabric_CA.SDK</AssemblyName>
+    <RootNamespace>Hyperledger.Fabric_CA.SDK</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DeepCloner" Version="0.10.2" />
+    <PackageReference Include="LibLog" Version="4.2.6" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.4.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FabricSDK\FabricSDK.csproj" />
+    <ProjectReference Include="..\ini-parser\src\IniFileParser\INIFileParser.csproj" />
+  </ItemGroup>
+
+</Project>

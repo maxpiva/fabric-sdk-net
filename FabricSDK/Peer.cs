@@ -43,52 +43,128 @@ import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;
  */
 
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Force.DeepCloner;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.Protos.Common;
+using Hyperledger.Fabric.SDK.Transaction;
+
 
 namespace Hyperledger.Fabric.SDK
 {
-    public class Peer
+
+    /**
+* Endorsing peer installs and runs chaincode.
+*/
+
+    public enum PeerRole
+    {
+        ENDORSING_PEER,
+        CHAINCODE_QUERY,
+        LEDGER_QUERY,
+        EVENT_SOURCE
+    }
+
+    public static class PeerRoleExtensions
+    {
+
+        public static string ToValue(this PeerRole role)
+        {
+            switch (role)
+            {
+                case PeerRole.ENDORSING_PEER:
+                    return "endorsingPeer";
+                case PeerRole.CHAINCODE_QUERY:
+                    return "chaincodeQuery";
+                case PeerRole.LEDGER_QUERY:
+                    return "ledgerQuery";
+                case PeerRole.EVENT_SOURCE:
+                    return "eventSource";
+            }
+
+            return string.Empty;
+        }
+
+        public static List<PeerRole> All() => Enum.GetValues(typeof(PeerRole)).Cast<PeerRole>().ToList();
+        public static List<PeerRole> NoEventSource() => Enum.GetValues(typeof(PeerRole)).Cast<PeerRole>().Except(new [] { PeerRole.EVENT_SOURCE}).ToList();
+
+        public static PeerRole FromValue(this string value)
+        {
+            switch (value)
+            {
+                case "endorsingPeer":
+                    return PeerRole.ENDORSING_PEER;
+                case "chaincodeQuery":
+                    return PeerRole.CHAINCODE_QUERY;
+                case "ledgerQuery":
+                    return PeerRole.LEDGER_QUERY;
+                case "eventSource":
+                    return PeerRole.EVENT_SOURCE;
+            }
+
+            return PeerRole.CHAINCODE_QUERY;
+        }
+    }
+    /**
+* Possible roles a peer can perform.
+*/
+    public class Peer : IEquatable<Peer>
     {
 
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Peer));
-        private static readonly Config config = Config.getConfig();
-        private static final long PEER_EVENT_RETRY_WAIT_TIME = config.getPeerRetryWaitTime();
-        private final Properties properties;
-        private final String name;
-        private final String url;
-        private transient volatile EndorserClient endorserClent;
-        private transient PeerEventServiceClient peerEventingClient;
-        private transient boolean shutdown = false;
+        private static readonly Config config = Config.GetConfig();
+        private static readonly long PEER_EVENT_RETRY_WAIT_TIME = config.GetPeerRetryWaitTime();
+        private readonly Dictionary<string, object> properties;
+
+        [NonSerialized]
+        private EndorserClient endorserClent;
+        [NonSerialized]
+        private PeerEventServiceClient peerEventingClient;
+        [NonSerialized]
+        private bool shutdown = false;
         private Channel channel;
-        private transient TransactionContext transactionContext;
-        private transient long lastConnectTime;
-        private transient long reconnectCount;
-        private transient BlockEvent lastBlockEvent;
-        private transient long lastBlockNumber;
+        [NonSerialized]
+        private TransactionContext transactionContext;
+        [NonSerialized]
+        private long lastConnectTime;
+        [NonSerialized]
+        private long reconnectCount;
+        [NonSerialized]
+        private BlockEvent lastBlockEvent;
+        [NonSerialized]
+        private long lastBlockNumber;
 
-        Peer(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
+        public Peer(string name, string grpcURL, Dictionary<string, object> properties)
+        {
 
-            Exception e = checkGrpcUrl(grpcURL);
+            Exception e = Utils.CheckGrpcUrl(grpcURL);
             if (e != null) {
                 throw new InvalidArgumentException("Bad peer url.", e);
 
             }
 
-            if (StringUtil.isNullOrEmpty(name)) {
+            if (string.IsNullOrEmpty(name)) {
                 throw new InvalidArgumentException("Invalid name for peer");
             }
 
-            this.url = grpcURL;
-            this.name = name;
-            this.properties = properties == null ? null : (Properties) properties.clone(); //keep our own copy.
+            this.Url = grpcURL;
+            this.Name = name;
+            this.properties = properties?.DeepClone();
             reconnectCount = 0L;
 
         }
 
-        static Peer createNewInstance(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
-
+        public string Url { get; }
+        public static Peer Create(string name, string grpcURL, Dictionary<string, object> properties)
+        {
             return new Peer(name, grpcURL, properties);
         }
 
@@ -97,43 +173,40 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return return the peer's name.
          */
+        public string Name { get; }
 
-        public String getName() {
-
-            return name;
+        public Dictionary<string, object> GetProperties()
+        {
+            return properties?.DeepClone();
         }
 
-        public Properties getProperties() {
-
-            return properties == null ? null : (Properties) properties.clone();
-        }
-
-        void unsetChannel() {
+        public void UnsetChannel() {
             channel = null;
         }
 
-        BlockEvent getLastBlockEvent() {
+        public BlockEvent getLastBlockEvent() {
             return lastBlockEvent;
         }
 
 
 
-        ExecutorService getExecutorService() {
-            return channel.getExecutorService();
+        TaskScheduler GetExecutorService() {
+            return channel.ExecutorService;
         }
 
-        void initiateEventing(TransactionContext transactionContext, PeerOptions peersOptions) throws TransactionException {
+        public void InitiateEventing(TransactionContext transactionContext, Channel.PeerOptions peersOptions)
+        {
 
-            this.transactionContext = transactionContext.retryTransactionSameContext();
-
+            this.transactionContext = transactionContext.RetryTransactionSameContext();
+            
             if (peerEventingClient == null) {
 
                 //PeerEventServiceClient(Peer peer, ManagedChannelBuilder<?> channelBuilder, Properties properties)
                 //   peerEventingClient = new PeerEventServiceClient(this, new HashSet<Channel>(Arrays.asList(new Channel[] {channel})));
 
-                peerEventingClient = new PeerEventServiceClient(this, new Endpoint(url, properties), properties, peersOptions);
+                peerEventingClient = new PeerEventServiceClient(this, new Endpoint(Url, properties), properties, peersOptions);
 
-                peerEventingClient.connect(transactionContext);
+                peerEventingClient.Connect(transactionContext);
 
             }
 
@@ -145,7 +218,7 @@ namespace Hyperledger.Fabric.SDK
          * @return
          */
 
-        Channel getChannel() {
+        public Channel GetChannel() {
 
             return channel;
 
@@ -157,11 +230,11 @@ namespace Hyperledger.Fabric.SDK
          * @param channel
          */
 
-        void setChannel(Channel channel) throws InvalidArgumentException {
+        public void SetChannel(Channel channel)
+        {
 
             if (null != this.channel) {
-                throw new InvalidArgumentException(format("Can not add peer %s to channel %s because it already belongs to channel %s.",
-                        name, channel.getName(), this.channel.getName()));
+                throw new InvalidArgumentException($"Can not add peer {Name} to channel {channel.Name} because it already belongs to channel {this.channel.Name}.");
             }
 
             this.channel = channel;
@@ -173,10 +246,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return {string} Get the URL associated with the peer.
          */
-        public String getUrl() {
 
-            return url;
-        }
 
         /**
          * for use in list of peers comparisons , e.g. list.contains() calls
@@ -184,64 +254,68 @@ namespace Hyperledger.Fabric.SDK
          * @param otherPeer the peer instance to compare against
          * @return true if both peer instances have the same name and url
          */
-        @Override
-        public boolean equals(Object otherPeer) {
-            if (this == otherPeer) {
+
+        public bool Equals(Peer other)
+        {
+            if (this == other)
+            {
                 return true;
             }
-            if (otherPeer == null) {
+            if (other == null)
+            {
                 return false;
             }
-            if (!(otherPeer instanceof Peer)) {
-                return false;
-            }
-            Peer p = (Peer) otherPeer;
-            return Objects.equals(this.name, p.name) && Objects.equals(this.url, p.url);
+
+            return this.Name.Equals(other.Name) && this.Url.Equals(other.Url);
         }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(name, url);
-        }
 
-        ListenableFuture<FabricProposalResponse.ProposalResponse> sendProposalAsync(FabricProposal.SignedProposal proposal)
-                throws PeerException, InvalidArgumentException {
-            checkSendProposal(proposal);
 
-            logger.debug(format("peer.sendProposalAsync name: %s, url: %s", name, url));
+        public TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal)
+        {
+            TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse> src=new TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse>();
 
+            CheckSendProposal(proposal);
+
+            logger.Debug($"peer.sendProposalAsync name: {Name}, url: {Url}");
+                
             EndorserClient localEndorserClient = endorserClent; //work off thread local copy.
 
-            if (null == localEndorserClient || !localEndorserClient.isChannelActive()) {
-                endorserClent = new EndorserClient(new Endpoint(url, properties).getChannelBuilder());
+            if (null == localEndorserClient || !localEndorserClient.IsChannelActive()) {
+                endorserClent = new EndorserClient(new Endpoint(Url, properties));
                 localEndorserClient = endorserClent;
             }
 
-            try {
-                return localEndorserClient.sendProposalAsync(proposal);
-            } catch (Throwable t) {
+            try
+            {
+                Task.Factory.StartNew(async () =>
+                {
+                    Protos.Peer.FabricProposalResponse.ProposalResponse resp = await localEndorserClient.SendProposalAsync(proposal);
+                    src.SetResult(resp);
+                }, default(CancellationToken), TaskCreationOptions.None, GetExecutorService());
+            } catch (Exception t) {
                 endorserClent = null;
                 throw t;
             }
+            return src;
         }
 
-        private void checkSendProposal(FabricProposal.SignedProposal proposal) throws
-                PeerException, InvalidArgumentException {
+        private void CheckSendProposal(SignedProposal proposal) {
 
             if (shutdown) {
-                throw new PeerException(format("Peer %s was shutdown.", name));
+                throw new PeerException($"Peer {Name} was shutdown.");
             }
             if (proposal == null) {
                 throw new PeerException("Proposal is null");
             }
-            Exception e = checkGrpcUrl(url);
+            Exception e = Utils.CheckGrpcUrl(Url);
             if (e != null) {
                 throw new InvalidArgumentException("Bad peer url.", e);
 
             }
         }
-
-        synchronized void shutdown(boolean force) {
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force) {
             if (shutdown) {
                 return;
             }
@@ -258,7 +332,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (lendorserClent != null) {
 
-                lendorserClent.shutdown(force);
+                lendorserClent.Shutdown(force);
             }
 
             PeerEventServiceClient lpeerEventingClient = peerEventingClient;
@@ -267,24 +341,22 @@ namespace Hyperledger.Fabric.SDK
             if (null != lpeerEventingClient) {
                 // PeerEventServiceClient peerEventingClient1 = peerEventingClient;
 
-                lpeerEventingClient.shutdown(force);
+                lpeerEventingClient.Shutdown(force);
             }
         }
 
-        @Override
-        protected void finalize() throws Throwable {
-            shutdown(true);
-            super.finalize();
+        ~Peer()
+        {
+            Shutdown(true);
         }
 
-        void reconnectPeerEventServiceClient(final PeerEventServiceClient failedPeerEventServiceClient,
-                                             final Throwable throwable) {
+        public void ReconnectPeerEventServiceClient(PeerEventServiceClient failedPeerEventServiceClient, Exception throwable) {
             if (shutdown) {
-                logger.debug("Not reconnecting PeerEventServiceClient shutdown ");
+                logger.Debug("Not reconnecting PeerEventServiceClient shutdown ");
                 return;
 
             }
-            PeerEventingServiceDisconnected ldisconnectedHandler = disconnectedHandler;
+            IPeerEventingServiceDisconnected ldisconnectedHandler = _disconnectedHandler;
             if (null == ldisconnectedHandler) {
 
                 return; // just wont reconnect.
@@ -293,87 +365,57 @@ namespace Hyperledger.Fabric.SDK
             TransactionContext ltransactionContext = transactionContext;
             if (ltransactionContext == null) {
 
-                logger.warn("Not reconnecting PeerEventServiceClient no transaction available ");
+                logger.Warn("Not reconnecting PeerEventServiceClient no transaction available ");
                 return;
             }
 
-            final TransactionContext fltransactionContext = ltransactionContext.retryTransactionSameContext();
+            TransactionContext fltransactionContext = ltransactionContext.RetryTransactionSameContext();
 
-            final ExecutorService executorService = getExecutorService();
-            final PeerOptions peerOptions = null != failedPeerEventServiceClient.getPeerOptions() ? failedPeerEventServiceClient.getPeerOptions() :
-                    PeerOptions.createPeerOptions();
-            if (executorService != null && !executorService.isShutdown() && !executorService.isTerminated()) {
+            TaskScheduler executorService = GetExecutorService();
+            Channel.PeerOptions peerOptions = null != failedPeerEventServiceClient.GetPeerOptions() ? failedPeerEventServiceClient.GetPeerOptions() :
+                    Channel.PeerOptions.CreatePeerOptions();
+            if (executorService != null)
+            {
+                Task.Factory.StartNew(() =>
+                    {
+                        ldisconnectedHandler.Disconnected(new PeerEventingServiceDisconnectEvent(this,throwable,peerOptions,fltransactionContext));
 
-                executorService.execute(() -> ldisconnectedHandler.disconnected(new PeerEventingServiceDisconnectEvent() {
-                    @Override
-                    public BlockEvent getLatestBLockReceived() {
-                        return lastBlockEvent;
-                    }
-
-                    @Override
-                    public long getLastConnectTime() {
-                        return lastConnectTime;
-                    }
-
-                    @Override
-                    public long getReconnectCount() {
-                        return reconnectCount;
-                    }
-
-                    @Override
-                    public Throwable getExceptionThrown() {
-                        return throwable;
-                    }
-
-                    @Override
-                    public void reconnect(Long startBLockNumber) throws TransactionException {
-                        logger.trace("reconnecting startBLockNumber" + startBLockNumber);
-                        ++reconnectCount;
-
-                        if (startBLockNumber == null) {
-                            peerOptions.startEventsNewest();
-                        } else {
-                            peerOptions.startEvents(startBLockNumber);
-                        }
-
-
-
-                        PeerEventServiceClient lpeerEventingClient = new PeerEventServiceClient(Peer.this,
-                                new Endpoint(url, properties), properties, peerOptions);
-                        lpeerEventingClient.connect(fltransactionContext);
-                        peerEventingClient = lpeerEventingClient;
-
-                    }
-                }));
-
+                    },default(CancellationToken), TaskCreationOptions.None, executorService);
             }
 
         }
 
-        void setLastConnectTime(long lastConnectTime) {
+        public void SetLastConnectTime(long lastConnectTime) {
             this.lastConnectTime = lastConnectTime;
         }
 
-        void resetReconnectCount() {
+        public long GetLastConnectTime() => lastConnectTime;
+        public void ResetReconnectCount() {
             reconnectCount = 0L;
         }
 
-        long getReconnectCount() {
+        public long GetReconnectCount() {
             return reconnectCount;
         }
 
-        public interface PeerEventingServiceDisconnected {
+    
+
+        public void IncrementReconnectCount()
+        {
+            reconnectCount++;
+        }
+        public interface IPeerEventingServiceDisconnected {
 
             /**
              * Called when a disconnect is detected in peer eventing service.
              *
              * @param event
              */
-            void disconnected(PeerEventingServiceDisconnectEvent event);
+            void Disconnected(IPeerEventingServiceDisconnectEvent evnt);
 
         }
 
-        public interface PeerEventingServiceDisconnectEvent {
+        public interface IPeerEventingServiceDisconnectEvent {
 
             /**
              * The latest BlockEvent received by peer eventing service.
@@ -381,14 +423,14 @@ namespace Hyperledger.Fabric.SDK
              * @return The latest BlockEvent.
              */
 
-            BlockEvent getLatestBLockReceived();
+            BlockEvent GetLatestBlockReceived();
 
             /**
              * Last connect time
              *
              * @return Last connect time as reported by System.currentTimeMillis()
              */
-            long getLastConnectTime();
+            long GetLastConnectTime();
 
             /**
              * Number reconnection attempts since last disconnection.
@@ -396,7 +438,7 @@ namespace Hyperledger.Fabric.SDK
              * @return reconnect attempts.
              */
 
-            long getReconnectCount();
+            long GetReconnectCount();
 
             /**
              * Last exception throw for failing connection
@@ -404,46 +446,109 @@ namespace Hyperledger.Fabric.SDK
              * @return
              */
 
-            Throwable getExceptionThrown();
+            Exception GetExceptionThrown();
 
-            void reconnect(Long startEvent) throws TransactionException;
+            void Reconnect(long? startEvent);
 
         }
 
-        private transient PeerEventingServiceDisconnected disconnectedHandler = getDefaultDisconnectHandler();
 
-        private static PeerEventingServiceDisconnected getDefaultDisconnectHandler() {
-            return new PeerEventingServiceDisconnected() { //default.
-                @Override
-                public synchronized void disconnected(final PeerEventingServiceDisconnectEvent event) {
+        public class PeerEventingServiceDisconnectEvent : IPeerEventingServiceDisconnectEvent
+        {
+            private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventingServiceDisconnectEvent));
+            private Exception throwable;
+            private Peer peer;
+            private Channel.PeerOptions peerOptions;
 
-                    BlockEvent lastBlockEvent = event.getLatestBLockReceived();
+            private TransactionContext filteredTransactionContext;
+  
 
-                    Long startBlockNumber = null;
+            public BlockEvent GetLatestBlockReceived()
+            {
+                return peer.getLastBlockEvent();
+            }
 
-                    if (null != lastBlockEvent) {
+            public long GetLastConnectTime()
+            {
+                return peer.GetLastConnectTime();
+            }
+            
+           
+            public long GetReconnectCount()
+            {
+                return peer.GetReconnectCount();
+            }
 
-                        startBlockNumber = lastBlockEvent.getBlockNumber();
-                    }
+            public Exception GetExceptionThrown()
+            {
+                return throwable;
+            }
 
-                    if (0 != event.getReconnectCount()) {
-                        try {
-                            Thread.sleep(PEER_EVENT_RETRY_WAIT_TIME);
-                        } catch (InterruptedException e) {
-
-                        }
-                    }
-
-                    try {
-                        event.reconnect(startBlockNumber);
-                    } catch (TransactionException e) {
-                        e.printStackTrace();
-                    }
-
+            public PeerEventingServiceDisconnectEvent(Peer peer, Exception throwable, Channel.PeerOptions options, TransactionContext context)
+            {
+                this.peer = peer;
+                this.throwable = throwable;
+                this.peerOptions = options;
+                this.filteredTransactionContext = context;
+            }
+            public void Reconnect(long? startBlockNumber)
+            {
+                logger.Trace("reconnecting startBLockNumber" + startBlockNumber);
+                peer.IncrementReconnectCount();
+                if (startBlockNumber == null) {
+                    peerOptions.StartEventsNewest();
+                } else {
+                    peerOptions.StartEvents(startBlockNumber.Value);
                 }
 
-            };
+
+
+                PeerEventServiceClient lpeerEventingClient = new PeerEventServiceClient(peer,
+                    new Endpoint(peer.Url, peer.properties), peer.properties, peerOptions);
+                lpeerEventingClient.Connect(filteredTransactionContext);
+                peer.peerEventingClient=lpeerEventingClient;
+            }
         }
+
+
+        public class PeerEventingServiceDisconnect : IPeerEventingServiceDisconnected
+        {
+            private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventingServiceDisconnect));
+
+            public void Disconnected(IPeerEventingServiceDisconnectEvent evnt) {
+
+                BlockEvent lastBlockEvent = evnt.GetLatestBlockReceived();
+
+                long? startBlockNumber = null;
+
+                if (null != lastBlockEvent)
+                {
+                    startBlockNumber = lastBlockEvent.BlockNumber;
+                }
+
+                if (0 != evnt.GetReconnectCount()) {
+                    try
+                    {
+                        Thread.Sleep((int)PEER_EVENT_RETRY_WAIT_TIME);
+                    }
+                    catch (Exception e)
+                    {
+
+                    }
+                }
+
+                try {
+                    evnt.Reconnect(startBlockNumber);
+                } catch (TransactionException e) {
+                    logger.ErrorException(e.Message,e);
+                }
+
+            }
+        }
+        private static IPeerEventingServiceDisconnected _disconnectedHandler;
+        public static IPeerEventingServiceDisconnected DefaultDisconnectHandler => _disconnectedHandler ?? (_disconnectedHandler = new PeerEventingServiceDisconnect());
+
+   
 
         /**
          * Set class to handle Event hub disconnects
@@ -452,14 +557,16 @@ namespace Hyperledger.Fabric.SDK
          * @return the old handler.
          */
 
-        public PeerEventingServiceDisconnected setPeerEventingServiceDisconnected(PeerEventingServiceDisconnected newPeerEventingServiceDisconnectedHandler) {
-            PeerEventingServiceDisconnected ret = disconnectedHandler;
-            disconnectedHandler = newPeerEventingServiceDisconnectedHandler;
+        public IPeerEventingServiceDisconnected SetPeerEventingServiceDisconnected(IPeerEventingServiceDisconnected newPeerEventingServiceDisconnectedHandler) {
+            IPeerEventingServiceDisconnected ret = _disconnectedHandler;
+            _disconnectedHandler = newPeerEventingServiceDisconnectedHandler;
             return ret;
         }
 
-        synchronized void setLastBlockSeen(BlockEvent lastBlockSeen) {
-            long newLastBlockNumber = lastBlockSeen.getBlockNumber();
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void SetLastBlockSeen(BlockEvent lastBlockSeen)
+        {
+            long newLastBlockNumber = lastBlockSeen.BlockNumber;
             // overkill but make sure.
             if (lastBlockNumber < newLastBlockNumber) {
                 lastBlockNumber = newLastBlockNumber;
@@ -467,57 +574,13 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        /**
-         * Possible roles a peer can perform.
-         */
-        public enum PeerRole {
-            /**
-             * Endorsing peer installs and runs chaincode.
-             */
-            ENDORSING_PEER("endorsingPeer"),
-            /**
-             * Chaincode query peer will be used to invoke chaincode on chaincode query requests.
-             */
-            CHAINCODE_QUERY("chaincodeQuery"),
-            /**
-             * Ledger Query will be used when query ledger operations are requested.
-             */
-            LEDGER_QUERY("ledgerQuery"),
-            /**
-             * Peer will monitor block events for the channel it belongs to.
-             */
-            EVENT_SOURCE("eventSource");
+       
 
-            /**
-             * All roles.
-             */
-            public static final EnumSet<PeerRole> ALL = EnumSet.allOf(PeerRole.class);
-            /**
-             * All roles except event source.
-             */
-            public static final EnumSet<PeerRole> NO_EVENT_SOURCE = EnumSet.complementOf(EnumSet.of(PeerRole.EVENT_SOURCE));
-            private final String propertyName;
-
-            PeerRole(String propertyName) {
-                this.propertyName = propertyName;
-            }
-
-            public String getPropertyName() {
-                return propertyName;
-            }
-        }
-
-        @Override
-        public String toString() {
-            return "Peer " + name + " url: " + url;
+        public override string ToString() {
+            return "Peer " + Name + " url: " + Url;
 
         }
 
-        private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
 
-            in.defaultReadObject();
-            disconnectedHandler = getDefaultDisconnectHandler();
-
-        }
     } // end Peer
-    }
+}

@@ -13,6 +13,11 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Grpc.Core;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
 
@@ -26,67 +31,77 @@ namespace Hyperledger.Fabric.SDK
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EndorserClient));
         
         private Grpc.Core.Channel managedChannel;
-        private EndorserBlockingStub blockingStub;
-        private EndorserGrpc.EndorserFutureStub futureStub;
-        private boolean shutdown = false;
+        private Endorser.EndorserClient ecl;
+        private bool shutdown = false;
 
         /**
          * Construct client for accessing Peer server using the existing channel.
          *
          * @param channelBuilder The ChannelBuilder to build the endorser client
          */
-        EndorserClient(ManagedChannelBuilder<?> channelBuilder) {
-            managedChannel = channelBuilder.build();
-            blockingStub = Protos.Peer.EndorserGrpc.newBlockingStub(managedChannel);
-            futureStub = EndorserGrpc.newFutureStub(managedChannel);
+        public EndorserClient(Endpoint endpoint)
+        {
+            managedChannel = endpoint.BuildChannel();
+            ecl=new Endorser.EndorserClient(managedChannel);
         }
-
-        synchronized void shutdown(boolean force) {
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force) {
             if (shutdown) {
                 return;
             }
             shutdown = true;
-            ManagedChannel lchannel = managedChannel;
+            Grpc.Core.Channel lchannel = managedChannel;
             // let all referenced resource finalize
             managedChannel = null;
-            blockingStub = null;
-            futureStub = null;
-
+            ecl = null;
             if (lchannel == null) {
                 return;
             }
-            if (force) {
-                lchannel.shutdownNow();
+            if (force)
+            {
+                lchannel.ShutdownAsync().Wait();
             } else {
-                boolean isTerminated = false;
+                bool isTerminated = false;
 
                 try {
-                    isTerminated = lchannel.shutdown().awaitTermination(3, TimeUnit.SECONDS);
+                    isTerminated = lchannel.ShutdownAsync().Wait(3*1000);
                 } catch (Exception e) {
-                    logger.debug(e); //best effort
+                    logger.DebugException(e.Message,e); //best effort
                 }
                 if (!isTerminated) {
-                    lchannel.shutdownNow();
+                    lchannel.ShutdownAsync().Wait();
                 }
             }
         }
 
-        public ListenableFuture<FabricProposalResponse.ProposalResponse> sendProposalAsync(FabricProposal.SignedProposal proposal) throws PeerException {
-            if (shutdown) {
+        public async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal) 
+        {
+            if (shutdown)
+            {
                 throw new PeerException("Shutdown");
             }
-            return futureStub.processProposal(proposal);
+            return await ecl.ProcessProposalAsync(proposal);
+        }
+        public Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse SendProposal(SignedProposal proposal)
+        {
+            if (shutdown)
+            {
+                throw new PeerException("Shutdown");
+            }
+            return ecl.ProcessProposal(proposal);
         }
 
-
-        boolean isChannelActive() {
-            ManagedChannel lchannel = managedChannel;
-            return lchannel != null && !lchannel.isShutdown() && !lchannel.isTerminated() && ConnectivityState.READY.equals(lchannel.getState(true));
+        public bool IsChannelActive()
+        {
+            Grpc.Core.Channel lchannel = managedChannel;
+            return lchannel != null && lchannel.State!=ChannelState.Shutdown && lchannel.State!=ChannelState.TransientFailure;
         }
 
-        @Override
-        public void finalize() {
-            shutdown(true);
+        ~EndorserClient()
+        {
+            Shutdown(true);
+
         }
+    }
 }
-}
+

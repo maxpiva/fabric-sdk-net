@@ -15,12 +15,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric.SDK.Protos.Common;
-using Hyperledger.Fabric.SDK.Protos.Peer;
-using Hyperledger.Fabric.SDK.Protos.Peer.FabricProposal;
+
 
 
 namespace Hyperledger.Fabric.SDK.Transaction
@@ -64,10 +66,10 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
         private static bool IS_DEBUG_LEVEL = logger.IsDebugEnabled();
 
         private Protos.Peer.ChaincodeID chaincodeID;
-        protected List<byte[]> argList;
+        protected List<ByteString> argList;
         protected TransactionContext context;
         protected TransactionRequest request;
-        protected ChaincodeSpec.Type ccType = ChaincodeSpec.Type.Golang;
+        protected ChaincodeSpec.Types.Type ccType = ChaincodeSpec.Types.Type.Golang;
         protected Dictionary<string, byte[]> transientMap = null;
 
         // The channel that is being targeted . note blank string means no specific channel
@@ -88,7 +90,7 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
             return this;
         }
 
-        public ProposalBuilder Args(List<byte[]> argList)
+        public ProposalBuilder Args(List<ByteString> argList)
         {
             this.argList = argList;
             return this;
@@ -96,14 +98,14 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
         public ProposalBuilder AddArg(string arg)
         {
             if (this.argList==null)
-                argList=new List<byte[]>();
-            argList.Add(Encoding.UTF8.GetBytes(arg));
+                argList=new List<ByteString>();
+            argList.Add(ByteString.CopyFromUtf8(arg));
             return this;
         }
-        public ProposalBuilder AddArg(byte[] arg)
+        public ProposalBuilder AddArg(ByteString arg)
         {
             if (this.argList == null)
-                argList = new List<byte[]>();
+                argList = new List<ByteString>();
             argList.Add(arg);
             return this;
         }
@@ -135,13 +137,13 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
             switch (request.ChaincodeLanguage)
             {
                 case TransactionRequest.Type.JAVA:
-                    CcType(ChaincodeSpec.Type.Java);
+                    CcType(ChaincodeSpec.Types.Type.Java);
                     break;
                 case TransactionRequest.Type.NODE:
-                    CcType(ChaincodeSpec.Type.Node);
+                    CcType(ChaincodeSpec.Types.Type.Node);
                     break;
                 case TransactionRequest.Type.GO_LANG:
-                    CcType(ChaincodeSpec.Type.Golang);
+                    CcType(ChaincodeSpec.Types.Type.Golang);
                     break;
                 default:
                     throw new InvalidArgumentException("Requested chaincode type is not supported: " + request.ChaincodeLanguage);
@@ -181,22 +183,22 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
 
             ChaincodeInvocationSpec chaincodeInvocationSpec = CreateChaincodeInvocationSpec(chaincodeID, ccType);
 
-            ChaincodeProposalPayload payload = new ChaincodeProposalPayload {Input = chaincodeInvocationSpec.SerializeProtoBuf()};
+            ChaincodeProposalPayload payload = new ChaincodeProposalPayload {Input = chaincodeInvocationSpec.ToByteString()};
             foreach (KeyValuePair<string, byte[]> pair in transientMap)
             {
-                payload.TransientMaps.Add(pair.Key, pair.Value.CloneBytes());
+                payload.TransientMap.Add(pair.Key, ByteString.CopyFrom(pair.Value));
             }
 
-            Header header = new Header {SignatureHeader = ProtoUtils.GetSignatureHeaderAsByteString(context), ChannelHeader = chainHeader.SerializeProtoBuf()};
+            Header header = new Header {SignatureHeader = ProtoUtils.GetSignatureHeaderAsByteString(context), ChannelHeader = chainHeader.ToByteString()};
 
-            return new Proposal {Header = header.SerializeProtoBuf(), Payload = payload.SerializeProtoBuf()};
+            return new Proposal {Header = header.ToByteString(), Payload = payload.ToByteString()};
 
         }
 
-        private ChaincodeInvocationSpec CreateChaincodeInvocationSpec(Protos.Peer.ChaincodeID chaincodeID, ChaincodeSpec.Type langType)
+        private ChaincodeInvocationSpec CreateChaincodeInvocationSpec(Protos.Peer.ChaincodeID chaincodeID, ChaincodeSpec.Types.Type langType)
         {
 
-            List<byte[]> allArgs = new List<byte[]>();
+            List<ByteString> allArgs = new List<ByteString>();
 
             if (argList != null && argList.Count > 0)
             {
@@ -208,13 +210,13 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
             else if (request != null)
             {
                 // if argList is empty and we have a Request, build the chaincodeInput args array from the Request args and argbytes lists
-                allArgs.Add(Encoding.UTF8.GetBytes(request.Fcn).CloneBytes());
+                allArgs.Add(ByteString.CopyFromUtf8(request.Fcn));
                 List<string> args = request.Args;
                 if (args != null && args.Count > 0)
                 {
                     foreach (string arg in args)
                     {
-                        allArgs.Add(Encoding.UTF8.GetBytes(arg).CloneBytes());
+                        allArgs.Add(ByteString.CopyFromUtf8(arg));
                     }
                 }
 
@@ -226,7 +228,7 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
                 {
                     foreach (byte[] arg in argBytes)
                     {
-                        allArgs.Add(arg.CloneBytes());
+                        allArgs.Add(ByteString.CopyFrom(arg));
                     }
                 }
 
@@ -242,9 +244,9 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
                 String sep = "";
                 logout.Append(" args(");
 
-                foreach (byte[] x in allArgs)
+                foreach (ByteString x in allArgs)
                 {
-                    logout.Append(sep).Append("\"").Append(Encoding.UTF8.GetString(x).LogString()).Append("\"");
+                    logout.Append(sep).Append("\"").Append(x.ToStringUtf8().LogString()).Append("\"");
                     sep = ", ";
 
                 }
@@ -257,13 +259,12 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
 
             ChaincodeInput chaincodeInput = new ChaincodeInput();
             chaincodeInput.Args.AddRange(allArgs);
-
-            ChaincodeSpec chaincodeSpec = new ChaincodeSpec {type = langType, ChaincodeId = chaincodeID, Input = chaincodeInput};
+            ChaincodeSpec chaincodeSpec = new ChaincodeSpec { Type = langType, ChaincodeId = chaincodeID, Input = chaincodeInput};
 
             return new ChaincodeInvocationSpec {ChaincodeSpec = chaincodeSpec};
         }
 
-        public ProposalBuilder CcType(ChaincodeSpec.Type ccType)
+        public ProposalBuilder CcType(ChaincodeSpec.Types.Type ccType)
         {
             this.ccType = ccType;
             return this;

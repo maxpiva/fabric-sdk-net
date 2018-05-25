@@ -19,7 +19,7 @@ using System.Linq;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
-using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK
@@ -118,7 +118,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             catch (ChaincodeEndorsementPolicyParseException e)
             {
             }
-            catch (Exception e)
+            catch (System.Exception e)
             {
                 Assert.Fail("Expected ChaincodeEndorsementPolicyParseException");
             }

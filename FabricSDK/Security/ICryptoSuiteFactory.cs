@@ -28,6 +28,7 @@ import org.hyperledger.fabric.sdk.helper.Config;
  */
 
 using System.Collections.Generic;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
@@ -51,7 +52,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @throws InvalidArgumentException
          */
 
-        ICryptoSuite GetCryptoSuite(Dictionary<string,string> properties);
+        ICryptoSuite GetCryptoSuite(Properties properties);
 
         /**
          * Return a default crypto suite

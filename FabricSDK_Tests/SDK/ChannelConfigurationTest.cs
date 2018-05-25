@@ -14,7 +14,7 @@
 
 using System;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK

@@ -13,7 +13,7 @@
  *  limitations under the License.
  *
  */
-
+/*
 package org.hyperledger.fabric.sdk.testutils;
 
 import java.io.ByteArrayInputStream;
@@ -41,198 +41,111 @@ import org.hyperledger.fabric.sdk.helper.Config;
 import org.junit.Assert;
 
 import static java.lang.String.format;
-
+*/
 //import org.hyperledger.fabric.sdk.MockUser;
 //import org.hyperledger.fabric.sdk.ClientTest.MockEnrollment;
 
-public class TestUtils {
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Security.Cryptography;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SharpCompress.Archives.Tar;
+using SharpCompress.Common;
+using SharpCompress.Readers;
+using SharpCompress.Writers;
+
+namespace Hyperledger.Fabric.Tests.SDK.TestUtils
+{
+    public class TestUtils
+    {
 
     private TestUtils() {
     }
 
-    /**
-     * Sets the value of a field on an object
-     *
-     * @param o         The object that contains the field
-     * @param fieldName The name of the field
-     * @param value     The new value
-     * @return The previous value of the field
-     */
-    public static Object setField(Object o, String fieldName, Object value) {
-        Object oldVal = null;
-        try {
-            final Field field = o.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            oldVal = field.get(o);
-            field.set(o, value);
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot get value of field " + fieldName, e);
-        }
-        return oldVal;
-    }
+        //Reflection methods deleted, there is no need, stuff marked as internal
+        private static readonly string MOCK_CERT = "-----BEGIN CERTIFICATE-----" +
+        "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" +
+        "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" +
+        "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" +
+        "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" +
+        "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" +
+        "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" +
+        "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" +
+        "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" +
+        "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" +
+        "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" +
+        "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" +
+        "NHvr441QC85U+V4UQWY=" +
+        "-----END CERTIFICATE-----";
+        public class MockEnrollment : IEnrollment
+        {         
+            public AsymmetricAlgorithm Key { get; }
+            public string Cert { get; }
 
-    /**
-     * Invokes method on object.
-     * Used to access private methods.
-     *
-     * @param o          The object that contains the field
-     * @param methodName The name of the field
-     * @param args       The arguments.
-     * @return Result of method.
-     */
-    public static Object invokeMethod(Object o, String methodName, Object... args) throws Throwable {
-
-        Method[] methods = o.getClass().getDeclaredMethods();
-        List<Method> reduce = new ArrayList<>(Arrays.asList(methods));
-        for (Iterator<Method> i = reduce.iterator(); i.hasNext();
-                ) {
-            Method m = i.next();
-            if (!methodName.equals(m.getName())) {
-                i.remove();
-                continue;
-            }
-            Class<?>[] parameterTypes = m.getParameterTypes();
-            if (parameterTypes.length != args.length) {
-                i.remove();
-                continue;
+            public MockEnrollment(AsymmetricAlgorithm key, string cert)
+            {
+                Key = key;
+                Cert = cert;
             }
         }
-        if (reduce.isEmpty()) {
-            throw new RuntimeException(String.format("TEST ISSUE Could not find method %s on %s with %d arguments.",
-                    methodName, o.getClass().getName(), args.length));
-        }
-        if (reduce.size() > 1) {
-            throw new RuntimeException(String.format("TEST ISSUE Could not find unique method %s on %s. Found with %d matches.",
-                    methodName, o.getClass().getName(), reduce.size()));
-        }
 
-        Method method = reduce.iterator().next();
-        method.setAccessible(true);
-        try {
-            return method.invoke(o, args);
-        } catch (IllegalAccessException e) {
-            throw e;
-        } catch (InvocationTargetException e) {
-            throw e.getTargetException();
-        }
-
-    }
-
-    /**
-     * Gets the value of a field on an object
-     *
-     * @param o         The object that contains the field
-     * @param fieldName The name of the field
-     * @return The value of the field
-     */
-    public static Object getField(Object o, String fieldName) {
-
-        try {
-            final Field field = getFieldInt(o.getClass(), fieldName);
-
-            return field.get(o);
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot get value of field " + fieldName, e);
-        }
-    }
-
-    private static Field getFieldInt(Class o, String name) throws NoSuchFieldException {
-        Field ret;
-        try {
-            ret = o.getDeclaredField(name);
-        } catch (NoSuchFieldException e) {
-
-            Class superclass = o.getSuperclass();
-            if (null != superclass) {
-                ret = getFieldInt(superclass, name);
-
-            } else {
-                throw e;
+        public class MockUser : IUser
+        {
+            public MockUser(string name, string mspId)
+            {
+                Name = name;
+                MspId = mspId;
+                Enrollment = GetMockEnrollment(MOCK_CERT);
             }
 
-        }
-        ret.setAccessible(true);
-        return ret;
-    }
-
-    /**
-     * Reset config.
-     */
-    public static void resetConfig() {
-
-        try {
-            final Field field = Config.class.getDeclaredField("config");
-            field.setAccessible(true);
-            field.set(Config.class, null);
-            Config.getConfig();
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot reset config", e);
+            public string Name { get; }
+            public HashSet<string> Roles { get; }
+            public string Account { get; }
+            public string Affiliation { get; }
+            public IEnrollment Enrollment { get; }
+            public string MspId { get; }
         }
 
-    }
 
-    /**
-     * Sets a Config property value
-     * <p>
-     * The Config instance is initialized once on startup which means that
-     * its properties don't change throughout its lifetime.
-     * This method allows a Config property to be changed temporarily for testing purposes
-     *
-     * @param key   The key of the property (eg Config.LOGGERLEVEL)
-     * @param value The new value
-     * @return The previous value
-     */
-    public static String setConfigProperty(String key, String value) throws Exception {
-
-        String oldVal = null;
-
-        try {
-            Config config = Config.getConfig();
-
-            final Field sdkPropertiesInstance = config.getClass().getDeclaredField("sdkProperties");
-            sdkPropertiesInstance.setAccessible(true);
-
-            final Properties sdkProperties = (Properties) sdkPropertiesInstance.get(config);
-            oldVal = sdkProperties.getProperty(key);
-            sdkProperties.put(key, value);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to set Config property " + key, e);
-        }
-
-        return oldVal;
-    }
-
-    public static MockUser getMockUser(String name, String mspId) {
+    public static MockUser GetMockUser(string name, string mspId) {
         return new MockUser(name, mspId);
     }
 
-    public static MockEnrollment getMockEnrollment(String cert) {
-        return new MockEnrollment(new MockPrivateKey(), cert);
+    public static MockEnrollment GetMockEnrollment(string cert) {
+        return new MockEnrollment(new RSACng(), cert);
     }
 
-    public static MockEnrollment getMockEnrollment(PrivateKey key, String cert) {
+    public static MockEnrollment GetMockEnrollment(AsymmetricAlgorithm key, string cert) {
         return new MockEnrollment(key, cert);
     }
 
-    public static ArrayList tarBytesToEntryArrayList(byte[] bytes) throws Exception {
+    public static List<string> TarBytesToEntryArrayList(byte[] bytes)
+    {
 
-        ArrayList<String> ret = new ArrayList<>();
+        List<string> ret = new List<string>();
+        using (MemoryStream bos = new MemoryStream(bytes))            
+        using (var reader = ReaderFactory.Open(bos))
+        {
+            bool end = false;
+            do
+            {
+                IEntry ta = reader.Entry;
+                Assert.IsTrue(!ta.IsDirectory,$"Tar entry {ta.Key} is not a file.");
+                ret.Add(ta.Key);
+                end = !reader.MoveToNextEntry();
+            } while (!end);
 
-        TarArchiveInputStream tarArchiveInputStream = new TarArchiveInputStream(new GZIPInputStream(new ByteArrayInputStream(bytes)));
-
-        for (TarArchiveEntry ta = tarArchiveInputStream.getNextTarEntry(); null != ta; ta = tarArchiveInputStream.getNextTarEntry()) {
-
-            Assert.assertTrue(format("Tar entry %s is not a file.", ta.getName()), ta.isFile()); //we only expect files.
-            ret.add(ta.getName());
-
-        }
 
         return ret;
 
     }
-
-    public static void assertArrayListEquals(String failmsg, ArrayList expect, ArrayList actual) {
+        /*
+    public static void AssertArrayListEquals(string failmsg, List<string> expect, List<string> actual) {
         ArrayList expectSort = new ArrayList(expect);
         Collections.sort(expectSort);
         ArrayList actualSort = new ArrayList(actual);
@@ -253,43 +166,10 @@ public class TestUtils {
             }
         };
     }
+    */
+   
 
-    private static class MockPrivateKey implements PrivateKey {
-        private static final long serialVersionUID = 1L;
-
-        private MockPrivateKey() {
-        }
-
-        @Override
-        public String getAlgorithm() {
-            return null;
-        }
-
-        @Override
-        public String getFormat() {
-            return null;
-        }
-
-        @Override
-        public byte[] getEncoded() {
-            return new byte[0];
-        }
-    }
-
-    private static final String MOCK_CERT = "-----BEGIN CERTIFICATE-----" +
-            "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" +
-            "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" +
-            "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" +
-            "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" +
-            "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" +
-            "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" +
-            "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" +
-            "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" +
-            "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" +
-            "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" +
-            "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" +
-            "NHvr441QC85U+V4UQWY=" +
-            "-----END CERTIFICATE-----";
+   
 
     //  This is the private key for the above cert. Right now we don't need this and there's some class loader issues doing this here.
 
@@ -316,85 +196,7 @@ public class TestUtils {
 //        }
 //    }
 
-    public static class MockEnrollment implements Enrollment {
-        private PrivateKey privateKey;
 
-        public void setCert(String cert) {
-            this.cert = cert;
-        }
 
-        private String cert;
-
-        private MockEnrollment(PrivateKey key, String cert) {
-            this.privateKey = key;
-            this.cert = cert;
-        }
-
-        @Override
-        public PrivateKey getKey() {
-            return privateKey;
-        }
-
-        @Override
-        public String getCert() {
-            return cert;
-        }
-    }
-
-    public static class MockUser implements User {
-        private String name;
-        private String mspId;
-        private Enrollment enrollment;
-
-        public String getEnrollmentSecret() {
-            return enrollmentSecret;
-        }
-
-        private String enrollmentSecret;
-
-        private MockUser(String name, String mspId) {
-            this.name = name;
-            this.mspId = mspId;
-            this.enrollment = getMockEnrollment(MOCK_CERT);
-        }
-
-        public void setEnrollment(Enrollment e) {
-            this.enrollment = e;
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public Set<String> getRoles() {
-            return null;
-        }
-
-        @Override
-        public String getAccount() {
-            return null;
-        }
-
-        @Override
-        public String getAffiliation() {
-            return null;
-        }
-
-        @Override
-        public Enrollment getEnrollment() {
-            return enrollment;
-        }
-
-        @Override
-        public String getMspId() {
-            return mspId;
-        }
-
-        public void setEnrollmentSecret(String enrollmentSecret) {
-            this.enrollmentSecret = enrollmentSecret;
-        }
-    }
-
+}
 }

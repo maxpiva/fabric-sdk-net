@@ -16,7 +16,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -46,10 +46,10 @@ namespace Hyperledger.Fabric.SDK
         protected TransactionRequest(IUser userContext)
         {
             UserContext = userContext;
-            ProposalWaitTime = config.GetProposalWaitTime();
+            ProposalWaitTime = Config.Instance.GetProposalWaitTime();
         }
 
-        private Config config => Config.GetConfig();
+
 
         /**
          * The user context to use on this request.

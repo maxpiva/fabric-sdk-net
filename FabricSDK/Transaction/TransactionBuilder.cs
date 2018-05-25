@@ -21,7 +21,7 @@ using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 
 namespace Hyperledger.Fabric.SDK.Transaction
@@ -29,10 +29,9 @@ namespace Hyperledger.Fabric.SDK.Transaction
     public class TransactionBuilder
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(TransactionBuilder));
-        private static readonly Config config = Config.GetConfig();
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
+        private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
 
         private Proposal chaincodeProposal;
         private List<Endorsement> endorsements;
@@ -82,7 +81,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
 
             Header header = Header.Parser.ParseFrom(chaincodeProposal.Header);
 
-            if (config.ExtraLogLevel(10))
+            if (Config.Instance.ExtraLogLevel(10))
             {
                 if (null != diagnosticFileDumper)
                 {
@@ -96,7 +95,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
 
             transactionAction.Header = header.SignatureHeader;
 
-            if (config.ExtraLogLevel(10))
+            if (Config.Instance.ExtraLogLevel(10))
             {
                 if (null != diagnosticFileDumper)
                 {

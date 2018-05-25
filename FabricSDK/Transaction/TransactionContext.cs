@@ -19,7 +19,7 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 using Hyperledger.Fabric.SDK.Security;
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
@@ -33,7 +33,6 @@ namespace Hyperledger.Fabric.SDK.Transaction
  */
     public class TransactionContext
     {
-        private static readonly Config config = Config.GetConfig();
         //    private static final Log logger = LogFactory.getLog(TransactionContext.class);
         //TODO right now the server does not care need to figure out
         private readonly ICryptoSuite cryptoPrimitives;
@@ -106,7 +105,7 @@ namespace Hyperledger.Fabric.SDK.Transaction
          *
          * @return the timeout for a single proposal request to endorser in milliseconds
          */
-        public long ProposalWaitTime { get; set; } = config.GetProposalWaitTime();
+        public long ProposalWaitTime { get; set; } = Config.Instance.GetProposalWaitTime();
 
 
         public Timestamp FabricTimestamp => currentTimeStamp ?? (currentTimeStamp = ProtoUtils.GetCurrentFabricTimestamp());

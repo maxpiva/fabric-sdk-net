@@ -11,6 +11,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+/*
 package org.hyperledger.fabric.sdk.testutils;
 
 import java.io.File;
@@ -33,6 +35,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hyperledger.fabric.sdk.helper.Utils;
 import org.hyperledger.fabric.sdkintegration.SampleOrg;
+*/
 
 /**
  * Config allows for a global config of the toolkit. Central location for all
@@ -48,386 +51,466 @@ import org.hyperledger.fabric.sdkintegration.SampleOrg;
  * Test Configuration
  */
 
-public class TestConfig {
-    private static final Log logger = LogFactory.getLog(TestConfig.class);
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Text.RegularExpressions;
+using Hyperledger.Fabric.SDK.Logging;
 
-    private static final String DEFAULT_CONFIG = "src/test/java/org/hyperledger/fabric/sdk/testutils.properties";
-    private static final String ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = "org.hyperledger.fabric.sdktest.configuration";
-    private static final String ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST = "ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST";
-    private static final String LOCALHOST = //Change test to reference another host .. easier config for my testing on Windows !
-            System.getenv(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST) == null ? "localhost" : System.getenv(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST);
 
-    private static final String PROPBASE = "org.hyperledger.fabric.sdktest.";
 
-    private static final String INVOKEWAITTIME = PROPBASE + "InvokeWaitTime";
-    private static final String DEPLOYWAITTIME = PROPBASE + "DeployWaitTime";
-    private static final String PROPOSALWAITTIME = PROPBASE + "ProposalWaitTime";
 
-    private static final String INTEGRATIONTESTS_ORG = PROPBASE + "integrationTests.org.";
-    private static final Pattern orgPat = Pattern.compile("^" + Pattern.quote(INTEGRATIONTESTS_ORG) + "([^\\.]+)\\.mspid$");
+namespace Hyperledger.Fabric.Tests.SDK.TestUtils
+{
+    public class TestConfig
+    {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(TestConfig));
+        
+        private static readonly string DEFAULT_CONFIG = "src/test/java/org/hyperledger/fabric/sdk/testutils.properties";
+        private static readonly string ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = "org.hyperledger.fabric.sdktest.configuration";
+        private static readonly string ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST = "ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST";
 
-    private static final String INTEGRATIONTESTSTLS = PROPBASE + "integrationtests.tls";
-    // location switching between fabric cryptogen and configtxgen artifacts for v1.0 and v1.1 in src/test/fixture/sdkintegration/e2e-2Orgs
-    public static final String FAB_CONFIG_GEN_VERS =
-            Objects.equals(System.getenv("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION"), "1.0.0") ? "v1.0" : "v1.1";
+        private static readonly string LOCALHOST = //Change test to reference another host .. easier config for my testing on Windows !
+            Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST) == null ? "localhost" : Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST);
 
-    private static TestConfig config;
-    private static final Properties sdkProperties = new Properties();
-    private final boolean runningTLS;
-    private final boolean runningFabricCATLS;
 
-    public boolean isRunningFabricTLS() {
-        return runningFabricTLS;
-    }
+        private static readonly string PROPBASE = "org.hyperledger.fabric.sdktest.";
 
-    private final boolean runningFabricTLS;
-    private static final HashMap<String, SampleOrg> sampleOrgs = new HashMap<>();
+        private static readonly string INVOKEWAITTIME = PROPBASE + "InvokeWaitTime";
+        private static readonly string DEPLOYWAITTIME = PROPBASE + "DeployWaitTime";
+        private static readonly string PROPOSALWAITTIME = PROPBASE + "ProposalWaitTime";
 
-    private TestConfig() {
-        File loadFile;
-        FileInputStream configProps;
+        private static readonly string INTEGRATIONTESTS_ORG = PROPBASE + "integrationTests.org.";
+        private static readonly Regex orgPat = new Regex("^\"" + INTEGRATIONTESTS_ORG + "\"([^\\.]+)\\.mspid$",RegexOptions.Compiled);
 
-        try {
-            loadFile = new File(System.getProperty(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION, DEFAULT_CONFIG))
-                    .getAbsoluteFile();
-            logger.debug(String.format("Loading configuration from %s and it is present: %b", loadFile.toString(),
-                    loadFile.exists()));
-            configProps = new FileInputStream(loadFile);
-            sdkProperties.load(configProps);
+        private static readonly string INTEGRATIONTESTSTLS = PROPBASE + "integrationtests.tls";
 
-        } catch (IOException e) { // if not there no worries just use defaults
-//            logger.warn(String.format("Failed to load any test configuration from: %s. Using toolkit defaults",
-//                    DEFAULT_CONFIG));
-        } finally {
+        // location switching between fabric cryptogen and configtxgen artifacts for v1.0 and v1.1 in src/test/fixture/sdkintegration/e2e-2Orgs
+        public static readonly string FAB_CONFIG_GEN_VERS =
+        (Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION") ?? "").Equals("1.0.0") ? "v1.0" : "v1.1";
 
-            // Default values
+        private static TestConfig config;
+        private static Dictionary<string, string> sdkProperties = new Dictionary<string, string>();
+        private readonly bool runningTLS;
+        private readonly bool runningFabricCATLS;
 
-            defaultProperty(INVOKEWAITTIME, "120");
-            defaultProperty(DEPLOYWAITTIME, "120000");
-            defaultProperty(PROPOSALWAITTIME, "120000");
+        public bool IsRunningFabricTLS()
+        {
+            return runningFabricTLS;
+        }
 
-            //////
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.mspid", "Org1MSP");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.domname", "org1.example.com");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.ca_location", "http://" + LOCALHOST + ":7054");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.caName", "ca0");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.peer_locations", "peer0.org1.example.com@grpc://" + LOCALHOST + ":7051, peer1.org1.example.com@grpc://" + LOCALHOST + ":7056");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.orderer_locations", "orderer.example.com@grpc://" + LOCALHOST + ":7050");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.eventhub_locations", "peer0.org1.example.com@grpc://" + LOCALHOST + ":7053,peer1.org1.example.com@grpc://" + LOCALHOST + ":7058");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.mspid", "Org2MSP");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.domname", "org2.example.com");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.ca_location", "http://" + LOCALHOST + ":8054");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.peer_locations", "peer0.org2.example.com@grpc://" + LOCALHOST + ":8051,peer1.org2.example.com@grpc://" + LOCALHOST + ":8056");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.orderer_locations", "orderer.example.com@grpc://" + LOCALHOST + ":7050");
-            defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.eventhub_locations", "peer0.org2.example.com@grpc://" + LOCALHOST + ":8053, peer1.org2.example.com@grpc://" + LOCALHOST + ":8058");
+        private readonly bool runningFabricTLS;
+        private static readonly Dictionary<string, SampleOrg> sampleOrgs = new Dictionary<string, SampleOrg>();
 
-            defaultProperty(INTEGRATIONTESTSTLS, null);
-            runningTLS = null != sdkProperties.getProperty(INTEGRATIONTESTSTLS, null);
-            runningFabricCATLS = runningTLS;
-            runningFabricTLS = runningTLS;
+        private TestConfig()
+        {
+            string fullpath = Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION);
+            if (string.IsNullOrEmpty(fullpath))
+                fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
+            bool exists = File.Exists(fullpath);
+            try
+            {
 
-            for (Map.Entry<Object, Object> x : sdkProperties.entrySet()) {
-                final String key = x.getKey() + "";
-                final String val = x.getValue() + "";
+                var parser = new FileIniDataParser();
+                sdkProperties = new Dictionary<string, string>();
+                logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
+                IniData data = parser.ReadFile(DEFAULT_CONFIG);
+                KeyDataCollection sect = data.Global;
+                foreach (KeyData kd in sect)
+                {
+                    sdkProperties.Add(kd.KeyName, kd.Value);
+                }
 
-                if (key.startsWith(INTEGRATIONTESTS_ORG)) {
+            }
+            catch (System.Exception e)
+            {
+                logger.Warn($"Failed to load any configuration from: {fullpath}. Using toolkit defaults");
+            }
+            finally
+            {
 
-                    Matcher match = orgPat.matcher(key);
+                // Default values
 
-                    if (match.matches() && match.groupCount() == 1) {
-                        String orgName = match.group(1).trim();
-                        sampleOrgs.put(orgName, new SampleOrg(orgName, val.trim()));
+                DefaultProperty(INVOKEWAITTIME, "120");
+                DefaultProperty(DEPLOYWAITTIME, "120000");
+                DefaultProperty(PROPOSALWAITTIME, "120000");
 
+                //////
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.mspid", "Org1MSP");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.domname", "org1.example.com");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.ca_location", "http://" + LOCALHOST + ":7054");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.caName", "ca0");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.peer_locations", "peer0.org1.example.com@grpc://" + LOCALHOST + ":7051, peer1.org1.example.com@grpc://" + LOCALHOST + ":7056");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.orderer_locations", "orderer.example.com@grpc://" + LOCALHOST + ":7050");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.eventhub_locations", "peer0.org1.example.com@grpc://" + LOCALHOST + ":7053,peer1.org1.example.com@grpc://" + LOCALHOST + ":7058");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.mspid", "Org2MSP");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.domname", "org2.example.com");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.ca_location", "http://" + LOCALHOST + ":8054");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.peer_locations", "peer0.org2.example.com@grpc://" + LOCALHOST + ":8051,peer1.org2.example.com@grpc://" + LOCALHOST + ":8056");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.orderer_locations", "orderer.example.com@grpc://" + LOCALHOST + ":7050");
+                DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.eventhub_locations", "peer0.org2.example.com@grpc://" + LOCALHOST + ":8053, peer1.org2.example.com@grpc://" + LOCALHOST + ":8058");
+
+                DefaultProperty(INTEGRATIONTESTSTLS, null);
+                runningTLS = sdkProperties.ContainsKey(INTEGRATIONTESTSTLS);
+                runningFabricCATLS = runningTLS;
+                runningFabricTLS = runningTLS;
+
+                foreach (string key in sdkProperties.Keys)
+                {
+                    string val = sdkProperties[key] + string.Empty;
+                    
+                    if (key.StartsWith(INTEGRATIONTESTS_ORG))
+                    {
+                        Match match = orgPat.Match(key);
+
+                        if (match.Success && match.Groups.Count == 1)
+                        {
+                            string orgName = match.Groups[1].Value.Trim();
+                            sampleOrgs[orgName]=new SampleOrg(orgName, val.Trim()));
+
+                        }
                     }
                 }
-            }
 
-            for (Map.Entry<String, SampleOrg> org : sampleOrgs.entrySet()) {
-                final SampleOrg sampleOrg = org.getValue();
-                final String orgName = org.getKey();
+                for (Map.Entry < String, SampleOrg > org : sampleOrgs.entrySet())
+                {
+                    final SampleOrg sampleOrg = org.getValue();
+                    final string orgName = org.getKey();
 
-                String peerNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".peer_locations");
-                String[] ps = peerNames.split("[ \t]*,[ \t]*");
-                for (String peer : ps) {
-                    String[] nl = peer.split("[ \t]*@[ \t]*");
-                    sampleOrg.addPeerLocation(nl[0], grpcTLSify(nl[1]));
-                }
-
-                final String domainName = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".domname");
-
-                sampleOrg.setDomainName(domainName);
-
-                String ordererNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".orderer_locations");
-                ps = ordererNames.split("[ \t]*,[ \t]*");
-                for (String peer : ps) {
-                    String[] nl = peer.split("[ \t]*@[ \t]*");
-                    sampleOrg.addOrdererLocation(nl[0], grpcTLSify(nl[1]));
-                }
-
-                String eventHubNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
-                ps = eventHubNames.split("[ \t]*,[ \t]*");
-                for (String peer : ps) {
-                    String[] nl = peer.split("[ \t]*@[ \t]*");
-                    sampleOrg.addEventHubLocation(nl[0], grpcTLSify(nl[1]));
-                }
-
-                sampleOrg.setCALocation(httpTLSify(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".ca_location"))));
-
-                sampleOrg.setCAName(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".caName")));
-
-                if (runningFabricCATLS) {
-                    String cert = "src/test/fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem"
-                            .replaceAll("DNAME", domainName).replaceAll("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
-                    File cf = new File(cert);
-                    if (!cf.exists() || !cf.isFile()) {
-                        throw new RuntimeException("TEST is missing cert file " + cf.getAbsolutePath());
+                    string peerNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".peer_locations");
+                    String[] ps = peerNames.split("[ \t]*,[ \t]*");
+                    for (string peer :
+                    ps) {
+                        String[] nl = peer.split("[ \t]*@[ \t]*");
+                        sampleOrg.addPeerLocation(nl[0], grpcTLSify(nl[1]));
                     }
-                    Properties properties = new Properties();
-                    properties.setProperty("pemFile", cf.getAbsolutePath());
 
-                    properties.setProperty("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
+                    final string domainName = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".domname");
 
-                    sampleOrg.setCAProperties(properties);
-                }
-            }
+                    sampleOrg.setDomainName(domainName);
 
-        }
+                    string ordererNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".orderer_locations");
+                    ps = ordererNames.split("[ \t]*,[ \t]*");
+                    for (string peer :
+                    ps) {
+                        String[] nl = peer.split("[ \t]*@[ \t]*");
+                        sampleOrg.addOrdererLocation(nl[0], grpcTLSify(nl[1]));
+                    }
 
-    }
+                    string eventHubNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
+                    ps = eventHubNames.split("[ \t]*,[ \t]*");
+                    for (string peer :
+                    ps) {
+                        String[] nl = peer.split("[ \t]*@[ \t]*");
+                        sampleOrg.addEventHubLocation(nl[0], grpcTLSify(nl[1]));
+                    }
 
-    private String grpcTLSify(String location) {
-        location = location.trim();
-        Exception e = Utils.checkGrpcUrl(location);
-        if (e != null) {
-            throw new RuntimeException(String.format("Bad TEST parameters for grpc url %s", location), e);
-        }
-        return runningFabricTLS ?
-                location.replaceFirst("^grpc://", "grpcs://") : location;
+                    sampleOrg.setCALocation(httpTLSify(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".ca_location"))));
 
-    }
+                    sampleOrg.setCAName(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".caName")));
 
-    private String httpTLSify(String location) {
-        location = location.trim();
+                    if (runningFabricCATLS)
+                    {
+                        string cert = "src/test/fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".replaceAll("DNAME", domainName).replaceAll("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
+                        File cf = new File(cert);
+                        if (!cf.exists() || !cf.isFile())
+                        {
+                            throw new RuntimeException("TEST is missing cert file " + cf.getAbsolutePath());
+                        }
 
-        return runningFabricCATLS ?
-                location.replaceFirst("^http://", "https://") : location;
-    }
+                        Properties properties = new Properties();
+                        properties.setProperty("pemFile", cf.getAbsolutePath());
 
-    /**
-     * getConfig return back singleton for SDK configuration.
-     *
-     * @return Global configuration
-     */
-    public static TestConfig getConfig() {
-        if (null == config) {
-            config = new TestConfig();
-        }
-        return config;
+                        properties.setProperty("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
 
-    }
-
-    /**
-     * getProperty return back property for the given value.
-     *
-     * @param property
-     * @return String value for the property
-     */
-    private String getProperty(String property) {
-
-        String ret = sdkProperties.getProperty(property);
-
-        if (null == ret) {
-            logger.warn(String.format("No configuration value found for '%s'", property));
-        }
-        return ret;
-    }
-
-    private static void defaultProperty(String key, String value) {
-
-        String ret = System.getProperty(key);
-        if (ret != null) {
-            sdkProperties.put(key, ret);
-        } else {
-            String envKey = key.toUpperCase().replaceAll("\\.", "_");
-            ret = System.getenv(envKey);
-            if (null != ret) {
-                sdkProperties.put(key, ret);
-            } else {
-                if (null == sdkProperties.getProperty(key) && value != null) {
-                    sdkProperties.put(key, value);
+                        sampleOrg.setCAProperties(properties);
+                    }
                 }
 
             }
 
         }
-    }
 
-    public int getTransactionWaitTime() {
-        return Integer.parseInt(getProperty(INVOKEWAITTIME));
-    }
+        private string grpcTLSify(string location)
+        {
+            location = location.trim();
+            Exception e = Utils.checkGrpcUrl(location);
+            if (e != null)
+            {
+                throw new RuntimeException(String.format("Bad TEST parameters for grpc url %s", location), e);
+            }
 
-    public int getDeployWaitTime() {
-        return Integer.parseInt(getProperty(DEPLOYWAITTIME));
-    }
+            return runningFabricTLS ? location.replaceFirst("^grpc://", "grpcs://") : location;
 
-    public long getProposalWaitTime() {
-        return Integer.parseInt(getProperty(PROPOSALWAITTIME));
-    }
-
-    public Collection<SampleOrg> getIntegrationTestsSampleOrgs() {
-        return Collections.unmodifiableCollection(sampleOrgs.values());
-    }
-
-    public SampleOrg getIntegrationTestsSampleOrg(String name) {
-        return sampleOrgs.get(name);
-
-    }
-
-    public Properties getPeerProperties(String name) {
-
-        return getEndPointProperties("peer", name);
-
-    }
-
-    public Properties getOrdererProperties(String name) {
-
-        return getEndPointProperties("orderer", name);
-
-    }
-
-    public Properties getEndPointProperties(final String type, final String name) {
-        Properties ret = new Properties();
-
-        final String domainName = getDomainName(name);
-
-        File cert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations".replace("orderer", type), domainName, type + "s",
-                name, "tls/server.crt").toFile();
-        if (!cert.exists()) {
-            throw new RuntimeException(String.format("Missing cert file for: %s. Could not find at location: %s", name,
-                    cert.getAbsolutePath()));
         }
 
-        if (!isRunningAgainstFabric10()) {
-            File clientCert;
-            File clientKey;
-            if ("orderer".equals(type)) {
-                clientCert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt").toFile();
+        private string httpTLSify(string location)
+        {
+            location = location.trim();
 
-                clientKey = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key").toFile();
-            } else {
-                clientCert = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt").toFile();
-                clientKey = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key").toFile();
-            }
-
-            if (!clientCert.exists()) {
-                throw new RuntimeException(String.format("Missing  client cert file for: %s. Could not find at location: %s", name,
-                        clientCert.getAbsolutePath()));
-            }
-
-            if (!clientKey.exists()) {
-                throw new RuntimeException(String.format("Missing  client key file for: %s. Could not find at location: %s", name,
-                        clientKey.getAbsolutePath()));
-            }
-            ret.setProperty("clientCertFile", clientCert.getAbsolutePath());
-            ret.setProperty("clientKeyFile", clientKey.getAbsolutePath());
+            return runningFabricCATLS ? location.replaceFirst("^http://", "https://") : location;
         }
 
-        ret.setProperty("pemFile", cert.getAbsolutePath());
+        /**
+         * getConfig return back singleton for SDK configuration.
+         *
+         * @return Global configuration
+         */
+        public static TestConfig getConfig()
+        {
+            if (null == config)
+            {
+                config = new TestConfig();
+            }
 
-        ret.setProperty("hostnameOverride", name);
-        ret.setProperty("sslProvider", "openSSL");
-        ret.setProperty("negotiationType", "TLS");
+            return config;
 
-        return ret;
-    }
+        }
 
-    public Properties getEventHubProperties(String name) {
+        /**
+         * getProperty return back property for the given value.
+         *
+         * @param property
+         * @return string value for the property
+         */
+        private string GetProperty(string property)
+        {
 
-        return getEndPointProperties("peer", name); //uses same as named peer
+            string ret = sdkProperties.GetOrNull(property);
 
-    }
+            if (null == ret)
+            {
+                logger.Warn($"No configuration value found for '{property}'");
+            }
 
-    public String getTestChannelPath() {
+            return ret;
+        }
 
-        return "src/test/fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS;
 
-    }
+        private static void DefaultProperty(string key, string value)
+        {
 
-    public boolean isRunningAgainstFabric10() {
+            string ret = Environment.GetEnvironmentVariable(key);
+            if (ret != null)
+            {
+                sdkProperties[key]=ret;
+            }
+            else
+            {
+                string envKey = key.ToUpperInvariant().Replace("\\.", "_");
+                ret = Environment.GetEnvironmentVariable(key);
+                if (null != ret)
+                {
+                    sdkProperties[key] = ret;
+                }
+                else
+                {
+                    if (!sdkProperties.ContainsKey(key) && value != null)
+                    {
+                        sdkProperties[key] = value;
+                    }
 
-        return "IntegrationSuiteV1.java".equals(System.getProperty("org.hyperledger.fabric.sdktest.ITSuite"));
-
-    }
-
-    /**
-     * url location of configtxlator
-     *
-     * @return
-     */
-
-    public String getFabricConfigTxLaterLocation() {
-        return "http://" + LOCALHOST + ":7059";
-    }
-
-    /**
-     * Returns the appropriate Network Config YAML file based on whether TLS is currently
-     * enabled or not
-     *
-     * @return The appropriate Network Config YAML file
-     */
-    public File getTestNetworkConfigFileYAML() {
-        String fname = runningTLS ? "network-config-tls.yaml" : "network-config.yaml";
-        String pname = "src/test/fixture/sdkintegration/network_configs/";
-        File ret = new File(pname, fname);
-
-        if (!"localhost".equals(LOCALHOST)) {
-            // change on the fly ...
-            File temp = null;
-
-            try {
-                //create a temp file
-                temp = File.createTempFile(fname, "-FixedUp.yaml");
-
-                if (temp.exists()) { //For testing start fresh
-                    temp.delete();
                 }
 
-                byte[] data = Files.readAllBytes(Paths.get(ret.getAbsolutePath()));
+            }
+        }
 
-                String sourceText = new String(data, StandardCharsets.UTF_8);
+        public int getTransactionWaitTime()
+        {
+            return Integer.parseInt(getProperty(INVOKEWAITTIME));
+        }
 
-                sourceText = sourceText.replaceAll("https://localhost", "https://" + LOCALHOST);
-                sourceText = sourceText.replaceAll("http://localhost", "http://" + LOCALHOST);
-                sourceText = sourceText.replaceAll("grpcs://localhost", "grpcs://" + LOCALHOST);
-                sourceText = sourceText.replaceAll("grpc://localhost", "grpc://" + LOCALHOST);
+        public int getDeployWaitTime()
+        {
+            return Integer.parseInt(getProperty(DEPLOYWAITTIME));
+        }
 
-                Files.write(Paths.get(temp.getAbsolutePath()), sourceText.getBytes(StandardCharsets.UTF_8),
-                        StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        public long getProposalWaitTime()
+        {
+            return Integer.parseInt(getProperty(PROPOSALWAITTIME));
+        }
 
-                if (!Objects.equals("true", System.getenv(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST + "_KEEP"))) {
-                    temp.deleteOnExit();
-                } else {
-                    System.err.println("produced new network-config.yaml file at:" + temp.getAbsolutePath());
-                }
+        public Collection<SampleOrg> getIntegrationTestsSampleOrgs()
+        {
+            return Collections.unmodifiableCollection(sampleOrgs.values());
+        }
 
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        public SampleOrg getIntegrationTestsSampleOrg(string name)
+        {
+            return sampleOrgs.get(name);
+
+        }
+
+        public Properties getPeerProperties(string name)
+        {
+
+            return getEndPointProperties("peer", name);
+
+        }
+
+        public Properties getOrdererProperties(string name)
+        {
+
+            return getEndPointProperties("orderer", name);
+
+        }
+
+        public Properties getEndPointProperties(final string type, final string name) {
+            Properties ret = new Properties();
+
+            final string domainName = getDomainName(name);
+
+            File cert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations".replace("orderer", type), domainName, type + "s", name, "tls/server.crt").toFile();
+            if (!cert.exists())
+            {
+                throw new RuntimeException(String.format("Missing cert file for: %s. Could not find at location: %s", name, cert.getAbsolutePath()));
             }
 
-            ret = temp;
+            if (!isRunningAgainstFabric10())
+            {
+                File clientCert;
+                File clientKey;
+                if ("orderer".equals(type))
+                {
+                    clientCert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt").toFile();
+
+                    clientKey = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key").toFile();
+                }
+                else
+                {
+                    clientCert = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt").toFile();
+                    clientKey = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key").toFile();
+                }
+
+                if (!clientCert.exists())
+                {
+                    throw new RuntimeException(String.format("Missing  client cert file for: %s. Could not find at location: %s", name, clientCert.getAbsolutePath()));
+                }
+
+                if (!clientKey.exists())
+                {
+                    throw new RuntimeException(String.format("Missing  client key file for: %s. Could not find at location: %s", name, clientKey.getAbsolutePath()));
+                }
+
+                ret.setProperty("clientCertFile", clientCert.getAbsolutePath());
+                ret.setProperty("clientKeyFile", clientKey.getAbsolutePath());
+            }
+
+            ret.setProperty("pemFile", cert.getAbsolutePath());
+
+            ret.setProperty("hostnameOverride", name);
+            ret.setProperty("sslProvider", "openSSL");
+            ret.setProperty("negotiationType", "TLS");
+
+            return ret;
         }
 
-        return ret;
-    }
+        public Properties getEventHubProperties(string name)
+        {
 
-    private String getDomainName(final String name) {
-        int dot = name.indexOf(".");
-        if (-1 == dot) {
-            return null;
-        } else {
-            return name.substring(dot + 1);
+            return getEndPointProperties("peer", name); //uses same as named peer
+
+        }
+
+        public string getTestChannelPath()
+        {
+
+            return "src/test/fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS;
+
+        }
+
+        public boolean isRunningAgainstFabric10()
+        {
+
+            return "IntegrationSuiteV1.java".equals(System.getProperty("org.hyperledger.fabric.sdktest.ITSuite"));
+
+        }
+
+        /**
+         * url location of configtxlator
+         *
+         * @return
+         */
+
+        public string getFabricConfigTxLaterLocation()
+        {
+            return "http://" + LOCALHOST + ":7059";
+        }
+
+        /**
+         * Returns the appropriate Network Config YAML file based on whether TLS is currently
+         * enabled or not
+         *
+         * @return The appropriate Network Config YAML file
+         */
+        public File getTestNetworkConfigFileYAML()
+        {
+            string fname = runningTLS ? "network-config-tls.yaml" : "network-config.yaml";
+            string pname = "src/test/fixture/sdkintegration/network_configs/";
+            File ret = new File(pname, fname);
+
+            if (!"localhost".equals(LOCALHOST))
+            {
+                // change on the fly ...
+                File temp = null;
+
+                try
+                {
+                    //create a temp file
+                    temp = File.createTempFile(fname, "-FixedUp.yaml");
+
+                    if (temp.exists())
+                    {
+                        //For testing start fresh
+                        temp.delete();
+                    }
+
+                    byte[] data = Files.readAllBytes(Paths.get(ret.getAbsolutePath()));
+
+                    string sourceText = new String(data, StandardCharsets.UTF_8);
+
+                    sourceText = sourceText.replaceAll("https://localhost", "https://" + LOCALHOST);
+                    sourceText = sourceText.replaceAll("http://localhost", "http://" + LOCALHOST);
+                    sourceText = sourceText.replaceAll("grpcs://localhost", "grpcs://" + LOCALHOST);
+                    sourceText = sourceText.replaceAll("grpc://localhost", "grpc://" + LOCALHOST);
+
+                    Files.write(Paths.get(temp.getAbsolutePath()), sourceText.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+
+                    if (!Objects.equals("true", System.getenv(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST + "_KEEP")))
+                    {
+                        temp.deleteOnExit();
+                    }
+                    else
+                    {
+                        System.err.println("produced new network-config.yaml file at:" + temp.getAbsolutePath());
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    throw new RuntimeException(e);
+                }
+
+                ret = temp;
+            }
+
+            return ret;
+        }
+
+        private string getDomainName(final string name)
+        {
+            int dot = name.indexOf(".");
+            if (-1 == dot)
+            {
+                return null;
+            }
+            else
+            {
+                return name.substring(dot + 1);
+            }
+
         }
 
     }
-
 }

@@ -19,7 +19,7 @@ using System;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 
 namespace Hyperledger.Fabric.SDK

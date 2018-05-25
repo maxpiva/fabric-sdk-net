@@ -18,6 +18,7 @@ using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Google.Protobuf;
+using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
@@ -54,7 +55,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
         /**
          * @return the {@link Properties} object containing implementation specific key generation properties
          */
-        Dictionary<string, string> GetProperties();
+        Properties GetProperties();
 
         /**
          * Set the Certificate Authority certificates to be used when validating a certificate chain of trust
@@ -175,7 +176,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @throws NoSuchMethodException
          * @throws InvocationTargetException
          */
-        public static ICryptoSuite GetCryptoSuite(Dictionary<string, string> properties)
+        public static ICryptoSuite GetCryptoSuite(Properties properties)
         {
             return HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite(properties);
 

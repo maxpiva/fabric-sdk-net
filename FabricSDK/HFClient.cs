@@ -16,8 +16,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK
@@ -288,7 +289,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public Peer NewPeer(string name, string grpcURL, Dictionary<string, object> properties)
+        public Peer NewPeer(string name, string grpcURL, Properties properties)
         {
             ClientCheck();
             return Peer.Create(name, grpcURL, properties);
@@ -415,7 +416,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public EventHub NewEventHub(string name, string grpcURL, Dictionary<string, object> properties)
+        public EventHub NewEventHub(string name, string grpcURL, Properties properties)
         {
             ClientCheck();
             return EventHub.Create(name, grpcURL, ExecutorService, properties);
@@ -489,7 +490,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public Orderer NewOrderer(string name, string grpcURL, Dictionary<string, object> properties)
+        public Orderer NewOrderer(string name, string grpcURL, Properties properties)
         {
             ClientCheck();
             return Orderer.Create(name, grpcURL, properties);

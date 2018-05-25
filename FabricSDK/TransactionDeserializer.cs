@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -44,7 +44,7 @@ namespace Hyperledger.Fabric.SDK
             return transactionActions.Get(index);
         }
 
-        private IEnumerable<TransactionActionDeserializer> TransactionActions => new BaseCollection<TransactionActionDeserializer>(() => ActionsCount, GetTransactionAction);
+        private IEnumerable<TransactionActionDeserializer> TransactionActions => new EnumerableBuilder<TransactionActionDeserializer>(() => ActionsCount, GetTransactionAction);
 
     }
 }

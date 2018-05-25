@@ -14,7 +14,6 @@
     <DefineConstants>TRACE;LIBLOG_NETSTANDARD</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DeepCloner" Version="0.10.2" />
     <PackageReference Include="Google.Protobuf" Version="3.5.1" />
     <PackageReference Include="Grpc" Version="1.12.0" />
     <PackageReference Include="Grpc.Tools" Version="1.12.0" />
@@ -32,9 +31,6 @@
     <GrpcToolsVersion>1.12.0</GrpcToolsVersion>
     <GrpcIncludeFolders>$(SolutionDir)\ProtoBuf;$(SolutionDir)\FabricSDK\Proto</GrpcIncludeFolders>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ini-parser\src\IniFileParser\INIFileParser.csproj" />
-  </ItemGroup>
   <ItemGroup>
     <ProtoIncludeFolder Include="$(SolutionDir)\ProtoBuf" />
     <ProtoIncludeFolder Include="$(SolutionDir)\FabricSDK\Proto" />

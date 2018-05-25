@@ -36,11 +36,14 @@ import org.apache.log4j.Level;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Hyperledger.Fabric_CA.SDK.Logging;
-using IniParser;
-using IniParser.Model;
+using System.Runtime.CompilerServices;
+using Hyperledger.Fabric.SDK.Helper;
 
+using Hyperledger.Fabric_CA.SDK.Logging;
+
+
+
+[assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
 namespace Hyperledger.Fabric_CA.SDK.Helper
 {
     public class Config
@@ -65,25 +68,27 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
         public static readonly string MAX_LOG_STRING_LENGTH = "org.hyperledger.fabric.sdk.log.stringlengthmax";
         public static readonly string LOGGERLEVEL = "org.hyperledger.fabric_ca.sdk.loglevel"; // ORG_HYPERLEDGER_FABRIC_CA_SDK_LOGLEVEL=TRACE,DEBUG
 
-        private static Config config;
-        private static Dictionary<string, string> sdkProperties = new Dictionary<string, string>();
+        internal static Config config;
+
+        /**
+         * getConfig return back singleton for SDK configuration.
+         *
+         * @return Global configuration
+         */
+        public static Config Instance => config ?? (config = new Config());
+        internal static Properties sdkProperties = new Properties();
 
         private Config()
         {
-            string fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
+            string fullpath = Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION);
+            if (string.IsNullOrEmpty(fullpath))
+                fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
             bool exists = File.Exists(fullpath);
             try
             {
-                var parser = new FileIniDataParser();
-                sdkProperties = new Dictionary<string, string>();
+                sdkProperties = new Properties();
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
-                IniData data = parser.ReadFile(DEFAULT_CONFIG);
-                KeyDataCollection sect = data.Global;
-                foreach (KeyData kd in sect)
-                {
-                    sdkProperties.Add(kd.KeyName, kd.Value);
-                }
-
+                sdkProperties.Load(fullpath);
             }
             catch (Exception e)
             {
@@ -156,15 +161,7 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
 
 
 
-        /**
-         * getConfig return back singleton for SDK configuration.
-         *
-         * @return Global configuration
-         */
-        public static Config GetConfig()
-        {
-            return config ?? (config = new Config());
-        }
+
 
         /**
          * getProperty return back property for the given value.
@@ -175,7 +172,7 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
         private string GetProperty(string property)
         {
 
-            string ret = sdkProperties.GetOrNull(property);
+            string ret = sdkProperties.Get(property);
 
             if (null == ret)
             {
@@ -193,8 +190,8 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
                 value = envvalue;
             }
 
-            if (!sdkProperties.ContainsKey(key))
-                sdkProperties.Add(key, value);
+            if (!sdkProperties.Contains(key))
+                sdkProperties.Set(key, value);
         }
 
         /**

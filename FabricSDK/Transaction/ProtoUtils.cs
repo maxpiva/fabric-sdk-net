@@ -23,8 +23,9 @@ using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 
 using Hyperledger.Fabric.SDK.Security;

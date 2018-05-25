@@ -11,33 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-import java.util.EnumSet;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-
-import com.google.common.util.concurrent.ListenableFuture;
-import io.netty.util.internal.StringUtil;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.peer.FabricProposal;
-import org.hyperledger.fabric.protos.peer.FabricProposalResponse;
-import org.hyperledger.fabric.sdk.Channel.PeerOptions;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.PeerException;
-import org.hyperledger.fabric.sdk.exception.TransactionException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.transaction.TransactionContext;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;
-*/
 /**
  * The Peer class represents a peer to which SDK sends deploy, or query proposals requests.
  */
@@ -49,7 +22,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Force.DeepCloner;
+
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -120,9 +93,8 @@ namespace Hyperledger.Fabric.SDK
     {
 
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Peer));
-        private static readonly Config config = Config.GetConfig();
-        private static readonly long PEER_EVENT_RETRY_WAIT_TIME = config.GetPeerRetryWaitTime();
-        private readonly Dictionary<string, object> properties;
+
+        private readonly Properties properties;
 
         [NonSerialized]
         private EndorserClient endorserClent;
@@ -142,7 +114,7 @@ namespace Hyperledger.Fabric.SDK
         [NonSerialized]
         private long lastBlockNumber;
 
-        public Peer(string name, string grpcURL, Dictionary<string, object> properties)
+        public Peer(string name, string grpcURL, Properties properties)
         {
 
             Exception e = Utils.CheckGrpcUrl(grpcURL);
@@ -157,13 +129,13 @@ namespace Hyperledger.Fabric.SDK
 
             this.Url = grpcURL;
             this.Name = name;
-            this.properties = properties?.DeepClone();
+            this.properties = properties?.Clone();
             reconnectCount = 0L;
 
         }
 
         public string Url { get; }
-        public static Peer Create(string name, string grpcURL, Dictionary<string, object> properties)
+        public static Peer Create(string name, string grpcURL, Properties properties)
         {
             return new Peer(name, grpcURL, properties);
         }
@@ -175,9 +147,9 @@ namespace Hyperledger.Fabric.SDK
          */
         public string Name { get; }
 
-        public Dictionary<string, object> GetProperties()
+        public Properties GetProperties()
         {
-            return properties?.DeepClone();
+            return properties?.Clone();
         }
 
         public void UnsetChannel() {
@@ -513,6 +485,8 @@ namespace Hyperledger.Fabric.SDK
 
         public class PeerEventingServiceDisconnect : IPeerEventingServiceDisconnected
         {
+            private long PEER_EVENT_RETRY_WAIT_TIME = Config.Instance.GetPeerRetryWaitTime();
+
             private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventingServiceDisconnect));
 
             public void Disconnected(IPeerEventingServiceDisconnectEvent evnt) {

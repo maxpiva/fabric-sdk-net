@@ -26,10 +26,11 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using Force.DeepCloner;
+
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -119,7 +120,7 @@ namespace Hyperledger.Fabric.SDK
         public List<string> EventHubNames => eventHubs == null ? new List<string>() : eventHubs.Keys.ToList();
 
 
-        private Dictionary<string, object> GetNodeProperties(string type, string name, Dictionary<string, Node> nodes)
+        private Properties GetNodeProperties(string type, string name, Dictionary<string, Node> nodes)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -131,15 +132,15 @@ namespace Hyperledger.Fabric.SDK
             Node node = nodes[name];
             if (null == node.Properties)
             {
-                return new Dictionary<string, object>();
+                return new Properties();
             }
             else
             {
-                return node.Properties.DeepClone();
+                return node.Properties.Clone();
             }
         }
 
-        private void SetNodeProperties(string type, string name, Dictionary<string, Node> nodes, Dictionary<string, object> properties)
+        private void SetNodeProperties(string type, string name, Dictionary<string, Node> nodes, Properties properties)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -154,7 +155,7 @@ namespace Hyperledger.Fabric.SDK
             if (!nodes.ContainsKey(name))
                 throw new InvalidArgumentException($"{type} {name} not found.");
             Node node = nodes[name];
-            node.Properties = properties.DeepClone();
+            node.Properties = properties.Clone();
         }
 
         /**
@@ -164,7 +165,7 @@ namespace Hyperledger.Fabric.SDK
          * @return The peer's properties.
          * @throws InvalidArgumentException
          */
-        public Dictionary<string, object> GetPeerProperties(string name)
+        public Properties GetPeerProperties(string name)
         {
             return GetNodeProperties("Peer", name, peers);
         }
@@ -176,7 +177,7 @@ namespace Hyperledger.Fabric.SDK
          * @return The orderer's properties.
          * @throws InvalidArgumentException
          */
-        public Dictionary<string, object> GetOrdererProperties(string name)
+        public Properties GetOrdererProperties(string name)
         {
             return GetNodeProperties("Orderer", name, orderers);
         }
@@ -188,7 +189,7 @@ namespace Hyperledger.Fabric.SDK
          * @return The eventhubs's properties.
          * @throws InvalidArgumentException
          */
-        public Dictionary<string, object> GetEventHubsProperties(string name)
+        public Properties GetEventHubsProperties(string name)
         {
             return GetNodeProperties("EventHub", name, eventHubs);
         }
@@ -200,7 +201,7 @@ namespace Hyperledger.Fabric.SDK
          * @param properties The properties to set.
          * @throws InvalidArgumentException
          */
-        public void SetPeerProperties(string name, Dictionary<string, object> properties)
+        public void SetPeerProperties(string name, Properties properties)
         {
             SetNodeProperties("Peer", name, peers, properties);
         }
@@ -212,7 +213,7 @@ namespace Hyperledger.Fabric.SDK
          * @param properties The properties to set.
          * @throws InvalidArgumentException
          */
-        public void SetOrdererProperties(string name, Dictionary<string, object> properties)
+        public void SetOrdererProperties(string name, Properties properties)
         {
             SetNodeProperties("Orderer", name, orderers, properties);
         }
@@ -225,7 +226,7 @@ namespace Hyperledger.Fabric.SDK
          * @param properties The properties to set.
          * @throws InvalidArgumentException
          */
-        public void SetEventHubProperties(string name, Dictionary<string, object> properties)
+        public void SetEventHubProperties(string name, Properties properties)
         {
             SetNodeProperties("EventHub", name, eventHubs, properties);
         }
@@ -763,7 +764,7 @@ namespace Hyperledger.Fabric.SDK
                 return null;
             }
 
-            Dictionary<string, object> props = ExtractProperties(jsonNode, "grpcOptions");
+            Properties props = ExtractProperties(jsonNode, "grpcOptions");
 
             // Extract the pem details
             GetTLSCerts(nodeName, jsonNode, props);
@@ -771,7 +772,7 @@ namespace Hyperledger.Fabric.SDK
             return new Node(nodeName, url, props);
         }
 
-        private void GetTLSCerts(string nodeName, JToken jsonOrderer, Dictionary<string, object> props)
+        private void GetTLSCerts(string nodeName, JToken jsonOrderer,Properties props)
         {
             JToken jsonTlsCaCerts = jsonOrderer["tlsCACerts"];
             if (jsonTlsCaCerts != null)
@@ -782,12 +783,12 @@ namespace Hyperledger.Fabric.SDK
                 if (!string.IsNullOrEmpty(pemFilename))
                 {
                     // let the sdk handle non existing errors could be they don't exist during parsing but are there later.
-                    props.Add("pemFile", pemFilename);
+                    props.Set("pemFile", pemFilename);
                 }
 
                 if (!string.IsNullOrEmpty(pemBytes))
                 {
-                    props.Add("pemBytes", pemBytes.ToBytes());
+                    props.Set("pemBytes", pemBytes);
                 }
             }
         }
@@ -913,7 +914,7 @@ namespace Hyperledger.Fabric.SDK
         private CAInfo CreateCA(string name, JToken jsonCA, OrgInfo org)
         {
             string url = jsonCA["url"].Value<string>();
-            Dictionary<string, object> httpOptions = ExtractProperties(jsonCA, "httpOptions");
+            Properties httpOptions = ExtractProperties(jsonCA, "httpOptions");
 
             string enrollId = null;
             string enrollSecret = null;
@@ -938,10 +939,10 @@ namespace Hyperledger.Fabric.SDK
                 caInfo.CaName = caName;
             }
 
-            Dictionary<string, object> properties = new Dictionary<string, object>();
+            Properties properties = new Properties();
             if (null != httpOptions && "false".Equals((string) httpOptions["verify"], StringComparison.CurrentCultureIgnoreCase))
             {
-                properties["allowAllHostNames"] = true;
+                properties["allowAllHostNames"] = "true";
             }
 
             GetTLSCerts(name, jsonCA, properties);
@@ -951,9 +952,9 @@ namespace Hyperledger.Fabric.SDK
         }
 
         // Extracts all defined properties of the specified field and returns a Properties object
-        private static Dictionary<string, object> ExtractProperties(JToken json, string fieldName)
+        private static Properties ExtractProperties(JToken json, string fieldName)
         {
-            Dictionary<string, object> props = new Dictionary<string, object>();
+            Properties props = new Properties();
 
             // Extract any other grpc options
             JToken options = json[fieldName];
@@ -962,7 +963,7 @@ namespace Hyperledger.Fabric.SDK
                 foreach (JProperty prop in options.Children<JObject>().Select(a => a.Properties().First()))
                 {
                     string key = prop.Name;
-                    props[key] = prop.Value<object>();
+                    props[key] = prop.Value<string>();
                 }
             }
 
@@ -1101,7 +1102,7 @@ namespace Hyperledger.Fabric.SDK
         // Holds a network "node" (eg. Peer, Orderer, EventHub)
         public class Node
         {
-            public Node(string name, string url, Dictionary<string, object> properties)
+            public Node(string name, string url, Properties properties)
             {
                 Url = url;
                 Name = name;
@@ -1110,7 +1111,7 @@ namespace Hyperledger.Fabric.SDK
 
             public string Name { get; }
             public string Url { get; }
-            public Dictionary<string, object> Properties { get; set; }
+            public Properties Properties { get; set; }
         }
 
         /**
@@ -1160,7 +1161,7 @@ namespace Hyperledger.Fabric.SDK
      */
         public class CAInfo
         {
-            public CAInfo(string name, string mspid, string url, List<UserInfo> registrars, Dictionary<string, object> httpOptions)
+            public CAInfo(string name, string mspid, string url, List<UserInfo> registrars, Properties httpOptions)
             {
                 Name = name;
                 Url = url;
@@ -1171,11 +1172,11 @@ namespace Hyperledger.Fabric.SDK
 
             public string Name { get; set; }
             public string Url { get; set; }
-            public Dictionary<string, object> HttpOptions { get; set; } = new Dictionary<string, object>();
+            public Properties HttpOptions { get; set; } = new Properties();
 
             public string MspId { get; set; }
             public string CaName { get; set; }
-            public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+            public Properties Properties { get; set; } = new Properties();
 
             public List<UserInfo> Registrars { get; set; }
         }

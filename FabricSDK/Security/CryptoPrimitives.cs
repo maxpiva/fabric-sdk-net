@@ -17,7 +17,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -43,107 +43,24 @@ using Org.BouncyCastle.Utilities.IO.Pem;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
 using HashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
-
+[assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
 namespace Hyperledger.Fabric.SDK.Security
 {
-/*
-    package org.hyperledger.fabric.sdk.security;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Provider;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.security.Signature;
-import java.security.SignatureException;
-import java.security.cert.CertPath;
-import java.security.cert.CertPathValidator;
-import java.security.cert.CertPathValidatorException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.PKIXParameters;
-import java.security.cert.X509Certificate;
-import java.security.interfaces.ECPrivateKey;
-import java.security.spec.ECGenParameterSpec;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.security.auth.x500.X500Principal;
-import javax.xml.bind.DatatypeConverter;
-
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.DERSequenceGenerator;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.asn1.x9.ECNamedCurveTable;
-import org.bouncycastle.asn1.x9.X9ECParameters;
-import org.bouncycastle.crypto.Digest;
-import org.bouncycastle.crypto.digests.SHA256Digest;
-import org.bouncycastle.crypto.digests.SHA3Digest;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMKeyPair;
-import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
-import org.bouncycastle.util.io.pem.PemObject;
-import org.bouncycastle.util.io.pem.PemReader;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.helper.DiagnosticFileDumper;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
-*/
     public class CryptoPrimitives : ICryptoSuite
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(CryptoPrimitives));
-        private static readonly Config config = Config.GetConfig();
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
+        private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
 
-        private string curveName;
-        private string hashAlgorithm = config.GetHashAlgorithm();
-        private int securityLevel = config.GetSecurityLevel();
-        private string CERTIFICATE_FORMAT = config.GetCertificateFormat();
-        private string DEFAULT_SIGNATURE_ALGORITHM = config.GetSignatureAlgorithm();
+        internal string curveName;
+        internal string hashAlgorithm = Config.Instance.GetHashAlgorithm();
+        internal int securityLevel = Config.Instance.GetSecurityLevel();
+        private string CERTIFICATE_FORMAT = Config.Instance.GetCertificateFormat();
+        private string DEFAULT_SIGNATURE_ALGORITHM = Config.Instance.GetSignatureAlgorithm();
 
-        private Dictionary<int, string> securityCurveMapping = config.GetSecurityCurveMapping();
+        private Dictionary<int, string> securityCurveMapping = Config.Instance.GetSecurityCurveMapping();
 
         // Following configuration settings are hardcoded as they don't deal with any interactions with Fabric MSP and BCCSP components
         // If you wish to make these customizable, follow the logic from setProperties();
@@ -396,7 +313,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
                 return false;
             }
 
-            if (config.ExtraLogLevel(10))
+            if (Config.Instance.ExtraLogLevel(10))
             {
                 if (null != diagnosticFileDumper)
                 {
@@ -460,7 +377,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
             return isVerified;
         } // verify
 
-        private X509Store trustStore = null;
+        internal X509Store trustStore = null;
 
         private void CreateTrustStore()
         {
@@ -484,7 +401,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
          * @param keyStore the KeyStore which will be used to hold trusted certificates
          * @throws InvalidArgumentException
          */
-        private void SetTrustStore(X509Store keyStore)
+        internal void SetTrustStore(X509Store keyStore)
         {
             trustStore = keyStore ?? throw new InvalidArgumentException("Need to specify a java.security.KeyStore input parameter");
         }
@@ -608,7 +525,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
 
             try
             {
-                if (config.ExtraLogLevel(10))
+                if (Config.Instance.ExtraLogLevel(10))
                 {
                     if (null != diagnosticFileDumper)
                     {
@@ -713,7 +630,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
             }
         }
 
-        bool ValidateCertificate(X509Certificate2 cert)
+        public bool ValidateCertificate(X509Certificate2 cert)
         {
             if (cert == null)
                 return false;
@@ -1075,22 +992,22 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
     //     * @see org.hyperledger.fabric.sdk.security.CryptoSuite#setProperties(java.util.Properties)
     //     */
     //    @Override
-        public void SetProperties(Dictionary<string,string> properties)
+        public void SetProperties(Properties properties)
         {
             if (properties == null || properties.Count==0) {
                 throw new InvalidArgumentException("properties must not be null");
             }
             //        if (properties != null) {
-            hashAlgorithm = properties.ContainsKey(Config.HASH_ALGORITHM) ? properties[Config.HASH_ALGORITHM] : hashAlgorithm;
-            string secLevel = properties.ContainsKey(Config.SECURITY_LEVEL) ? properties[Config.SECURITY_LEVEL] : securityLevel.ToString();
+            hashAlgorithm = properties.Contains(Config.HASH_ALGORITHM) ? properties[Config.HASH_ALGORITHM] : hashAlgorithm;
+            string secLevel = properties.Contains(Config.SECURITY_LEVEL) ? properties[Config.SECURITY_LEVEL] : securityLevel.ToString();
             securityLevel = int.Parse(secLevel);
-            if (properties.ContainsKey(Config.SECURITY_CURVE_MAPPING)) {
+            if (properties.Contains(Config.SECURITY_CURVE_MAPPING)) {
                 securityCurveMapping = Config.ParseSecurityCurveMappings(properties[Config.SECURITY_CURVE_MAPPING]);
             } else {
-                securityCurveMapping = config.GetSecurityCurveMapping();
+                securityCurveMapping = Config.Instance.GetSecurityCurveMapping();
             }
-            CERTIFICATE_FORMAT = properties.ContainsKey(Config.CERTIFICATE_FORMAT) ? properties[Config.CERTIFICATE_FORMAT] : CERTIFICATE_FORMAT;
-            DEFAULT_SIGNATURE_ALGORITHM = properties.ContainsKey(Config.SIGNATURE_ALGORITHM) ? properties[Config.SIGNATURE_ALGORITHM] : DEFAULT_SIGNATURE_ALGORITHM;
+            CERTIFICATE_FORMAT = properties.Contains(Config.CERTIFICATE_FORMAT) ? properties[Config.CERTIFICATE_FORMAT] : CERTIFICATE_FORMAT;
+            DEFAULT_SIGNATURE_ALGORITHM = properties.Contains(Config.SIGNATURE_ALGORITHM) ? properties[Config.SIGNATURE_ALGORITHM] : DEFAULT_SIGNATURE_ALGORITHM;
             ResetConfiguration();
 
         }
@@ -1099,13 +1016,13 @@ import static org.hyperledger.fabric.sdk.helper.Utils.isNullOrEmpty;
          * @see org.hyperledger.fabric.sdk.security.CryptoSuite#getProperties()
          */
 
-        public Dictionary<string,string> GetProperties()
+        public Properties GetProperties()
         {
-            Dictionary<string,string> properties= new Dictionary<string, string>();
-            properties.Add(Config.HASH_ALGORITHM, hashAlgorithm);
-            properties.Add(Config.SECURITY_LEVEL, securityLevel.ToString());
-            properties.Add(Config.CERTIFICATE_FORMAT, CERTIFICATE_FORMAT);
-            properties.Add(Config.SIGNATURE_ALGORITHM, DEFAULT_SIGNATURE_ALGORITHM);
+            Properties properties = new Properties();
+            properties.Set(Config.HASH_ALGORITHM, hashAlgorithm);
+            properties.Set(Config.SECURITY_LEVEL, securityLevel.ToString());
+            properties.Set(Config.CERTIFICATE_FORMAT, CERTIFICATE_FORMAT);
+            properties.Set(Config.SIGNATURE_ALGORITHM, DEFAULT_SIGNATURE_ALGORITHM);
             return properties;
         }
 

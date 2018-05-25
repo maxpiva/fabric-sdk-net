@@ -48,7 +48,7 @@ using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 
@@ -59,8 +59,7 @@ namespace Hyperledger.Fabric.SDK
      */
     public class OrdererClient
     {
-        private static readonly Config config = Config.GetConfig();
-        private static readonly long ORDERER_WAIT_TIME = config.GetOrdererWaitTime();
+        private long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
         private static readonly ILog logger = LogProvider.GetLogger(typeof(OrdererClient));
         private readonly Endpoint endPoint;
         private readonly string channelName;
@@ -73,7 +72,7 @@ namespace Hyperledger.Fabric.SDK
         /**
          * Construct client for accessing Orderer server using the existing managedChannel.
          */
-        public OrdererClient(Orderer orderer, Endpoint endPoint, Dictionary<string, object> properties)
+        public OrdererClient(Orderer orderer, Endpoint endPoint, Properties properties)
         {
             this.endPoint = endPoint;
             name = orderer.Name;
@@ -82,7 +81,7 @@ namespace Hyperledger.Fabric.SDK
 
             ordererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
 
-            if (properties != null && properties.ContainsKey("ordererWaitTimeMilliSecs"))
+            if (properties != null && properties.Contains("ordererWaitTimeMilliSecs"))
             {
                 string ordererWaitTimeMilliSecsString = (string) properties["ordererWaitTimeMilliSecs"];
                 if (!long.TryParse(ordererWaitTimeMilliSecsString, out ordererWaitTimeMilliSecs))

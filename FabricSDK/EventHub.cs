@@ -11,39 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import javax.xml.bind.DatatypeConverter;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import io.grpc.ManagedChannel;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
-import io.netty.util.internal.StringUtil;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.peer.EventsGrpc;
-import org.hyperledger.fabric.protos.peer.PeerEvents;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.EventHubException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.transaction.ProtoUtils;
-import org.hyperledger.fabric.sdk.transaction.TransactionContext;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;
-   */
 /**
  * Class to manage fabric events.
  * <p>
@@ -56,14 +23,14 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Force.DeepCloner;
+
 using Google.Protobuf;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Transaction;
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
@@ -73,13 +40,13 @@ namespace Hyperledger.Fabric.SDK
     public class EventHub
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHub));
-        private static readonly Config config = Config.GetConfig();
-        private static readonly long EVENTHUB_CONNECTION_WAIT_TIME = config.GetEventHubConnectionWaitTime();
-        private static readonly long EVENTHUB_RECONNECTION_WARNING_RATE = config.GetEventHubReconnectionWarningRate();
+
+        private static long EVENTHUB_CONNECTION_WAIT_TIME = Config.Instance.GetEventHubConnectionWaitTime();
+        private static long EVENTHUB_RECONNECTION_WARNING_RATE = Config.Instance.GetEventHubReconnectionWarningRate();
 
         private readonly string url;
         private readonly string name;
-        private readonly Dictionary<string,object> properties;
+        private readonly Properties properties;
         [NonSerialized]
         private Grpc.Core.Channel managedChannel;
         [NonSerialized]
@@ -142,7 +109,7 @@ namespace Hyperledger.Fabric.SDK
         public long LastConnectedAttempt { get; private set; }
 
 
-        public EventHub(string name, string grpcURL, TaskScheduler scheduler, Dictionary<string, object> properties)  {
+        public EventHub(string name, string grpcURL, TaskScheduler scheduler, Properties properties)  {
 
             Exception e = Utils.CheckGrpcUrl(grpcURL);
             if (e != null) {
@@ -157,7 +124,7 @@ namespace Hyperledger.Fabric.SDK
             this.url = grpcURL;
             this.name = name;
             this.scheduler = scheduler;
-            this.properties = properties?.DeepClone();
+            this.properties = this.properties.Clone();
 
         }
 
@@ -170,7 +137,7 @@ namespace Hyperledger.Fabric.SDK
          * @return
          */
 
-        public static EventHub Create(string name, string url, TaskScheduler executorService, Dictionary<string, object> properties)
+        public static EventHub Create(string name, string url, TaskScheduler executorService, Properties properties)
         {
             return new EventHub(name, url, executorService, properties);
         }
@@ -189,8 +156,8 @@ namespace Hyperledger.Fabric.SDK
          * @return Event hub properties
          * @see HFClient#newEventHub(String, String, Properties)
          */
-        public Dictionary<string,object> Properties => properties?.DeepClone();
-
+        public Properties Properties => properties.Clone();
+            
         //private readonly StreamObserver<PeerEvents.Event> eventStream = null; // Saved here to avoid potential garbage collection
 
         [MethodImpl(MethodImplOptions.Synchronized)]

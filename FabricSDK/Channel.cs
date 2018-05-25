@@ -24,7 +24,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Force.DeepCloner;
+
 using Google.Protobuf;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
@@ -37,12 +37,10 @@ using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
 using Hyperledger.Fabric.SDK.Transaction;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
-using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -57,22 +55,23 @@ namespace Hyperledger.Fabric.SDK
         private static readonly bool IS_DEBUG_LEVEL = logger.IsDebugEnabled();
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-        private static readonly Config config = Config.GetConfig();
-
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
-
         private static readonly string SYSTEM_CHANNEL_NAME = "";
-
-        private static readonly long ORDERER_RETRY_WAIT_TIME = config.GetOrdererRetryWaitTime();
-        private static readonly long CHANNEL_CONFIG_WAIT_TIME = config.GetChannelConfigWaitTime();
 
         private static readonly RNGCryptoServiceProvider RANDOM = new RNGCryptoServiceProvider();
 
+        private readonly LinkedHashMap<string, BL> blockListeners = new LinkedHashMap<string, BL>();
+
         // final Set<Peer> eventingPeers = Collections.synchronizedSet(new HashSet<>());
-        public static readonly long DELTA_SWEEP = config.GetTransactionListenerCleanUpTimeout();
+
         private readonly LinkedHashMap<string, ChaincodeEventListenerEntry> chainCodeListeners = new LinkedHashMap<string, ChaincodeEventListenerEntry>();
+        /**
+         * A queue each eventing hub will write events to.
+         */
+
+        private readonly ChannelEventQue channelEventQue;
 
         private readonly LinkedList<EventHub> eventHubs = new LinkedList<EventHub>();
+        private readonly LinkedList<Orderer> orderers = new LinkedList<Orderer>();
 
         // Name of the channel is only meaningful to the client
         private readonly ConcurrentDictionary<Peer, PeerOptions> peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>();
@@ -82,16 +81,13 @@ namespace Hyperledger.Fabric.SDK
         // The peers on this channel to which the client can connect
         private readonly List<Peer> peers = new List<Peer>();
         private readonly bool systemChannel;
+        private readonly LinkedHashMap<string, LinkedList<TL>> txListeners = new LinkedHashMap<string, LinkedList<TL>>();
         private string blh = null;
 
-        private readonly LinkedHashMap<string, BL> blockListeners = new LinkedHashMap<string, BL>();
-        /**
-         * A queue each eventing hub will write events to.
-         */
-
-        private readonly ChannelEventQue channelEventQue;
-
         private HFClient client;
+
+
+        private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
         /**
          * Runs processing events from event hubs.
          */
@@ -100,13 +96,11 @@ namespace Hyperledger.Fabric.SDK
         private Block genesisBlock;
         private volatile bool initialized = false;
         private IReadOnlyDictionary<string, MSP> msps = new Dictionary<string, MSP>();
-        private readonly LinkedList<Orderer> orderers = new LinkedList<Orderer>();
 
         private bool shutdown = false;
 
         //Cleans up any transaction listeners that will probably never complete.
         private Timer sweeper = null;
-        private readonly LinkedHashMap<string, LinkedList<TL>> txListeners = new LinkedHashMap<string, LinkedList<TL>>();
 
 
         private Channel(string name, HFClient hfClient, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] signers) : this(name, hfClient, false)
@@ -218,6 +212,10 @@ namespace Hyperledger.Fabric.SDK
             this.client = client;
             logger.Debug($"Creating channel: {(IsSystemChannel() ? "SYSTEM_CHANNEL" : name)}, client context {client.UserContext.Name}");
         }
+
+        private long ORDERER_RETRY_WAIT_TIME = Config.Instance.GetOrdererRetryWaitTime();
+        private long CHANNEL_CONFIG_WAIT_TIME = Config.Instance.GetChannelConfigWaitTime();
+        private long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
 
 
         /**
@@ -529,7 +527,7 @@ namespace Hyperledger.Fabric.SDK
             peer.SetChannel(this);
 
             peers.Add(peer);
-            peerOptionsMap[peer] = peerOptions.DeepClone();
+            peerOptionsMap[peer] = peerOptions.Clone();
             foreach (PeerRole peerRole in peerRoleSetMap.Keys)
             {
                 if (peerOptions.GetPeerRoles().Contains(peerRole))
@@ -820,7 +818,7 @@ namespace Hyperledger.Fabric.SDK
         {
             PeerOptions ret = null;
             peerOptionsMap.TryGetValue(peer, out ret);
-            return ret?.DeepClone();
+            return ret?.Clone();
         }
 
         /**
@@ -1416,7 +1414,7 @@ namespace Hyperledger.Fabric.SDK
                     {
                         long duration = watch.ElapsedMilliseconds;
 
-                        if (duration > config.GetGenesisBlockWaitTime())
+                        if (duration > Config.Instance.GetGenesisBlockWaitTime())
                         {
                             throw new TransactionException($"Getting block time exceeded {duration / 1000} seconds for channel {Name}");
                         }
@@ -1816,12 +1814,12 @@ namespace Hyperledger.Fabric.SDK
 
         private List<Peer> GetShuffledPeers()
         {
-            return GetPeers().ToList().Shuffle(RANDOM).ToList();
+            return GetPeers().ToList().Shuffle().ToList();
         }
 
         private List<Peer> GetShuffledPeers(IEnumerable<PeerRole> roles)
         {
-            return GetPeers(roles).ToList().Shuffle(RANDOM).ToList();
+            return GetPeers(roles).ToList().Shuffle().ToList();
         }
 
         private Orderer GetRandomOrderer()
@@ -2906,10 +2904,10 @@ namespace Hyperledger.Fabric.SDK
                 List<Orderer> orderers = transactionOptions.Orderers ?? GetOrderers().ToList();
 
                 // make certain we have our own copy
-                List<Orderer> shuffeledOrderers = orderers.Shuffle(RANDOM).ToList();
+                List<Orderer> shuffeledOrderers = orderers.Shuffle().ToList();
 
 
-                if (config.GetProposalConsistencyValidation())
+                if (Config.Instance.GetProposalConsistencyValidation())
                 {
                     HashSet<ProposalResponse> invalid = new HashSet<ProposalResponse>();
                     int consistencyGroups = SDKUtils.GetProposalConsistencySets(proposalResponses.ToList(), invalid).Count;
@@ -3762,7 +3760,7 @@ namespace Hyperledger.Fabric.SDK
      */
 
         [Serializable]
-        public class PeerOptions : ICloneable
+        public class PeerOptions 
         {
             protected List<PeerRole> peerRoles;
 
@@ -3770,6 +3768,17 @@ namespace Hyperledger.Fabric.SDK
             protected bool registerEventsForFilteredBlocks = false;
 
 
+            public PeerOptions Clone()
+            {
+                PeerOptions p=new PeerOptions();
+                p.peerRoles = peerRoles.ToList();
+                p.registerEventsForFilteredBlocks = registerEventsForFilteredBlocks;
+                p.Newest = Newest;
+                p.StartEventsBlock = StartEventsBlock;
+                p.StopEventsBlock = StopEventsBlock;
+
+                return p;
+            }
             protected PeerOptions()
             {
             }
@@ -3806,10 +3815,7 @@ namespace Hyperledger.Fabric.SDK
              */
 
 
-            public object Clone()
-            {
-                return this.DeepClone();
-            }
+
 
             /**
              * Is the peer eventing service registered for filtered blocks
@@ -3955,9 +3961,9 @@ namespace Hyperledger.Fabric.SDK
         public class NOfEvents
         {
             private readonly HashSet<EventHub> eventHubs = new HashSet<EventHub>();
-            private long n = long.MaxValue; //all
             private readonly HashSet<NOfEvents> nOfEvents = new HashSet<NOfEvents>();
             private readonly HashSet<Peer> peers = new HashSet<Peer>();
+            private long n = long.MaxValue; //all
 
             private bool started = false;
 
@@ -4361,8 +4367,8 @@ namespace Hyperledger.Fabric.SDK
 
         public class MSP
         {
-            private byte[][] adminCerts;
             private readonly FabricMSPConfig fabricMSPConfig;
+            private byte[][] adminCerts;
             private byte[][] intermediateCerts;
             private string orgName;
             private byte[][] rootCerts;
@@ -4447,9 +4453,9 @@ namespace Hyperledger.Fabric.SDK
         {
             private static readonly ILog logger = LogProvider.GetLogger(typeof(ChannelEventQue));
             private readonly Channel channel;
-            private Exception eventException;
 
             private readonly BlockingCollection<BlockEvent> events = new BlockingCollection<BlockEvent>(); //Thread safe
+            private Exception eventException;
 
             public ChannelEventQue(Channel ch)
             {
@@ -4566,15 +4572,16 @@ namespace Hyperledger.Fabric.SDK
             private readonly long createTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             private readonly HashSet<EventHub> eventHubs;
             private readonly bool failFast;
-            private bool fired = false;
             private readonly TaskCompletionSource<BlockEvent.TransactionEvent> future;
             private readonly NOfEvents nOfEvents;
             private readonly HashSet<Peer> peers;
-            private long sweepTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long) (DELTA_SWEEP * 1.5);
             private readonly string txID;
+            private bool fired = false;
+            private long sweepTime;
 
             public TL(Channel ch, string txID, TaskCompletionSource<BlockEvent.TransactionEvent> future, NOfEvents nOfEvents, bool failFast)
             {
+                sweepTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long) (DELTA_SWEEP * 1.5);
                 this.txID = txID;
                 this.future = future;
                 channel = ch;
@@ -4584,6 +4591,8 @@ namespace Hyperledger.Fabric.SDK
                 this.failFast = failFast;
                 AddListener();
             }
+
+            private long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
 
             /**
              * Record transactions event.

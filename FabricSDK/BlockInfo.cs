@@ -48,7 +48,7 @@ using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -224,7 +224,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        public IEnumerable<EnvelopeInfo> EnvelopeInfos => new BaseCollection<EnvelopeInfo>(() => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Data.Count, GetEnvelopeInfo);
+        public IEnumerable<EnvelopeInfo> EnvelopeInfos => new EnumerableBuilder<EnvelopeInfo>(() => IsFiltered ? filteredBlock.FilteredTransactions.Count : block.Data.Data.Count, GetEnvelopeInfo);
 
 
         /**
@@ -465,7 +465,7 @@ namespace Hyperledger.Fabric.SDK
                 return parent.IsFiltered ? new TransactionActionInfo(parent, filteredTx.TransactionActions.ChaincodeActions[index]) : new TransactionActionInfo(parent, transactionDeserializer.Payload.Transaction.GetTransactionAction(index));
             }
 
-            public IEnumerable<TransactionActionInfo> TransactionActionInfos => new BaseCollection<TransactionActionInfo>(() => TransactionActionInfoCount, GetTransactionActionInfo);
+            public IEnumerable<TransactionActionInfo> TransactionActionInfos => new EnumerableBuilder<TransactionActionInfo>(() => TransactionActionInfoCount, GetTransactionActionInfo);
 
             public class TransactionActionInfo
             {

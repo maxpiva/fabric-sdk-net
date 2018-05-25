@@ -141,7 +141,7 @@ namespace Hyperledger.Fabric.SDK
             public Peer Peer => BlockEvent.Peer;
         }
 
-        public IEnumerable<TransactionEvent> GetTransactionEventsList => new BaseCollection<TransactionEvent>(()=>TransactionCount,GetTransactionEvent);
+        public IEnumerable<TransactionEvent> GetTransactionEventsList => new EnumerableBuilder<TransactionEvent>(()=>TransactionCount,GetTransactionEvent);
 
     } // BlockEvent
 }

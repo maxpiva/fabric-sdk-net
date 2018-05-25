@@ -21,8 +21,10 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Google.Protobuf;
+using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Security;
@@ -38,8 +40,119 @@ namespace Hyperledger.Fabric.SDK.Helper
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Utils));
         private static readonly bool TRACE_ENABED = logger.IsTraceEnabled();
-        private static readonly Config config = Config.GetConfig();
-        private static readonly int MAX_LOG_STRING_LENGTH = config.MaxLogStringLength();
+
+        private static int MAX_LOG_STRING_LENGTH = Config.Instance.MaxLogStringLength();
+
+        public static void WriteAllBytes(this Stream stream, byte[] data)
+        {
+            stream.Write(data, 0, data.Length);
+        }
+        public static TValue GetOrNull<TKey, TValue>(this Dictionary<TKey, TValue> tr, TKey key)
+        {
+            if (tr.ContainsKey(key))
+                return tr[key];
+            return default(TValue);
+        }
+
+        public static void AddRange<T>(this HashSet<T> set, IEnumerable<T> data)
+        {
+            foreach (T n in data)
+            {
+                if (!set.Contains(n))
+                    set.Add(n);
+            }
+        }
+
+        public static int Next(this RNGCryptoServiceProvider provider, int max)
+        {
+            byte[] buf = new byte[4];
+            provider.GetBytes(buf);
+            uint value = BitConverter.ToUInt32(buf, 0);
+            double maxint = 0x100000000D;
+            return (int)(max * (value / maxint));
+        }
+
+        public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> shuffle)
+        {
+            return shuffle.OrderBy<T, int>((a) => RANDOM.Next(int.MaxValue));
+        }
+        public static Dictionary<string, string> Clone(this Dictionary<string, string> dic)
+        {
+            return dic.ToDictionary(a => (string)a.Key.Clone(), a => (string)a.Value.Clone());
+
+        }
+
+        public static long GetLongProperty(this Properties dic, string key, long def = 0)
+        {
+            long ret = def;
+            if (dic.Contains(key))
+            {
+                if (long.TryParse(dic[key], out ret))
+                    return ret;
+            }
+
+            return ret;
+        }
+        public static string LogString(this string str)
+        {
+            if (string.IsNullOrEmpty(str))
+                return str;
+            string ret = Regex.Replace(str, "[^\\p{Print}]", "?");
+            ret = ret.Substring(0, Math.Min(ret.Length, MAX_LOG_STRING_LENGTH)) + (ret.Length > MAX_LOG_STRING_LENGTH ? "..." : "");
+            return ret;
+
+        }
+
+        public static string ToHexString(this byte[] data)
+        {
+            return BitConverter.ToString(data).Replace("-", string.Empty);
+        }
+        public static string ToHexString(this ByteString data)
+        {
+            return BitConverter.ToString(data.ToByteArray()).Replace("-", string.Empty);
+        }
+        public static string ToUTF8String(this byte[] data)
+        {
+            return Encoding.UTF8.GetString(data);
+        }
+
+        public static byte[] FromHexString(this string data)
+        {
+            return Regex.Split(data, "(?<=\\G..)(?!$)").Select(x => Convert.ToByte(x, 16)).ToArray();
+        }
+
+
+
+        public static byte[] ToBytes(this string data)
+        {
+            return Encoding.UTF8.GetBytes(data);
+        }
+
+        public static byte[] ToByteArray(this Stream stream)
+        {
+            if (stream is MemoryStream)
+                return ((MemoryStream)stream).ToArray();
+            using (MemoryStream ms = new MemoryStream())
+            {
+                stream.CopyTo(ms);
+                return ms.ToArray();
+            }
+        }
+        public static void UserContextCheck(this IUser userContext)
+        {
+            if (userContext == null)
+                throw new InvalidArgumentException("UserContext is null");
+            if (string.IsNullOrEmpty(userContext.Name))
+                throw new InvalidArgumentException("UserContext user's name missing.");
+            if (userContext.Enrollment == null)
+                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has no enrollment set.");
+            if (string.IsNullOrEmpty(userContext.MspId))
+                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has user's MSPID missing.");
+            if (string.IsNullOrEmpty(userContext.Enrollment.Cert))
+                throw new InvalidArgumentException($"UserContext for user {userContext.Name} enrollment missing user certificate.");
+            if (userContext.Enrollment.Key == null)
+                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has Enrollment missing signing key");
+        }
 
         /**
          * Generate hash of the given input using the given Digest.

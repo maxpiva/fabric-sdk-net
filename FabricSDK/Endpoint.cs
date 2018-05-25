@@ -72,7 +72,7 @@ using System.Text.RegularExpressions;
 using Grpc.Core;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Security;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
@@ -87,7 +87,7 @@ namespace Hyperledger.Fabric.SDK
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Endpoint));
 
-        private static readonly string SSLNEGOTIATION = Config.GetConfig().GetDefaultSSLNegotiationType();
+        private readonly string SSLNEGOTIATION = Config.Instance.GetDefaultSSLNegotiationType();
 
         private static readonly ConcurrentDictionary<string, string> CN_CACHE = new ConcurrentDictionary<string, string>();
         private readonly byte[] tlsClientCertificatePEMBytes;
@@ -95,7 +95,7 @@ namespace Hyperledger.Fabric.SDK
 
         private byte[] clientTLSCertificateDigest;
 
-        public Endpoint(string url, Dictionary<string, object> properties)
+        public Endpoint(string url, Properties properties)
         {
             logger.Trace($"Creating endpoint for url {url}");
             Url = url;
@@ -127,11 +127,11 @@ namespace Hyperledger.Fabric.SDK
                     {
                         try
                         {
-                            if (properties.ContainsKey("pemBytes"))
-                                bis.WriteAllBytes((byte[]) properties["pemBytes"]);
-                            if (properties.ContainsKey("PemFile"))
+                            if (properties.Contains("pemBytes"))
+                                bis.WriteAllBytes(properties["pemBytes"].ToBytes());
+                            if (properties.Contains("pemFile"))
                             {
-                                string pemFile = (string) properties["pemFile"];
+                                string pemFile = properties["pemFile"];
                                 Regex r = new Regex("[ \t]*,[ \t]*");
                                 string[] pems = r.Split(pemFile);
 
@@ -172,8 +172,8 @@ namespace Hyperledger.Fabric.SDK
                     {
                         try
                         {
-                            cn = properties.ContainsKey("hostnameOverride") ? (string) properties["hostnameOverride"] : null;
-                            bool trustsv = properties.ContainsKey("trustServerCertificate") && ((string) properties["trustServerCertificate"]).Equals("true", StringComparison.InvariantCultureIgnoreCase);
+                            cn = properties.Contains("hostnameOverride") ? (string) properties["hostnameOverride"] : null;
+                            bool trustsv = properties.Contains("trustServerCertificate") && ((string) properties["trustServerCertificate"]).Equals("true", StringComparison.InvariantCultureIgnoreCase);
                             if (cn == null && trustsv)
                             {
                                 string cnKey = pemBytes.ToUTF8String();
@@ -194,17 +194,17 @@ namespace Hyperledger.Fabric.SDK
                     }
 
                     // check for mutual TLS - both clientKey and clientCert must be present
-                    if (properties.ContainsKey("clientKeyFile") && properties.ContainsKey("clientKeyBytes"))
+                    if (properties.Contains("clientKeyFile") && properties.Contains("clientKeyBytes"))
                     {
                         throw new ArgumentException("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set");
                     }
-                    else if (properties.ContainsKey("clientCertFile") && properties.ContainsKey("clientCertBytes"))
+                    else if (properties.Contains("clientCertFile") && properties.Contains("clientCertBytes"))
                     {
                         throw new ArgumentException("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set");
                     }
-                    else if (properties.ContainsKey("clientKeyFile") || properties.ContainsKey("clientCertFile"))
+                    else if (properties.Contains("clientKeyFile") || properties.Contains("clientCertFile"))
                     {
-                        if (properties.ContainsKey("clientKeyFile") && properties.ContainsKey("clientCertFile"))
+                        if (properties.Contains("clientKeyFile") && properties.Contains("clientCertFile"))
                         {
                             try
                             {
@@ -221,7 +221,7 @@ namespace Hyperledger.Fabric.SDK
                             throw new ArgumentException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");
                         }
                     }
-                    else if (properties.ContainsKey("clientKeyThumbprint"))
+                    else if (properties.Contains("clientKeyThumbprint"))
                     {
                         X509Certificate2 certi = SearchCertificateByFingerprint((string) properties["clientKeyThumbprint"]);
                         if (certi == null)
@@ -229,7 +229,7 @@ namespace Hyperledger.Fabric.SDK
                         ccb = ExportToPEMCert(certi);
                         ckb = ExportToPEMKey(certi);
                     }
-                    else if (properties.ContainsKey("clientKeySubject"))
+                    else if (properties.Contains("clientKeySubject"))
                     {
                         X509Certificate2 certi = SearchCertificateBySubject((string) properties["clientKeySubject"]);
                         if (certi == null)
@@ -237,10 +237,10 @@ namespace Hyperledger.Fabric.SDK
                         ccb = ExportToPEMCert(certi);
                         ckb = ExportToPEMKey(certi);
                     }
-                    else if (properties.ContainsKey("clientKeyBytes") || properties.ContainsKey("clientCertBytes"))
+                    else if (properties.Contains("clientKeyBytes") || properties.Contains("clientCertBytes"))
                     {
-                        ckb = (byte[]) properties["clientKeyBytes"];
-                        ccb = (byte[]) properties["clientCertBytes"];
+                        ckb = properties["clientKeyBytes"].ToBytes();
+                        ccb = properties["clientCertBytes"].ToBytes();
                         if (ckb == null || ccb == null)
                         {
                             throw new ArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
@@ -268,7 +268,7 @@ namespace Hyperledger.Fabric.SDK
                     }
 
                     nt = null;
-                    if (properties.ContainsKey("negotiationType"))
+                    if (properties.Contains("negotiationType"))
                         nt = (string) properties["negotiationType"];
                     if (null == nt)
                     {
@@ -286,14 +286,14 @@ namespace Hyperledger.Fabric.SDK
             try
             {
                 List<ChannelOption> options = new List<ChannelOption>();
-                foreach (string str in properties.Keys)
+                foreach (string str in properties)
                 {
                     if (str.StartsWith("grpc."))
                     {
-                        if (properties[str] is int)
-                            options.Add(new ChannelOption(str, (int) properties[str]));
-                        else if (properties[str] is string)
-                            options.Add(new ChannelOption(str, (string) properties[str]));
+                        if (int.TryParse(properties[str], out int value))
+                            options.Add(new ChannelOption(str,value));
+                        else
+                            options.Add(new ChannelOption(str,properties[str]));
                     }
                 }
 

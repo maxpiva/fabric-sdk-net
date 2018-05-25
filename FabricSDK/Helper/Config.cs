@@ -46,14 +46,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using IniParser;
-using IniParser.Model;
 
+
+
+[assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
 namespace Hyperledger.Fabric.SDK.Helper
 {
+
     public class Config
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Config));
@@ -109,8 +111,17 @@ namespace Hyperledger.Fabric.SDK.Helper
          **/
         public static readonly string PROPOSAL_CONSISTENCY_VALIDATION = "org.hyperledger.fabric.sdk.proposal.consistency_validation";
 
-        private static Config config;
-        private static Dictionary<string,string> sdkProperties = new Dictionary<string, string>();
+        internal static Config config;
+        /**
+         * getConfig return back singleton for SDK configuration.
+         *
+         * @return Global configuration
+         */
+        public static Config Instance => config ?? (config = new Config());
+
+
+
+        internal static Properties sdkProperties = new Properties();
         private static void DefaultProperty(string key, string value)
         {
             string envvalue = Environment.GetEnvironmentVariable(key);
@@ -118,26 +129,20 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 value = envvalue;
             }
-            if (!sdkProperties.ContainsKey(key))
-                sdkProperties.Add(key, value);
+            if (!sdkProperties.Contains(key))
+                sdkProperties.Set(key, value);
         }
         private Config()
         {
-
-            string fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
+            string fullpath = Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION);
+            if (string.IsNullOrEmpty(fullpath))
+                fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
             bool exists = File.Exists(fullpath);
             try
             {
-                var parser = new FileIniDataParser();
-                sdkProperties=new Dictionary<string, string>();
+                sdkProperties=new Properties();
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
-                IniData data = parser.ReadFile(DEFAULT_CONFIG);
-                KeyDataCollection sect = data.Global;
-                foreach (KeyData kd in sect)
-                {
-                    sdkProperties.Add(kd.KeyName, kd.Value);
-                }
-
+                sdkProperties.Load(fullpath);
             }
             catch (Exception e)
             {
@@ -198,7 +203,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 DefaultProperty(EVENTHUB_RECONNECTION_WARNING_RATE, "50");
                 DefaultProperty(PEER_EVENT_RECONNECTION_WARNING_RATE, "50");
                 //LOGGERLEVEL DO NOT WORK WITH Abstract LibLog
-                string inLogLevel = sdkProperties.GetOrNull(LOGGERLEVEL);
+                string inLogLevel = sdkProperties.Get(LOGGERLEVEL);
                 /*
                 if (inLogLevel!=null)
                 {
@@ -243,21 +248,8 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         }
 
-        /**
-         * getConfig return back singleton for SDK configuration.
-         *
-         * @return Global configuration
-         */
-        public static Config GetConfig()
-        {
-            if (null == config)
-            {
-                config = new Config();
-            }
 
-            return config;
 
-        }
 
         /**
          * getProperty return back property for the given value.
@@ -268,7 +260,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         private string GetProperty(string property)
         {
 
-            string ret = sdkProperties.GetOrNull(property);
+            string ret = sdkProperties.Get(property);
 
             if (null == ret)
             {
@@ -563,7 +555,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 return diagnosticFileDumper;
             }
 
-            string dd = sdkProperties.GetOrNull(DIAGNOTISTIC_FILE_DIRECTORY);
+            string dd = sdkProperties.Get(DIAGNOTISTIC_FILE_DIRECTORY);
 
             if (dd != null)
             {

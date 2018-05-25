@@ -22,7 +22,7 @@ using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.SDK.Transaction
@@ -33,9 +33,8 @@ namespace Hyperledger.Fabric.SDK.Transaction
     private static readonly ILog logger = LogProvider.GetLogger(typeof(InstantiateProposalBuilder));
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-        private static readonly Config config = Config.GetConfig();
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL
-            ? config.GetDiagnosticFileDumper() : null;
+        private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL
+            ? Config.Instance.GetDiagnosticFileDumper() : null;
         
     private string chaincodePath;
 

@@ -41,7 +41,7 @@ using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Security;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 
@@ -50,10 +50,10 @@ namespace Hyperledger.Fabric.SDK
     public class ProposalResponse : ChaincodeResponse
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(ProposalResponse));
-        private static readonly Config config = Config.GetConfig();
+
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
-        private static readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? config.GetDiagnosticFileDumper() : null;
+        private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
 
         private ChaincodeID chaincodeID = null;
 
@@ -273,7 +273,7 @@ namespace Hyperledger.Fabric.SDK
                 SerializedIdentity endorser = SerializedIdentity.Parser.ParseFrom(endorsement.Endorser);
                 ByteString plainText = ByteString.CopyFrom(ProtoProposalResponse.Payload.Concat(endorsement.Endorser).ToArray());
 
-                if (config.ExtraLogLevel(10))
+                if (Config.Instance.ExtraLogLevel(10))
                 {
                     if (null != diagnosticFileDumper)
                     {
@@ -286,7 +286,7 @@ namespace Hyperledger.Fabric.SDK
                     }
                 }
 
-                IsVerified = crypto.Verify(endorser.IdBytes.ToByteArray(), config.GetSignatureAlgorithm(), sig.ToByteArray(), plainText.ToByteArray());
+                IsVerified = crypto.Verify(endorser.IdBytes.ToByteArray(), Config.Instance.GetSignatureAlgorithm(), sig.ToByteArray(), plainText.ToByteArray());
             }
             catch (Exception e)
             {

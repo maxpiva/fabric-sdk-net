@@ -38,6 +38,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BouncyCastle.Crypto, Version=1.8.2.0, Culture=neutral, PublicKeyToken=0e99375e54769942, processorArchitecture=MSIL">
+      <HintPath>..\packages\Portable.BouncyCastle.1.8.2\lib\net40\BouncyCastle.Crypto.dll</HintPath>
+    </Reference>
     <Reference Include="Google.Protobuf, Version=3.5.1.0, Culture=neutral, PublicKeyToken=a7d26565bac4d604, processorArchitecture=MSIL">
       <HintPath>..\packages\Google.Protobuf.3.5.1\lib\net45\Google.Protobuf.dll</HintPath>
     </Reference>
@@ -46,6 +49,9 @@
     </Reference>
     <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\MSTest.TestFramework.1.3.0\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpCompress, Version=0.21.1.0, Culture=neutral, PublicKeyToken=afb0a02973931d96, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpCompress.0.21.1\lib\net45\SharpCompress.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -61,6 +67,18 @@
     <Compile Include="SDK\Exception\FabricExceptionsTest.cs" />
     <Compile Include="SDK\Helper\ConfigTest.cs" />
     <Compile Include="SDK\Helper\UtilsTest.cs" />
+    <Compile Include="SDK\Integration\End2endAndBackAgainIT.cs" />
+    <Compile Include="SDK\Integration\End2endAndBackAgainNodeIT.cs" />
+    <Compile Include="SDK\Integration\End2endIT.cs" />
+    <Compile Include="SDK\Integration\End2endNodeIT.cs" />
+    <Compile Include="SDK\Integration\IntegrationSuite.cs" />
+    <Compile Include="SDK\Integration\IntegrationSuiteV1.cs" />
+    <Compile Include="SDK\Integration\NetworkConfigIT.cs" />
+    <Compile Include="SDK\Integration\SampleOrg.cs" />
+    <Compile Include="SDK\Integration\SampleStore.cs" />
+    <Compile Include="SDK\Integration\SampleUser.cs" />
+    <Compile Include="SDK\Integration\UpdateChannelIT.cs" />
+    <Compile Include="SDK\Integration\Util.cs" />
     <Compile Include="SDK\NetworkConfigTest.cs" />
     <Compile Include="SDK\OrdererTest.cs" />
     <Compile Include="SDK\PeerClientTest.cs" />
@@ -76,7 +94,6 @@
     <Compile Include="SDK\Transaction\JoinPeerProposalBuilderTest.cs" />
     <Compile Include="SDK\Transaction\ProtoUtilsTest.cs" />
     <Compile Include="SDK\Transaction\TransactionContextTest.cs" />
-    <Compile Include="UnitTest1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -90,10 +107,6 @@
     <ProjectReference Include="..\FabrricSDK_CA\FabricSDK_CA.csproj">
       <Project>{9288f1b3-04c6-4866-bd77-352c433b8a11}</Project>
       <Name>FabricSDK_CA</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ini-parser\src\IniFileParser\INIFileParser.csproj">
-      <Project>{5e46dcf4-c473-4171-9f9b-f3910b5ec407}</Project>
-      <Name>INIFileParser</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />

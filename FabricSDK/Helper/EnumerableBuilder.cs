@@ -5,11 +5,11 @@ using System.Text;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
-    public class BaseCollection<T> : IEnumerable<T>
+    public class EnumerableBuilder<T> : IEnumerable<T>
     {
         private readonly Func<int> cntF;
         private readonly Func<int, T> yieldF;
-        public BaseCollection(Func<int> countFunction, Func<int, T> yieldFunction)
+        public EnumerableBuilder(Func<int> countFunction, Func<int, T> yieldFunction)
         {
             cntF = countFunction;
             yieldF = yieldFunction;

@@ -40,27 +40,26 @@ namespace Hyperledger.Fabric.SDK.Security
 
     public class HLSDKJCryptoSuiteFactory : ICryptoSuiteFactory
     {
-        private static readonly Config config = Config.GetConfig();
-        private static readonly int SECURITY_LEVEL = config.GetSecurityLevel();
-        private static readonly String HASH_ALGORITHM = config.GetHashAlgorithm();
+        private readonly int SECURITY_LEVEL = Config.Instance.GetSecurityLevel();
+        private readonly String HASH_ALGORITHM = Config.Instance.GetHashAlgorithm();
 
         private HLSDKJCryptoSuiteFactory()
         {
 
         }
 
-        private static readonly ConcurrentDictionary<Dictionary<string, string>, ICryptoSuite> cache = new ConcurrentDictionary<Dictionary<string, string>, ICryptoSuite>();
+        private static readonly ConcurrentDictionary<Properties, ICryptoSuite> cache = new ConcurrentDictionary<Properties, ICryptoSuite>();
 
 
-        public ICryptoSuite GetCryptoSuite(Dictionary<string, string> properties)
+        public ICryptoSuite GetCryptoSuite(Properties properties)
         {
             ICryptoSuite ret = null;
-            foreach (Dictionary<string, string> st in cache.Keys)
+            foreach (Properties st in cache.Keys)
             {
                 bool found = true;
-                foreach (string key in properties.Keys)
+                foreach (string key in properties)
                 {
-                    if (!st.ContainsKey(key))
+                    if (!st.Contains(key))
                         found = false;
                     else
                     {
@@ -102,9 +101,9 @@ namespace Hyperledger.Fabric.SDK.Security
 
         public ICryptoSuite GetCryptoSuite()
         {
-            Dictionary<string, string> properties = new Dictionary<string, string>();
-            properties.Add(Config.SECURITY_LEVEL, SECURITY_LEVEL.ToString());
-            properties.Add(Config.HASH_ALGORITHM, HASH_ALGORITHM);
+            Properties properties = new Properties();
+            properties.Set(Config.SECURITY_LEVEL, SECURITY_LEVEL.ToString());
+            properties.Set(Config.HASH_ALGORITHM, HASH_ALGORITHM);
             return GetCryptoSuite(properties);
         }
 

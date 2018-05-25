@@ -19,7 +19,7 @@ using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK
 {

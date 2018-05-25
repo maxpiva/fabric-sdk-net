@@ -13,348 +13,289 @@
  */
 
 using Google.Protobuf;
-using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Exception
 {
-
-
     [TestClass]
-    public class FabricExceptionsTest 
+    public class FabricExceptionsTest
     {
+        private static readonly string MESSAGE = "test";
 
-    private static readonly string MESSAGE = "test";
 
- 
-    [TestMethod]
-    [ExpectedExceptionWithMessage(typeof(ChaincodeEndorsementPolicyParseException), "test")]
-    public void TestChaincodeEndorsementPolicyParseException1()
-    {
-        throw new ChaincodeEndorsementPolicyParseException(MESSAGE);
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ChaincodeEndorsementPolicyParseException), "test")]
+        public void TestChaincodeEndorsementPolicyParseException1()
+        {
+            throw new ChaincodeEndorsementPolicyParseException(MESSAGE);
+        }
 
-    [TestMethod]
-    [ExpectedExceptionWithMessage(typeof(ChaincodeEndorsementPolicyParseException), "test")]
-    public void testChaincodeEndorsementPolicyParseException2()
-    {
-
-    throw new ChaincodeEndorsementPolicyParseException(MESSAGE, new ChaincodeEndorsementPolicyParseException(MESSAGE));
-
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ChaincodeEndorsementPolicyParseException), "test")]
+        public void testChaincodeEndorsementPolicyParseException2()
+        {
+            throw new ChaincodeEndorsementPolicyParseException(MESSAGE, new ChaincodeEndorsementPolicyParseException(MESSAGE));
+        }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ChaincodeException), "test")]
         public void TestChaincodeException()
         {
             System.Exception baseException = new System.Exception(MESSAGE);
-            
-
             throw new ChaincodeException(MESSAGE, baseException);
-
         }
-        [TestMethod]        
-        public void TestCryptoException1() throws CryptoException {
 
-            thrown.expect(CryptoException.class);
-            thrown.expectMessage(MESSAGE);
-
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(CryptoException), "test")]
+        public void TestCryptoException1()
+        {
             throw new CryptoException(MESSAGE);
-
         }
 
-    @Test
-    public void testCryptoException2() throws CryptoException {
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(CryptoException), "test")]
+        public void TestCryptoException2()
+        {
+            throw new CryptoException(MESSAGE, new CryptoException(MESSAGE));
+        }
 
-        thrown.expect(CryptoException.class);
-        thrown.expectMessage(MESSAGE);
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(EventHubException), "test")]
+        public void TestEventHubException1()
+        {
+            throw new EventHubException(MESSAGE);
+        }
 
-        throw new CryptoException(MESSAGE, new CryptoException(MESSAGE));
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(EventHubException), "test")]
+        public void TestEventHubException2()
+        {
+            throw new EventHubException(new CryptoException(MESSAGE));
+        }
 
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(EventHubException), "test")]
+        public void TestEventHubException3()
+        {
+            throw new EventHubException(MESSAGE, new CryptoException(MESSAGE));
+        }
+
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ExecuteException), "test")]
+        public void TestExecuteException1()
+        {
+            throw new ExecuteException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ExecuteException), "test")]
+        public void TestExecuteException2()
+        {
+            throw new ExecuteException(MESSAGE, new ExecuteException(MESSAGE));
+        }
+
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(GetTCertBatchException), "test")]
+        public void TestGetTCertBatchException()
+        {
+            throw new GetTCertBatchException(MESSAGE, new ExecuteException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        public void TestInvalidArgumentException1()
+        {
+            throw new InvalidArgumentException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        public void TestInvalidArgumentException2()
+        {
+            throw new InvalidArgumentException(new InvalidArgumentException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        public void TestInvalidArgumentException3()
+        {
+            throw new InvalidArgumentException(MESSAGE, new InvalidArgumentException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        public void TestIllegalArgumentException1()
+        {
+            throw new IllegalArgumentException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        public void TestIllegalArgumentException2()
+        {
+            throw new IllegalArgumentException(new IllegalArgumentException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        public void TestIllegalArgumentException3()
+        {
+            throw new IllegalArgumentException(MESSAGE, new IllegalArgumentException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidTransactionException), "test")]
+        public void TestInvalidTransactionException1()
+        {
+            throw new InvalidTransactionException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidTransactionException), "test")]
+        public void TestInvalidTransactionException2()
+        {
+            throw new InvalidTransactionException(MESSAGE, new InvalidTransactionException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvokeException), "test")]
+        public void testInvokeException()
+        {
+            System.Exception baseException = new System.Exception(MESSAGE);
+
+
+            throw new InvokeException(MESSAGE, baseException);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NoAvailableTCertException), "test")]
+        public void TestNoAvailableTCertException()
+        {
+            throw new NoAvailableTCertException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NoValidPeerException), "test")]
+        public void testNoValidPeerException()
+        {
+            throw new NoValidPeerException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(PeerException), "test")]
+        public void testPeerException1()
+        {
+            throw new PeerException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(PeerException), "test")]
+        public void testPeerException2()
+        {
+            throw new PeerException(MESSAGE, new PeerException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
+        public void testProposalException1()
+        {
+            throw new ProposalException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
+        public void testProposalException2()
+        {
+            throw new ProposalException(new ProposalException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
+        public void testProposalException3()
+        {
+            throw new ProposalException(MESSAGE, new ProposalException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(QueryException), "test")]
+        public void testQueryException()
+        {
+            System.Exception baseException = new System.Exception(MESSAGE);
+
+
+            throw new QueryException(MESSAGE, baseException);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
+        public void testTransactionException1()
+        {
+            throw new TransactionException(MESSAGE);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
+        public void testTransactionException2()
+        {
+            throw new TransactionException(new TransactionException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
+        public void testTransactionException3()
+        {
+            throw new TransactionException(MESSAGE, new TransactionException(MESSAGE));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
+        public void testTransactionEventException1()
+        {
+            throw new TransactionEventException(MESSAGE, null);
+        }
+
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
+        public void testTransactionEventException2()
+        {
+            TransactionEventException e = new TransactionEventException(MESSAGE, null);
+            Assert.IsNull(e.TransactionEvent);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
+        public void testTransactionEventException3()
+        {
+            throw new TransactionEventException(MESSAGE, null, new TransactionEventException(MESSAGE, null));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
+        public void testInvalidProtocolBufferRuntimeException1()
+        {
+            throw new InvalidProtocolBufferRuntimeException(default(InvalidProtocolBufferException));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
+        public void testInvalidProtocolBufferRuntimeException2()
+        {
+            throw new InvalidProtocolBufferRuntimeException(MESSAGE, default(InvalidProtocolBufferException));
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
+        public void testInvalidProtocolBufferRuntimeException3()
+        {
+            InvalidProtocolBufferException e1 = default(InvalidProtocolBufferException);
+            InvalidProtocolBufferRuntimeException e2 = new InvalidProtocolBufferRuntimeException(MESSAGE, e1);
+
+            Assert.AreEqual(e1, e2.InnerException);
+        }
     }
-
-    @Test
-    public void testEventHubException1() throws EventHubException {
-
-        thrown.expect(EventHubException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new EventHubException(MESSAGE);
-
-    }
-
-    @Test
-    public void testEventHubException2() throws EventHubException {
-
-        thrown.expect(EventHubException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new EventHubException(new CryptoException(MESSAGE));
-
-    }
-
-    @Test
-    public void testEventHubException3() throws EventHubException {
-
-        thrown.expect(EventHubException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new EventHubException(MESSAGE, new CryptoException(MESSAGE));
-
-    }
-
-    @Test
-    public void testExecuteException1() throws ExecuteException {
-
-        thrown.expect(ExecuteException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new ExecuteException(MESSAGE);
-
-    }
-
-    @Test
-    public void testExecuteException2() throws ExecuteException {
-
-        thrown.expect(ExecuteException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new ExecuteException(MESSAGE, new ExecuteException(MESSAGE));
-
-    }
-
-    @Test
-    public void testGetTCertBatchException() throws GetTCertBatchException {
-
-        thrown.expect(GetTCertBatchException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new GetTCertBatchException(MESSAGE, new ExecuteException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvalidArgumentException1() throws InvalidArgumentException {
-
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidArgumentException(MESSAGE);
-
-    }
-
-    @Test
-    public void testInvalidArgumentException2() throws InvalidArgumentException {
-
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidArgumentException(new InvalidArgumentException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvalidArgumentException3() throws InvalidArgumentException {
-
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidArgumentException(MESSAGE, new InvalidArgumentException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvalidTransactionException1() throws InvalidTransactionException {
-
-        thrown.expect(InvalidTransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidTransactionException(MESSAGE);
-
-    }
-
-    @Test
-    public void testInvalidTransactionException2() throws InvalidTransactionException {
-
-        thrown.expect(InvalidTransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidTransactionException(MESSAGE, new InvalidTransactionException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvokeException() throws InvokeException {
-
-        BaseException baseException = new BaseException(MESSAGE);
-        thrown.expect(InvokeException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvokeException(MESSAGE, baseException);
-
-    }
-
-    @Test
-    public void testNoAvailableTCertException() throws NoAvailableTCertException {
-
-        thrown.expect(NoAvailableTCertException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new NoAvailableTCertException(MESSAGE);
-
-    }
-
-    @Test
-    public void testNoValidPeerException() throws NoValidPeerException {
-
-        thrown.expect(NoValidPeerException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new NoValidPeerException(MESSAGE);
-
-    }
-
-    @Test
-    public void testPeerException1() throws PeerException {
-
-        thrown.expect(PeerException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new PeerException(MESSAGE);
-
-    }
-
-    @Test
-    public void testPeerException2() throws PeerException {
-
-        thrown.expect(PeerException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new PeerException(MESSAGE, new PeerException(MESSAGE));
-
-    }
-
-    @Test
-    public void testProposalException1() throws ProposalException {
-
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new ProposalException(MESSAGE);
-
-    }
-
-    @Test
-    public void testProposalException2() throws ProposalException {
-
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new ProposalException(new ProposalException(MESSAGE));
-
-    }
-
-    @Test
-    public void testProposalException3() throws ProposalException {
-
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new ProposalException(MESSAGE, new ProposalException(MESSAGE));
-
-    }
-
-    @Test
-    public void testQueryException() throws QueryException {
-        BaseException baseException = new BaseException(MESSAGE);
-        thrown.expect(QueryException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new QueryException(MESSAGE, baseException);
-
-    }
-
-    @Test
-    public void testTransactionException1() throws TransactionException {
-        thrown.expect(TransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new TransactionException(MESSAGE);
-
-    }
-
-    @Test
-    public void testTransactionException2() throws TransactionException {
-        thrown.expect(TransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new TransactionException(new TransactionException(MESSAGE));
-
-    }
-
-    @Test
-    public void testTransactionException3() throws TransactionException {
-        thrown.expect(TransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new TransactionException(MESSAGE, new TransactionException(MESSAGE));
-
-    }
-
-    @Test
-    public void testTransactionEventException1() throws TransactionEventException {
-        thrown.expect(TransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new TransactionEventException(MESSAGE, null);
-
-    }
-
-    @Test
-    public void testTransactionEventException2() throws TransactionEventException {
-
-        TransactionEventException e = new TransactionEventException(MESSAGE, null);
-        Assert.assertNull(e.getTransactionEvent());
-
-    }
-
-    @Test
-    public void testTransactionEventException3() throws TransactionEventException {
-        thrown.expect(TransactionException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new TransactionEventException(MESSAGE, null, new TransactionEventException(MESSAGE, null));
-
-    }
-
-    @Test
-    public void testInvalidProtocolBufferRuntimeException1() throws InvalidProtocolBufferRuntimeException {
-        thrown.expect(InvalidProtocolBufferRuntimeException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidProtocolBufferRuntimeException(new InvalidProtocolBufferException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvalidProtocolBufferRuntimeException2() throws InvalidProtocolBufferRuntimeException {
-        thrown.expect(InvalidProtocolBufferRuntimeException.class);
-        thrown.expectMessage(MESSAGE);
-
-        throw new InvalidProtocolBufferRuntimeException(MESSAGE, new InvalidProtocolBufferException(MESSAGE));
-
-    }
-
-    @Test
-    public void testInvalidProtocolBufferRuntimeException3() throws InvalidProtocolBufferRuntimeException {
-
-        InvalidProtocolBufferException e1 = new InvalidProtocolBufferException(MESSAGE);
-        InvalidProtocolBufferRuntimeException e2 = new InvalidProtocolBufferRuntimeException(MESSAGE, e1);
-
-        Assert.assertEquals(e1, e2.getCause());
-
-    }
-
 }

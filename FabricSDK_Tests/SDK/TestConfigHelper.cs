@@ -11,19 +11,19 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.hyperledger.fabric.sdk;
 
-import java.util.Properties;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using Hyperledger.Fabric.SDK.Helper;
 
-import org.hyperledger.fabric.sdk.helper.Config;
+namespace Hyperledger.Fabric.Tests.SDK
+{
+/* Container for methods to set SDK environment before running unit+integration tests * */
 
-/**
- * Container for methods to set SDK environment before running unit+integration tests
- *
- */
-public class TestConfigHelper {
-
-    public static final String CONFIG_OVERRIDES = "FABRICSDKOVERRIDES";
+public class TestConfigHelper
+{
+    public static readonly string CONFIG_OVERRIDES = "FABRICSDKOVERRIDES";
 
     /**
      * clearConfig "resets" Config so that the Config testcases can run without interference from other test suites.
@@ -36,22 +36,10 @@ public class TestConfigHelper {
      * @throws IllegalArgumentException
      *
      */
-    public void clearConfig()
-            throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
-
-        Config config = Config.getConfig();
-
-        // Set the private static variable Config.config = null
-        java.lang.reflect.Field configInstance = config.getClass().getDeclaredField("config");
-        configInstance.setAccessible(true);
-        configInstance.set(null, null);
-
-        // Clear the sdkProperties map - Config.sdkProperties.clear()
-        java.lang.reflect.Field sdkPropInstance = config.getClass().getDeclaredField("sdkProperties");
-        sdkPropInstance.setAccessible(true);
-        Properties sdkProperties = (Properties) sdkPropInstance.get(config);
-        sdkProperties.clear();
-
+    public void ClearConfig()
+    {
+        Config.config = null;
+        Config.sdkProperties = null;
     }
 
     /**
@@ -65,21 +53,10 @@ public class TestConfigHelper {
      *
      * @see #clearConfig()
      */
-    public void clearCaConfig()
-            throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
-
-        org.hyperledger.fabric_ca.sdk.helper.Config config = org.hyperledger.fabric_ca.sdk.helper.Config.getConfig();
-
-        // Set the private static variable Config.config = null
-        java.lang.reflect.Field configInstance = config.getClass().getDeclaredField("config");
-        configInstance.setAccessible(true);
-        configInstance.set(null, null);
-
-        // Clear the sdkProperties map - Config.sdkProperties.clear()
-        java.lang.reflect.Field sdkPropInstance = config.getClass().getDeclaredField("sdkProperties");
-        sdkPropInstance.setAccessible(true);
-        Properties sdkProperties = (Properties) sdkPropInstance.get(config);
-        sdkProperties.clear();
+    public void ClearCaConfig()
+    {
+        Fabric_CA.SDK.Helper.Config.config = null;
+        Fabric_CA.SDK.Helper.Config.sdkProperties = null;
 
     }
 
@@ -93,19 +70,21 @@ public class TestConfigHelper {
      * @throws IllegalArgumentException
      * @throws IllegalAccessException
      */
-    public void customizeConfig()
-            throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
-        String fabricSdkConfig = System.getenv(CONFIG_OVERRIDES);
-        if (fabricSdkConfig != null && fabricSdkConfig.length() > 0) {
-            String[] configs = fabricSdkConfig.split(",");
-            String[] configKeyValue;
-            for (String config : configs) {
-                configKeyValue = config.split("=");
-                if (configKeyValue != null && configKeyValue.length == 2) {
-                    System.setProperty(configKeyValue[0], configKeyValue[1]);
+    public void CustomizeConfig()
+    {
+        string fabricSdkConfig = Environment.GetEnvironmentVariable(CONFIG_OVERRIDES);
+        if (!string.IsNullOrEmpty(fabricSdkConfig))
+        {
+            string[] configs = fabricSdkConfig.Split(new char[] {','});
+            string[] configKeyValue;
+            foreach (string config in configs)
+            {
+                configKeyValue = config.Split(new char[] {'='});
+                if (configKeyValue.Length == 2)
+                {
+                    Environment.SetEnvironmentVariable(configKeyValue[0], configKeyValue[1]);
                 }
             }
         }
     }
-
 }

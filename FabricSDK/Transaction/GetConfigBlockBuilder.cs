@@ -19,7 +19,7 @@ using System.Text;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK.Transaction
 {

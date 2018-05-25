@@ -50,14 +50,15 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Force.DeepCloner;
+
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 using Hyperledger.Fabric.SDK.Transaction;
 using DeliverResponse = Hyperledger.Fabric.Protos.Peer.PeerEvents.DeliverResponse;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
@@ -71,9 +72,9 @@ namespace Hyperledger.Fabric.SDK
      */
     public class PeerEventServiceClient
     {
-        private static readonly Helper.Config config = Helper.Config.GetConfig();
-        private static readonly long PEER_EVENT_REGISTRATION_WAIT_TIME = config.GetPeerEventRegistrationWaitTime();
-        private static readonly long PEER_EVENT_RECONNECTION_WARNING_RATE = config.GetPeerEventReconnectionWarningRate();
+
+        private readonly long PEER_EVENT_REGISTRATION_WAIT_TIME = Helper.Config.Instance.GetPeerEventRegistrationWaitTime();
+        private readonly long PEER_EVENT_RECONNECTION_WARNING_RATE = Helper.Config.Instance.GetPeerEventReconnectionWarningRate();
         private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventServiceClient));
         private readonly string channelName;
         private readonly Endpoint channelBuilder;
@@ -84,7 +85,7 @@ namespace Hyperledger.Fabric.SDK
         private readonly Channel.PeerOptions peerOptions;
         private readonly bool filterBlock;
         private byte[] clientTLSCertificateDigest;
-        Dictionary<string, object> properties = new Dictionary<string, object>();
+        Properties properties = new Properties();
         AsyncDuplexStreamingCall<Envelope,DeliverResponse> nso = null;
 
         private Channel.ChannelEventQue channelEventQue;
@@ -99,7 +100,7 @@ namespace Hyperledger.Fabric.SDK
         /**
          * Construct client for accessing Peer eventing service using the existing managedChannel.
          */
-        public PeerEventServiceClient(Peer peer, Endpoint endpoint, Dictionary<string, object> properties, Channel.PeerOptions peerOptions)
+        public PeerEventServiceClient(Peer peer, Endpoint endpoint, Properties properties, Channel.PeerOptions peerOptions)
         {
 
             this.channelBuilder = endpoint;
@@ -126,7 +127,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel.PeerOptions GetPeerOptions()
         {
-            return peerOptions.DeepClone();
+            return peerOptions.Clone();
         }
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown(bool force) {

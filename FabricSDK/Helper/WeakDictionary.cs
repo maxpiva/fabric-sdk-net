@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Hyperledger.Fabric.SDK.NetExtensions;
+
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
@@ -38,19 +38,5 @@ namespace Hyperledger.Fabric.SDK.Helper
                 return value;
             }
         }
-    }
-
-    public class WeakItem<T,S> where T : class
-    {
-        private WeakReference<T> reference;
-        private readonly Func<S, T> createF;
-        private readonly Func<S> keyF;
-        public WeakItem(Func<S,T> create_func, Func<S> key_func)
-        {
-            createF = create_func;
-            keyF = key_func;
-        }
-
-        public T Reference => keyF().GetOrCreateWR(ref reference, createF);
     }
 }

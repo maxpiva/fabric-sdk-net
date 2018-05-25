@@ -11,103 +11,107 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+using System;
+using Hyperledger.Fabric.SDK.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-package org.hyperledger.fabric.sdk.helper;
+namespace Hyperledger.Fabric.Tests.SDK.Helper
+{
+    [TestClass]
+    public class ConfigTest
+    {
+        private readonly TestConfigHelper configHelper = new TestConfigHelper();
+        // private String originalHashAlgorithm;
 
-import org.apache.log4j.Level;
-import org.hyperledger.fabric.sdk.TestConfigHelper;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
-public class ConfigTest {
-
-    private final TestConfigHelper configHelper = new TestConfigHelper();
-    // private String originalHashAlgorithm;
-
-    @Before
-    public void setUp() throws Exception {
-        // reset Config before each test
-        configHelper.clearConfig();
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        // reset Config after each test. We do not want to interfere with the
-        // next test or the next test suite
-        configHelper.clearConfig();
-    }
-
-    @AfterClass
-    public static final void tearclassdown() throws Exception {
-        TestConfigHelper sconfigHelper = new TestConfigHelper();
-        sconfigHelper.clearConfig();
-        Config.getConfig();
-    }
-
-    // Tests that Config.getConfig properly loads a value from a system property
-    @Test
-    public void testGetConfigSystemProperty() throws Exception {
-
-        final String propName = Config.HASH_ALGORITHM;
-
-        // Get the original value of the property so that we can restore it later
-        final String originalValue = System.getProperty(propName);
-
-        try {
-
-            // Configure the system property with the value to be tested
-            final String newVal = "XXX";
-            System.setProperty(propName, newVal);
-
-            // getConfig should load the property from System
-            Config config = Config.getConfig();
-            Assert.assertEquals(config.getHashAlgorithm(), newVal);
-        } finally {
-            // Restore the system property
-            setSystemProperty(propName, originalValue);
+        [TestInitialize]
+        public void SetUp()
+        {
+            // reset Config before each test
+            configHelper.ClearConfig();
         }
 
-    }
+        [TestCleanup]
+        public void TearDown()
+        {
+            // reset Config after each test. We do not want to interfere with the
+            // next test or the next test suite
+            configHelper.ClearConfig();
+        }
 
-    // Note: This unit test is of questionable value
-    // It may be better to actually set the individual values (via a system property)
-    // and make sure they come back again!
-    @Test
-    public void testGetters() {
-        Config config = Config.getConfig();
 
-        // Numeric params
-        Assert.assertTrue(config.getSecurityLevel() > 0);
-        Assert.assertTrue(config.getProposalWaitTime() > 0);
-        Assert.assertTrue(config.getGenesisBlockWaitTime() > 0);
+        [ClassCleanup]
+        public static void Tearclassdown()
+        {
+            TestConfigHelper sconfigHelper = new TestConfigHelper();
+            sconfigHelper.ClearConfig();
+            var _=Fabric.SDK.Helper.Config.Instance;
+        }
 
-        Assert.assertTrue(config.maxLogStringLength() > 0);
+        // Tests that Config.getConfig properly loads a value from a system property
+        [TestMethod]
+        public void TestGetConfigSystemProperty()
+        {
+            string propName = Config.HASH_ALGORITHM;
 
-        // Boolean params
-        // Not sure how best to deal with these, as they will always return either true or false
-        // So, for coverage, let's simply call the method to ensure they don't throw exceptions...
-        config.getProposalConsistencyValidation();
+            // Get the original value of the property so that we can restore it later
+            string originalValue = Environment.GetEnvironmentVariable(propName);
 
-        // String params
-        Assert.assertNotNull(config.getHashAlgorithm());
-        Assert.assertNotNull(config.getAsymmetricKeyType());
-        Assert.assertNotNull(config.getSignatureAlgorithm());
-        Assert.assertNotNull(config.getCertificateFormat());
-    }
+            try
+            {
+                // Configure the system property with the value to be tested
+                string newVal = "XXX";
+                Environment.SetEnvironmentVariable(propName, newVal);
 
-    @Test
-    public void testExtraLogLevel() {
-        Config config = Config.getConfig();
-        Assert.assertTrue(config.extraLogLevel(-99));
-        Assert.assertFalse(config.extraLogLevel(99));
-    }
+                // getConfig should load the property from System
+                Assert.AreEqual(Config.Instance.GetHashAlgorithm(), newVal);
+            }
+            finally
+            {
+                // Restore the system property
+                Environment.SetEnvironmentVariable(propName, originalValue);
+            }
+        }
 
-    @Test
-    public void testLogLevelTrace() {
-        testLogLevelAny("TRACE", org.apache.log4j.Level.TRACE);
+        // Note: This unit test is of questionable value
+        // It may be better to actually set the individual values (via a system property)
+        // and make sure they come back again!
+        [TestMethod]
+        public void TestGetters()
+        {
+
+
+            // Numeric params
+            Assert.IsTrue(Config.Instance.GetSecurityLevel() > 0);
+            Assert.IsTrue(Config.Instance.GetProposalWaitTime() > 0);
+            Assert.IsTrue(Config.Instance.GetGenesisBlockWaitTime() > 0);
+
+            Assert.IsTrue(Config.Instance.MaxLogStringLength() > 0);
+
+            // Boolean params
+            // Not sure how best to deal with these, as they will always return either true or false
+            // So, for coverage, let's simply call the method to ensure they don't throw exceptions...
+            Config.Instance.GetProposalConsistencyValidation();
+
+            // String params
+            Assert.IsNotNull(Config.Instance.GetHashAlgorithm());
+            Assert.IsNotNull(Config.Instance.GetAsymmetricKeyType());
+            Assert.IsNotNull(Config.Instance.GetSignatureAlgorithm());
+            Assert.IsNotNull(Config.Instance.GetCertificateFormat());
+        }
+
+        [TestMethod]
+        public void TestExtraLogLevel()
+        {
+            Assert.IsTrue(Config.Instance.ExtraLogLevel(-99));
+            Assert.IsFalse(Config.Instance.ExtraLogLevel(99));
+        }
+
+        //Not supported, since we use liblog, liblog abstracts the logging library. So user can use almost any.
+        /*
+        [TestMethod]
+        public void TestLogLevelTrace()
+        {
+            testLogLevelAny("TRACE", org.apache.log4j.Level.TRACE);
     }
 
     @Test
@@ -130,32 +134,6 @@ public class ConfigTest {
         testLogLevelAny("ERROR", org.apache.log4j.Level.ERROR);
     }
 
-    // ==========================================================================================
-    // Helper methods
-    // ==========================================================================================
-
-    // Helper method to set the value of a system property
-    private Object setSystemProperty(String propName, String propValue) {
-        if (propValue == null) {
-            System.clearProperty(propName);
-        } else {
-            System.setProperty(propName, propValue);
-        }
-        return propValue;
+   */
     }
-
-    // Helper function to test one of the possible log levels
-    private void testLogLevelAny(String levelString, Level level) {
-        String originalValue = System.setProperty(Config.LOGGERLEVEL, levelString);
-        try {
-            // Dummy call to ensure that a config instance is created and the
-            // underlying logging level is set...
-            Config.getConfig();
-            Assert.assertEquals(level, org.apache.log4j.Logger.getLogger("org.hyperledger.fabric").getLevel());
-        } finally {
-            // Restore the original value so that other tests run consistently
-            setSystemProperty(Config.LOGGERLEVEL, originalValue);
-        }
-    }
-
 }

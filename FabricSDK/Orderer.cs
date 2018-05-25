@@ -32,7 +32,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;*/
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Force.DeepCloner;
+
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -48,7 +48,7 @@ namespace Hyperledger.Fabric.SDK
     public class Orderer
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Orderer));
-        private readonly Dictionary<string, object> properties;
+        private readonly Properties properties;
         private Channel channel;
 
         [NonSerialized] private byte[] clientTLSCertificateDigest;
@@ -57,7 +57,7 @@ namespace Hyperledger.Fabric.SDK
 
         [NonSerialized] private bool shutdown = false;
 
-        public Orderer(string name, string url, Dictionary<string, object> properties)
+        public Orderer(string name, string url, Properties properties)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -72,7 +72,7 @@ namespace Hyperledger.Fabric.SDK
 
             Name = name;
             Url = url;
-            this.properties = properties?.DeepClone();
+            this.properties = properties?.Clone();
         }
 
         public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = new Endpoint(Url, properties).GetClientTLSCertificateDigest());
@@ -83,7 +83,7 @@ namespace Hyperledger.Fabric.SDK
          * @return properties
          */
 
-        public Dictionary<string, object> Properties => properties?.DeepClone();
+        public Properties Properties => properties?.Clone();
 
         /**
          * Return Orderer's name
@@ -118,7 +118,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        public static Orderer Create(string name, string url, Dictionary<string, object> properties)
+        public static Orderer Create(string name, string url, Properties properties)
         {
             return new Orderer(name, url, properties);
         }

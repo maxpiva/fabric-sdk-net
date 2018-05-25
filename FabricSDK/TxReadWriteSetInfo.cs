@@ -35,7 +35,7 @@ namespace Hyperledger.Fabric.SDK
         
         public NsRwsetInfo GetNsRwsetInfo(int index) => new NsRwsetInfo(txReadWriteSet.NsRwset[index]);
 
-        public IEnumerable<NsRwsetInfo> NsRwsetInfos => new BaseCollection<NsRwsetInfo>(()=>NsRwsetCount,GetNsRwsetInfo);
+        public IEnumerable<NsRwsetInfo> NsRwsetInfos => new EnumerableBuilder<NsRwsetInfo>(()=>NsRwsetCount,GetNsRwsetInfo);
 
         public class NsRwsetInfo
         {

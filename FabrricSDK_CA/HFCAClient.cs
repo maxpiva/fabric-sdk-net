@@ -130,19 +130,20 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
-using Force.DeepCloner;
+
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
-using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Helper;
+
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
-using Hyperledger.Fabric_CA.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK.Logging;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
+using Config = Hyperledger.Fabric_CA.SDK.Helper.Config;
 
 namespace Hyperledger.Fabric_CA.SDK
 {
@@ -210,9 +211,7 @@ namespace Hyperledger.Fabric_CA.SDK
      */
         public static readonly string HFCA_ATTRIBUTE_HFGENCRL = "hf.GenCRL";
 
-        private static readonly Config config = Config.GetConfig(); // DO NOT REMOVE THIS IS NEEDED TO MAKE SURE WE FIRST LOAD CONFIG!!!
-
-        private static readonly ILog logger = LogProvider.GetLogger(typeof(HFCAClient));
+           private static readonly ILog logger = LogProvider.GetLogger(typeof(HFCAClient));
 
         public static readonly string FABRIC_CA_REQPROP = "caname";
         public static readonly string HFCA_CONTEXT_ROOT = "/api/v1/";
@@ -227,7 +226,7 @@ namespace Hyperledger.Fabric_CA.SDK
         private readonly bool isSSL;
 
 
-        private readonly Dictionary<string, object> properties;
+        private readonly Properties properties;
 
         private readonly string url;
 
@@ -247,7 +246,7 @@ namespace Hyperledger.Fabric_CA.SDK
          *                   </ul>
          * @throws MalformedURLException
          */
-        public HFCAClient(string caName, string url, Dictionary<string, object> properties)
+        public HFCAClient(string caName, string url, Properties properties)
         {
             logger.Debug("new HFCAClient {url}");
             this.url = url;
@@ -286,7 +285,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
             if (properties != null)
             {
-                this.properties = properties.DeepClone();
+                this.properties = properties.Clone();
             }
             else
             {
@@ -312,12 +311,12 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public ICryptoSuite CryptoSuite { get; set; }
 
-        public static HFCAClient Create(string url, Dictionary<string, object> properties)
+        public static HFCAClient Create(string url, Properties properties)
         {
             return new HFCAClient(null, url, properties);
         }
 
-        public static HFCAClient Create(string name, string url, Dictionary<string, object> properties)
+        public static HFCAClient Create(string name, string url, Properties properties)
         {
             if (string.IsNullOrEmpty(name))
                 throw new InvalidArgumentException("name must not be null or an empty string.");
@@ -1188,21 +1187,21 @@ namespace Hyperledger.Fabric_CA.SDK
 
             if (isSSL && null == caStore)
             {
-                if (!properties.ContainsKey("pemBytes") && !properties.ContainsKey("pemFile"))
+                if (!properties.Contains("pemBytes") && !properties.Contains("pemFile"))
                 {
                     logger.Warn("SSL with no CA certficates in either pemBytes or pemFile");
                 }
 
                 try
                 {
-                    if (properties.ContainsKey("pemBytes"))
+                    if (properties.Contains("pemBytes"))
                     {
-                        byte[] permbytes = (byte[]) properties["pemBytes"];
+                        byte[] permbytes = properties["pemBytes"].ToBytes();
                         X509Certificate2 cert2 = cryptoPrimitives.BytesToCertificate(permbytes);
                         cryptoPrimitives.AddCACertificateToTrustStore(cert2);
                     }
 
-                    if (properties.ContainsKey("pemFile"))
+                    if (properties.Contains("pemFile"))
                     {
                         string pemFile = (string) properties["pemFile"];
                         if (!string.IsNullOrEmpty(pemFile))

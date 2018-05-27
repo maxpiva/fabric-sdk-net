@@ -22,10 +22,12 @@ using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Requests;
+using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
-using Hyperledger.Fabric.SDK.Transaction;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -209,22 +211,22 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsTrue(testChannel.IsInitialized);
         }
         //     Allow no peers
-        //    @Test
-        //    public void testChannelInitializeNoPeer() {
+        //    [TestMethod]
+        //    public void TestChannelInitializeNoPeer() {
         //        Channel testChannel = null;
         //
         //        try {
         //
         //            testChannel = new Channel(CHANNEL_NAME, hfclient);
         //
-        //            Assert.assertEquals(testChannel.isInitialized(), false);
+        //            Assert.AreEqual(testChannel.isInitialized(), false);
         //            testChannel.initialize();
         //            Assert.fail("Expected initialize to throw exception with no peers.");
         //
         //        } catch (Exception e) {
         //
-        //            Assert.assertTrue(e.getClass() == InvalidArgumentException.class);
-        //            Assert.assertFalse(testChannel.isInitialized());
+        //            Assert.IsTrue(e.getClass() == InvalidArgumentException.class);
+        //            Assert.IsFalse(testChannel.isInitialized());
         //        }
         //
         //    }

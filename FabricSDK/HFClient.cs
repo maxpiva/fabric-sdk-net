@@ -20,7 +20,8 @@ using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-
+using Hyperledger.Fabric.SDK.Requests;
+using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK

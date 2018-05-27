@@ -17,6 +17,7 @@
 using System.IO;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

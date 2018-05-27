@@ -83,7 +83,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
          */
         public string GetValue(string name)
         {
-            Properties properties = loadProperties();
+            Properties properties = LoadProperties();
             return properties[name];
         }
 
@@ -95,11 +95,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
          */
         public bool HasValue(string name)
         {
-            Properties properties = loadProperties();
+            Properties properties = LoadProperties();
             return properties.Contains(name);
         }
 
-        private Properties loadProperties()
+        private Properties LoadProperties()
         {
             Properties properties = new Properties();
             try
@@ -126,7 +126,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
          */
         public void SetValue(string name, string value)
         {
-            Properties properties = loadProperties();
+            Properties properties = LoadProperties();
             try
             {
                 properties.Set(name, value);
@@ -149,7 +149,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
             // Try to get the SampleUser state from the cache
 
-            SampleUser sampleUser = members.GetOrNull(SampleUser.toKeyValStoreName(name, org));
+            SampleUser sampleUser = members.GetOrNull(SampleUser.ToKeyValStoreName(name, org));
             if (null != sampleUser)
             {
                 return sampleUser;
@@ -172,7 +172,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
             // Try to get the SampleUser state from the cache
 
-            if (members.ContainsKey(SampleUser.toKeyValStoreName(name, org)))
+            if (members.ContainsKey(SampleUser.ToKeyValStoreName(name, org)))
             {
                 return true;
             }
@@ -199,7 +199,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             try
             {
                 // Try to get the SampleUser state from the cache
-                SampleUser sampleUser = members.GetOrNull(SampleUser.toKeyValStoreName(name, org));
+                SampleUser sampleUser = members.GetOrNull(SampleUser.ToKeyValStoreName(name, org));
                 if (null != sampleUser)
                 {
                     return sampleUser;
@@ -238,7 +238,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
 
-        private void SaveChannel(Channel channel)
+        public void SaveChannel(Channel channel)
         {
             SetValue("channel." + channel.Name, channel.Serialize().ToBytes().ToHexString());
         }
@@ -258,22 +258,22 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         public void StoreClientPEMTLSKey(SampleOrg sampleOrg, string key)
         {
-            SetValue("clientPEMTLSKey." + sampleOrg.GetName(), key);
+            SetValue("clientPEMTLSKey." + sampleOrg.Name, key);
         }
 
         public string GetClientPEMTLSKey(SampleOrg sampleOrg)
         {
-            return GetValue("clientPEMTLSKey." + sampleOrg.GetName());
+            return GetValue("clientPEMTLSKey." + sampleOrg.Name);
         }
 
         public void StoreClientPEMTLCertificate(SampleOrg sampleOrg, string certificate)
         {
-            SetValue("clientPEMTLSCertificate." + sampleOrg.GetName(), certificate);
+            SetValue("clientPEMTLSCertificate." + sampleOrg.Name, certificate);
         }
 
-        public string getClientPEMTLSCertificate(SampleOrg sampleOrg)
+        public string GetClientPEMTLSCertificate(SampleOrg sampleOrg)
         {
-            return GetValue("clientPEMTLSCertificate." + sampleOrg.GetName());
+            return GetValue("clientPEMTLSCertificate." + sampleOrg.Name);
         }
 
         [Serializable]

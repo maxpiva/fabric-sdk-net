@@ -13,9 +13,10 @@
  */
 using System.IO;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

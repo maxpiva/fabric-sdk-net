@@ -13,318 +13,315 @@
  *  limitations under the License.
  *
  */
-
-package org.hyperledger.fabric.sdkintegration;
-
-import java.io.File;
-import java.net.MalformedURLException;
-import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.Set;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-import org.hyperledger.fabric.sdk.BlockEvent.TransactionEvent;
-import org.hyperledger.fabric.sdk.BlockInfo;
-import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.EventHub;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.Peer;
-import org.hyperledger.fabric.sdk.TestConfigHelper;
-import org.hyperledger.fabric.sdk.UpdateChannelConfiguration;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestConfig;
-import org.junit.Before;
-import org.junit.Test;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.Channel.PeerOptions.createPeerOptions;
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.resetConfig;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 /**
  * Update channel scenario
  * See http://hyperledger-fabric.readthedocs.io/en/master/configtxlator.html
  * for details.
  */
-public class UpdateChannelIT {
 
-    private static final TestConfig testConfig = TestConfig.getConfig();
-    private static final String CONFIGTXLATOR_LOCATION = testConfig.getFabricConfigTxLaterLocation();
+using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.SDK.TestUtils;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-    private static final String ORIGINAL_BATCH_TIMEOUT = "\"timeout\": \"2s\""; // Batch time out in configtx.yaml
-    private static final String UPDATED_BATCH_TIMEOUT = "\"timeout\": \"5s\"";  // What we want to change it to.
+namespace Hyperledger.Fabric.Tests.SDK.Integration
+{
+    [TestClass]
+    [TestCategory("SDK_INTEGRATION")]
+    [TestCategory("SDK_INTEGRATION_NODE")]
+    public class UpdateChannelIT
+    {
+        private static readonly TestConfig testConfig = TestConfig.Instance;
+        private static readonly string CONFIGTXLATOR_LOCATION = testConfig.GetFabricConfigTxLaterLocation();
 
-    private static final String FOO_CHANNEL_NAME = "foo";
+        private static readonly string ORIGINAL_BATCH_TIMEOUT = "\"timeout\": \"2s\""; // Batch time out in configtx.yaml
+        private static readonly string UPDATED_BATCH_TIMEOUT = "\"timeout\": \"5s\""; // What we want to change it to.
 
-    private final TestConfigHelper configHelper = new TestConfigHelper();
+        private static readonly string FOO_CHANNEL_NAME = "foo";
 
-    private Collection<SampleOrg> testSampleOrgs;
+        private readonly TestConfigHelper configHelper = new TestConfigHelper();
+        private int eventCountBlock = 0;
+        private int eventCountFilteredBlock = 0;
 
-    @Before
-    public void checkConfig() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, MalformedURLException {
+        private IReadOnlyList<SampleOrg> testSampleOrgs;
 
-        out("\n\n\nRUNNING: UpdateChannelIT\n");
-        resetConfig();
-        configHelper.customizeConfig();
-//        assertEquals(256, Config.getConfig().getSecurityLevel());
+        [TestInitialize]
+        public void CheckConfig()
+        {
+            Util.COut("\n\n\nRUNNING: UpdateChannelIT\n");
+            TestUtils.TestUtils.ResetConfig();
+            configHelper.CustomizeConfig();
+//        Assert.AreEqual(256, Config.GetConfig().GetSecurityLevel());
 
-        testSampleOrgs = testConfig.getIntegrationTestsSampleOrgs();
-    }
-
-    @Test
-    public void setup() {
-
-        try {
-
-            ////////////////////////////
-            // Setup client
-
-            //Create instance of client.
-            HFClient client = HFClient.createNewInstance();
-
-            client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-            ////////////////////////////
-            //Set up USERS
-
-            //Persistence is not part of SDK. Sample file store is for demonstration purposes only!
-            //   MUST be replaced with more robust application implementation  (Database, LDAP)
-            File sampleStoreFile = new File(System.getProperty("java.io.tmpdir") + "/HFCSampletest.properties");
-            sampleStoreFile.deleteOnExit();
-
-            final SampleStore sampleStore = new SampleStore(sampleStoreFile);
-
-            //SampleUser can be any implementation that implements org.hyperledger.fabric.sdk.User Interface
-
-            ////////////////////////////
-            // get users for all orgs
-
-            for (SampleOrg sampleOrg : testSampleOrgs) {
-
-                final String orgName = sampleOrg.getName();
-                sampleOrg.setPeerAdmin(sampleStore.getMember(orgName + "Admin", orgName));
-            }
-
-            ////////////////////////////
-            //Reconstruct and run the channels
-            SampleOrg sampleOrg = testConfig.getIntegrationTestsSampleOrg("peerOrg1");
-            Channel fooChannel = reconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
-
-            // Getting foo channels current configuration bytes.
-            final byte[] channelConfigurationBytes = fooChannel.getChannelConfigurationBytes();
-
-            HttpClient httpclient = HttpClients.createDefault();
-            HttpPost httppost = new HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config");
-            httppost.setEntity(new ByteArrayEntity(channelConfigurationBytes));
-
-            HttpResponse response = httpclient.execute(httppost);
-            int statuscode = response.getStatusLine().getStatusCode();
-            out("Got %s status for decoding current channel config bytes", statuscode);
-            assertEquals(200, statuscode);
-
-            String responseAsString = EntityUtils.toString(response.getEntity());
-
-            //responseAsString is JSON but use just string operations for this test.
-
-            if (!responseAsString.contains(ORIGINAL_BATCH_TIMEOUT)) {
-
-                fail(format("Did not find expected batch timeout '%s', in:%s", ORIGINAL_BATCH_TIMEOUT, responseAsString));
-            }
-
-            //Now modify the batch timeout
-            String updateString = responseAsString.replace(ORIGINAL_BATCH_TIMEOUT, UPDATED_BATCH_TIMEOUT);
-
-            httppost = new HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/encode/common.Config");
-            httppost.setEntity(new StringEntity(updateString));
-
-            response = httpclient.execute(httppost);
-            statuscode = response.getStatusLine().getStatusCode();
-            out("Got %s status for encoding the new desired channel config bytes", statuscode);
-            assertEquals(200, statuscode);
-            byte[] newConfigBytes = EntityUtils.toByteArray(response.getEntity());
-
-            // Now send to configtxlator multipart form post with original config bytes, updated config bytes and channel name.
-            httppost = new HttpPost(CONFIGTXLATOR_LOCATION + "/configtxlator/compute/update-from-configs");
-
-            HttpEntity multipartEntity = MultipartEntityBuilder.create()
-                    .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
-                    .addBinaryBody("original", channelConfigurationBytes, ContentType.APPLICATION_OCTET_STREAM, "originalFakeFilename")
-                    .addBinaryBody("updated", newConfigBytes, ContentType.APPLICATION_OCTET_STREAM, "updatedFakeFilename")
-                    .addBinaryBody("channel", fooChannel.getName().getBytes()).build();
-
-            httppost.setEntity(multipartEntity);
-
-            response = httpclient.execute(httppost);
-            statuscode = response.getStatusLine().getStatusCode();
-            out("Got %s status for updated config bytes needed for updateChannelConfiguration ", statuscode);
-            assertEquals(200, statuscode);
-
-            byte[] updateBytes = EntityUtils.toByteArray(response.getEntity());
-
-            UpdateChannelConfiguration updateChannelConfiguration = new UpdateChannelConfiguration(updateBytes);
-
-            //To change the channel we need to sign with orderer admin certs which crypto gen stores:
-
-            // private key: src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/f1a9a940f57419a18a83a852884790d59b378281347dd3d4a88c2b820a0f70c9_sk
-            //certificate:  src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem
-
-            final String sampleOrgName = sampleOrg.getName();
-            final SampleUser ordererAdmin = sampleStore.getMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP",
-                    Util.findFileSk(Paths.get("src/test/fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/").toFile()),
-                    Paths.get("src/test/fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem").toFile());
-
-            client.setUserContext(ordererAdmin);
-
-            //Ok now do actual channel update.
-            fooChannel.updateChannelConfiguration(updateChannelConfiguration, client.getUpdateChannelConfigurationSignature(updateChannelConfiguration, ordererAdmin));
-
-            //Let's add some additional verification...
-
-            client.setUserContext(sampleOrg.getPeerAdmin());
-
-            final byte[] modChannelBytes = fooChannel.getChannelConfigurationBytes();
-
-            //Now decode the new channel config bytes to json...
-            httppost = new HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config");
-            httppost.setEntity(new ByteArrayEntity(modChannelBytes));
-
-            response = httpclient.execute(httppost);
-            statuscode = response.getStatusLine().getStatusCode();
-            assertEquals(200, statuscode);
-
-            responseAsString = EntityUtils.toString(response.getEntity());
-
-            if (!responseAsString.contains(UPDATED_BATCH_TIMEOUT)) {
-                //If it doesn't have the updated time out it failed.
-                fail(format("Did not find updated expected batch timeout '%s', in:%s", UPDATED_BATCH_TIMEOUT, responseAsString));
-            }
-
-            if (responseAsString.contains(ORIGINAL_BATCH_TIMEOUT)) { //Should not have been there anymore!
-
-                fail(format("Found original batch timeout '%s', when it was not expected in:%s", ORIGINAL_BATCH_TIMEOUT, responseAsString));
-            }
-
-            out("\n");
-
-            Thread.sleep(3000); // give time for events to happen
-
-            assertTrue(eventCountFilteredBlock > 0); // make sure we got blockevent that were tested.
-            assertTrue(eventCountBlock > 0); // make sure we got blockevent that were tested.
-
-            out("That's all folks!");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
-        }
-    }
-
-    int eventCountFilteredBlock = 0;
-    int eventCountBlock = 0;
-
-    private Channel reconstructChannel(String name, HFClient client, SampleOrg sampleOrg) throws Exception {
-
-        client.setUserContext(sampleOrg.getPeerAdmin());
-        Channel newChannel = client.newChannel(name);
-
-        for (String orderName : sampleOrg.getOrdererNames()) {
-            newChannel.addOrderer(client.newOrderer(orderName, sampleOrg.getOrdererLocation(orderName),
-                    testConfig.getOrdererProperties(orderName)));
+            testSampleOrgs = testConfig.GetIntegrationTestsSampleOrgs();
         }
 
-        assertTrue(sampleOrg.getPeerNames().size() > 1); // need at least two for testing.
+        [TestMethod]
+        public void Setup()
+        {
+            try
+            {
+                ////////////////////////////
+                // Setup client
 
-        int i = 0;
-        for (String peerName : sampleOrg.getPeerNames()) {
-            String peerLocation = sampleOrg.getPeerLocation(peerName);
-            Peer peer = client.newPeer(peerName, peerLocation, testConfig.getPeerProperties(peerName));
+                //Create instance of client.
+                HFClient client = HFClient.Create();
 
-            //Query the actual peer for which channels it belongs to and check it belongs to this channel
-            Set<String> channels = client.queryChannels(peer);
-            if (!channels.contains(name)) {
-                throw new AssertionError(format("Peer %s does not appear to belong to channel %s", peerName, name));
-            }
-            Channel.PeerOptions peerOptions = createPeerOptions().setPeerRoles(EnumSet.of(Peer.PeerRole.CHAINCODE_QUERY,
-                    Peer.PeerRole.ENDORSING_PEER, Peer.PeerRole.LEDGER_QUERY, Peer.PeerRole.EVENT_SOURCE));
+                client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
 
-            if (i % 2 == 0) {
-                peerOptions.registerEventsForFilteredBlocks(); // we need a mix of each type for testing.
-            } else {
-                peerOptions.registerEventsForBlocks();
-            }
-            ++i;
+                ////////////////////////////
+                //Set up USERS
 
-            newChannel.addPeer(peer, peerOptions);
-        }
+                //Persistence is not part of SDK. Sample file store is for demonstration purposes only!
+                //   MUST be replaced with more robust application implementation  (Database, LDAP)
+                FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
 
-        for (String eventHubName : sampleOrg.getEventHubNames()) {
-            EventHub eventHub = client.newEventHub(eventHubName, sampleOrg.getEventHubLocation(eventHubName),
-                    testConfig.getEventHubProperties(eventHubName));
-            newChannel.addEventHub(eventHub);
-        }
+                SampleStore sampleStore = new SampleStore(sampleStoreFile);
 
-        //For testing of blocks which are not transactions.
-        newChannel.registerBlockListener(blockEvent -> {
-            // Note peer eventing will always start with sending the last block so this will get the last endorser block
-            int transactions = 0;
-            int nonTransactions = 0;
-            for (BlockInfo.EnvelopeInfo envelopeInfo : blockEvent.getEnvelopeInfos()) {
+                //SampleUser can be any implementation that implements org.hyperledger.fabric.sdk.User Interface
 
-                if (BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE == envelopeInfo.getType()) {
-                    ++transactions;
-                } else {
-                    assertEquals(BlockInfo.EnvelopeType.ENVELOPE, envelopeInfo.getType());
-                    ++nonTransactions;
+                ////////////////////////////
+                // get users for all orgs
+
+                foreach (SampleOrg sampleOrgs in testSampleOrgs)
+                {
+                    string orgName = sampleOrgs.Name;
+                    sampleOrgs.PeerAdmin = sampleStore.GetMember(orgName + "Admin", orgName);
                 }
 
-            }
-            assertTrue(format("nontransactions %d, transactions %d", nonTransactions, transactions), nonTransactions < 2); // non transaction blocks only have one envelope
-            assertTrue(format("nontransactions %d, transactions %d", nonTransactions, transactions), nonTransactions + transactions > 0); // has to be one.
-            assertFalse(format("nontransactions %d, transactions %d", nonTransactions, transactions), nonTransactions > 0 && transactions > 0); // can't have both.
+                ////////////////////////////
+                //Reconstruct and run the channels
+                SampleOrg sampleOrg = testConfig.GetIntegrationTestsSampleOrg("peerOrg1");
+                Channel fooChannel = ReconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
 
-            if (nonTransactions > 0) { // this is an update block -- don't care about others here.
+                // Getting foo channels current configuration bytes.
+                byte[] channelConfigurationBytes = fooChannel.GetChannelConfigurationBytes();
+                (int statuscode, byte[] data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", channelConfigurationBytes);
+                Util.COut("Got {0} status for decoding current channel config bytes", statuscode);
+                Assert.AreEqual(200, statuscode);
 
-                if (blockEvent.isFiltered()) {
-                    ++eventCountFilteredBlock; // make sure we're seeing non transaction events.
-                } else {
-                    ++eventCountBlock;
+                string responseAsString = data.ToUTF8String();
+
+                //responseAsString is JSON but use just string operations for this test.
+
+                if (!responseAsString.Contains(ORIGINAL_BATCH_TIMEOUT))
+                {
+                    Assert.Fail($"Did not find expected batch timeout '{ORIGINAL_BATCH_TIMEOUT}', in:{responseAsString}");
                 }
-                assertEquals(0, blockEvent.getTransactionCount());
-                assertEquals(1, blockEvent.getEnvelopeCount());
-                for (TransactionEvent transactionEvent : blockEvent.getTransactionEvents()) {
-                    fail("Got transaction event in a block update"); // only events for update should not have transactions.
+
+                //Now modify the batch timeout
+                string updateString = responseAsString.Replace(ORIGINAL_BATCH_TIMEOUT, UPDATED_BATCH_TIMEOUT);
+                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", updateString.ToBytes());
+                Util.COut("Got {0} status for encoding the new desired channel config bytes", statuscode);
+                Assert.AreEqual(200, statuscode);
+                byte[] newConfigBytes = data;
+
+                // Now send to configtxlator multipart form post with original config bytes, updated config bytes and channel name.
+                List<(string Name, byte[] Body, string Mime, string FName)> parts = new List<(string Name, byte[] Body, string Mime, string FName)>();
+                parts.Add(("original", channelConfigurationBytes, "application/octet-stream", "originalFakeFilename"));
+                parts.Add(("updated", newConfigBytes, "application/octet-stream", "updatedFakeFilename"));
+                parts.Add(("channel", fooChannel.Name.ToBytes(), null, null));
+                (statuscode, data) = HttpPostMultiPart(CONFIGTXLATOR_LOCATION + "/configtxlator/compute/update-from-configs", parts);
+                Util.COut("Got {0} status for updated config bytes needed for updateChannelConfiguration ", statuscode);
+                Assert.AreEqual(200, statuscode);
+                byte[] updateBytes = data;
+
+                UpdateChannelConfiguration updateChannelConfiguration = new UpdateChannelConfiguration(updateBytes);
+
+                //To change the channel we need to sign with orderer admin certs which crypto gen stores:
+
+                // private key: src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/f1a9a940f57419a18a83a852884790d59b378281347dd3d4a88c2b820a0f70c9_sk
+                //certificate:  src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem
+
+                string sampleOrgName = sampleOrg.Name;
+                SampleUser ordererAdmin = sampleStore.GetMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP", Util.FindFileSk(Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/")), new FileInfo(Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem")));
+
+                client.UserContext = ordererAdmin;
+
+                //Ok now do actual channel update.
+                fooChannel.UpdateChannelConfiguration(updateChannelConfiguration, client.GetUpdateChannelConfigurationSignature(updateChannelConfiguration, ordererAdmin));
+
+                //Let's add some additional verification...
+
+                client.UserContext = sampleOrg.PeerAdmin;
+
+                byte[] modChannelBytes = fooChannel.GetChannelConfigurationBytes();
+
+                //Now decode the new channel config bytes to json...
+                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", modChannelBytes);
+                Assert.AreEqual(200, statuscode);
+
+                responseAsString = data.ToUTF8String();
+
+                if (!responseAsString.Contains(UPDATED_BATCH_TIMEOUT))
+                {
+                    //If it doesn't have the updated time out it failed.
+                    Assert.Fail($"Did not find updated expected batch timeout '{UPDATED_BATCH_TIMEOUT}', in:{responseAsString}");
                 }
+
+                if (responseAsString.Contains(ORIGINAL_BATCH_TIMEOUT))
+                {
+                    //Should not have been there anymore!
+
+                    Assert.Fail($"Found original batch timeout '{ORIGINAL_BATCH_TIMEOUT}', when it was not expected in:{responseAsString}");
+                }
+
+                Util.COut("\n");
+
+                Thread.Sleep(3000); // give time for events to happen
+
+                Assert.IsTrue(eventCountFilteredBlock > 0); // make sure we got blockevent that were tested.
+                Assert.IsTrue(eventCountBlock > 0); // make sure we got blockevent that were tested.
+
+                Util.COut("That's all folks!");
             }
-        });
+            catch (System.Exception e)
+            {
+                Assert.Fail(e.Message);
+            }
+        }
 
-        newChannel.initialize();
+        private (int, byte[]) HttpPost(string url, byte[] body)
+        {
+            HttpClientHandler handler = new HttpClientHandler();
+            using (HttpClient client = new HttpClient(handler, true))
+            {
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = new ByteArrayContent(body);
+                HttpResponseMessage msg = client.SendAsync(request, HttpCompletionOption.ResponseContentRead).GetAwaiter().GetResult();
+                int respStatusCode = (int) msg.StatusCode;
+                byte[] responseBodt = msg.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+                return (respStatusCode, responseBodt);
+            }
+        }
 
-        return newChannel;
+        private (int, byte[]) HttpPostMultiPart(string url, List<(string Name, byte[] Body, string Mime, string FName)> parts)
+        {
+            HttpClientHandler handler = new HttpClientHandler();
+            using (HttpClient client = new HttpClient(handler, true))
+            {
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+                var requestContent = new MultipartFormDataContent();
+                foreach ((string Name, byte[] Body, string Mime, string FName) part in parts)
+                {
+                    ByteArrayContent content = new ByteArrayContent(part.Body);
+                    if (part.Mime != null)
+                        content.Headers.ContentType = MediaTypeHeaderValue.Parse(part.Mime);
+                    if (part.FName != null)
+                        requestContent.Add(content, part.Name, part.FName);
+                    else
+                        requestContent.Add(content, part.Name);
+                }
+
+                request.Content = requestContent;
+                HttpResponseMessage msg = client.SendAsync(request, HttpCompletionOption.ResponseContentRead).GetAwaiter().GetResult();
+                int respStatusCode = (int) msg.StatusCode;
+                byte[] responseBodt = msg.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+                return (respStatusCode, responseBodt);
+            }
+        }
+
+        private Channel ReconstructChannel(string name, HFClient client, SampleOrg sampleOrg)
+        {
+            client.UserContext = sampleOrg.PeerAdmin;
+            Channel newChannel = client.NewChannel(name);
+
+            foreach (string orderName in sampleOrg.GetOrdererNames())
+            {
+                newChannel.AddOrderer(client.NewOrderer(orderName, sampleOrg.GetOrdererLocation(orderName), testConfig.GetOrdererProperties(orderName)));
+            }
+
+            Assert.IsTrue(sampleOrg.GetPeerNames().Count > 1); // need at least two for testing.
+
+            int i = 0;
+            foreach (string peerName in sampleOrg.GetPeerNames())
+            {
+                string peerLocation = sampleOrg.GetPeerLocation(peerName);
+                Peer peer = client.NewPeer(peerName, peerLocation, testConfig.GetPeerProperties(peerName));
+
+                //Query the actual peer for which channels it belongs to and check it belongs to this channel
+                HashSet<string> channels = client.QueryChannels(peer);
+                if (!channels.Contains(name))
+                {
+                    Assert.Fail($"Peer {peerName} does not appear to belong to channel {name}");
+                }
+
+                Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.EVENT_SOURCE);
+
+                if (i % 2 == 0)
+                {
+                    peerOptions.RegisterEventsForFilteredBlocks(); // we need a mix of each type for testing.
+                }
+                else
+                {
+                    peerOptions.RegisterEventsForBlocks();
+                }
+
+                ++i;
+
+                newChannel.AddPeer(peer, peerOptions);
+            }
+
+            foreach (string eventHubName in sampleOrg.GetEventHubNames())
+            {
+                EventHub eventHub = client.NewEventHub(eventHubName, sampleOrg.GetEventHubLocation(eventHubName), testConfig.GetEventHubProperties(eventHubName));
+                newChannel.AddEventHub(eventHub);
+            }
+
+            //For testing of blocks which are not transactions.
+            newChannel.RegisterBlockListener(blockEvent =>
+            {
+                // Note peer eventing will always start with sending the last block so this will get the last endorser block
+                int transactions = 0;
+                int nonTransactions = 0;
+                foreach (BlockInfo.EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
+                {
+                    if (BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE == envelopeInfo.EnvelopeType)
+                    {
+                        ++transactions;
+                    }
+                    else
+                    {
+                        Assert.AreEqual(BlockInfo.EnvelopeType.ENVELOPE, envelopeInfo.GetType());
+                        ++nonTransactions;
+                    }
+                }
+
+                Assert.IsTrue(nonTransactions < 2, $"nontransactions {nonTransactions}, transactions {transactions}"); // non transaction blocks only have one envelope
+                Assert.IsTrue(nonTransactions + transactions > 0, $"nontransactions {nonTransactions}, transactions {transactions}"); // has to be one.
+                Assert.IsFalse(nonTransactions > 0 && transactions > 0, $"nontransactions {nonTransactions}, transactions {transactions}"); // can't have both.
+
+                if (nonTransactions > 0)
+                {
+                    // this is an update block -- don't care about others here.
+
+                    if (blockEvent.IsFiltered)
+                    {
+                        ++eventCountFilteredBlock; // make sure we're seeing non transaction events.
+                    }
+                    else
+                    {
+                        ++eventCountBlock;
+                    }
+
+                    Assert.AreEqual(0, blockEvent.TransactionCount);
+                    Assert.AreEqual(1, blockEvent.EnvelopeCount);
+                    foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
+                    {
+                        Assert.Fail("Got transaction event in a block update"); // only events for update should not have transactions.
+                    }
+                }
+            });
+
+            newChannel.Initialize();
+
+            return newChannel;
+        }
     }
-
-    static void out(String format, Object... args) {
-
-        System.err.flush();
-        System.out.flush();
-
-        System.out.println(format(format, args));
-        System.err.flush();
-        System.out.flush();
-
-    }
-
 }

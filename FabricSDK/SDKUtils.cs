@@ -38,6 +38,7 @@ using System.IO;
 using System.Linq;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
 using Org.BouncyCastle.Asn1;
 
@@ -61,7 +62,7 @@ namespace Hyperledger.Fabric.SDK
          * @throws IOException
          * @throws InvalidArgumentException
          */
-        public static byte[] calculateBlockHash(HFClient client, long blockNumber, byte[] previousHash, byte[] dataHash)
+        public static byte[] CalculateBlockHash(HFClient client, long blockNumber, byte[] previousHash, byte[] dataHash)
         {
 
             if (previousHash == null) {

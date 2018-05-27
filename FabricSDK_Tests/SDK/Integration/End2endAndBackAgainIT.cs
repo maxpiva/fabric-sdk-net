@@ -23,8 +23,11 @@ using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Requests;
+using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.SDK;
 using Hyperledger.Fabric.Tests.SDK.Integration;
@@ -146,8 +149,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             foreach (SampleOrg sampleOrg in testSampleOrgs)
             {
-                string caURL = sampleOrg.GetCALocation();
-                sampleOrg.SetCAClient(HFCAClient.Create(caURL, null));
+                string caURL = sampleOrg.CALocation;
+                sampleOrg.CAClient = HFCAClient.Create(caURL, null);
             }
         }
 
@@ -189,16 +192,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             // get users for all orgs
             foreach (SampleOrg sampleOrg in testSampleOrgs)
             {
-                string orgName = sampleOrg.GetName();
+                string orgName = sampleOrg.Name;
 
                 SampleUser admin = sampleStore.GetMember(TEST_ADMIN_NAME, orgName);
-                sampleOrg.SetAdmin(admin); // The admin of this org.
+                sampleOrg.Admin = admin; // The admin of this org.
 
                 // No need to enroll or register all done in End2endIt !
                 SampleUser user = sampleStore.GetMember(TESTUSER_1_NAME, orgName);
                 sampleOrg.AddUser(user); //Remember user belongs to this Org
 
-                sampleOrg.SetPeerAdmin(sampleStore.GetMember(orgName + "Admin", orgName));
+                sampleOrg.PeerAdmin = sampleStore.GetMember(orgName + "Admin", orgName);
             }
         }
 
@@ -214,7 +217,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             ////////////////////////////
             //Reconstruct and run the channels
             SampleOrg sampleOrg = testConfig.GetIntegrationTestsSampleOrg("peerOrg1");
-            Channel fooChannel = reconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
+            Channel fooChannel = ReconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
             RunChannel(client, fooChannel, sampleOrg, 0);
             Assert.IsFalse(fooChannel.IsShutdown);
             Assert.IsTrue(fooChannel.IsInitialized);
@@ -223,7 +226,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Util.COut("\n");
 
             sampleOrg = testConfig.GetIntegrationTestsSampleOrg("peerOrg2");
-            Channel barChannel = reconstructChannel(BAR_CHANNEL_NAME, client, sampleOrg);
+            Channel barChannel = ReconstructChannel(BAR_CHANNEL_NAME, client, sampleOrg);
             RunChannel(client, barChannel, sampleOrg, 100); //run a newly constructed foo channel with different b value!
             Assert.IsFalse(barChannel.IsShutdown);
             Assert.IsTrue(barChannel.IsInitialized);
@@ -288,7 +291,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // exercise v1 of chaincode
 
-                TaskCompletionSource<BlockEvent.TransactionEvent> fl = MoveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.GetPeerAdmin() : null).ThenApply((transactionEvent) =>
+                TaskCompletionSource<BlockEvent.TransactionEvent> fl = MoveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.PeerAdmin: null).ThenApply((transactionEvent) =>
                     {
                         try
                         {
@@ -300,7 +303,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                             //////////////////
                             // Start of upgrade first must install it.
 
-                            client.UserContext = sampleOrg.GetPeerAdmin();
+                            client.UserContext = sampleOrg.PeerAdmin;
                             ///////////////
                             ////
                             InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
@@ -314,7 +317,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                             if (changeContext)
                             {
-                                installProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
+                                installProposalRequest.UserContext = sampleOrg.PeerAdmin;
                             }
 
                             Util.COut("Sending install proposal for channel: {0}", channel.Name);
@@ -357,7 +360,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                             if (changeContext)
                             {
-                                installProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
+                                installProposalRequest.UserContext = sampleOrg.PeerAdmin;
                             }
 
                             UpgradeProposalRequest upgradeProposalRequest = client.NewUpgradeProposalRequest();
@@ -371,14 +374,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                             chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
                             chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
 
-                            upgradeProposalRequest.EndorsementPolicy = chaincodeEndorsementPolicy;
+                            upgradeProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
                             Dictionary<string, byte[]> tmap = new Dictionary<string, byte[]>();
                             tmap.Add("test", "data".ToBytes());
                             upgradeProposalRequest.SetTransientMap(tmap);
 
                             if (changeContext)
                             {
-                                upgradeProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
+                                upgradeProposalRequest.UserContext = sampleOrg.PeerAdmin;
                             }
 
                             Util.COut("Sending upgrade proposal");
@@ -412,7 +415,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                             if (changeContext)
                             {
-                                return channel.SendTransaction(successful, sampleOrg.GetPeerAdmin());
+                                return channel.SendTransaction(successful, sampleOrg.PeerAdmin);
                             }
                             else
                             {
@@ -437,7 +440,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                             //Check to see if peers have new chaincode and old chaincode is gone.
 
-                            client.UserContext = sampleOrg.GetPeerAdmin();
+                            client.UserContext = sampleOrg.PeerAdmin;
                             foreach (Peer peer in channel.Peers)
                             {
                                 if (!CheckInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
@@ -464,7 +467,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                             QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
 
                             //Now lets run the new chaincode which should *double* the results we asked to move.
-                            return MoveAmount(client, channel, chaincodeID_11, "50", changeContext ? sampleOrg.GetPeerAdmin() : null); // really move 100
+                            return MoveAmount(client, channel, chaincodeID_11, "50", changeContext ? sampleOrg.PeerAdmin: null); // really move 100
                         }
                         catch (TimeoutException e)
                         {
@@ -478,7 +481,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 fl.Task.Wait();
                 WaitOnFabric(10000);
 
-                QueryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
                 if (fl.Task.IsFaulted)
                 {
                     if (fl.Task.Exception.InnerException is TransactionEventException)
@@ -491,6 +493,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Assert.Fail($"Test failed with {fl.Task.Exception.InnerException.GetType().Name} exception {fl.Task.Exception.InnerException.Message}");
                 }
+                QueryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
 
                 ;
             }
@@ -562,7 +565,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        private Channel reconstructChannel(string name, HFClient client, SampleOrg sampleOrg)
+        private Channel ReconstructChannel(string name, HFClient client, SampleOrg sampleOrg)
         {
             Util.COut("Reconstructing {0} channel", name);
 
@@ -699,7 +702,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             //Before return lets see if we have the chaincode on the peers that we expect from End2endIT
             //And if they were instantiated too. this requires peer admin user
 
-            client.UserContext = sampleOrg.GetPeerAdmin();
+            client.UserContext = sampleOrg.PeerAdmin;
 
             foreach (Peer peer in newChannel.Peers)
             {
@@ -776,16 +779,55 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             TaskCompletionSource<long> done = new TaskCompletionSource<long>(); // future to set when done.
             // some variable used by the block listener being set up.
 
-            TestEventListener listener = new TestEventListener();
-            listener.bcount = 0;
-            listener.stopValue = stop == -1L ? long.MaxValue : stop;
-            listener.finalChannel = replayTestChannel;
-            listener.useFilteredBlocks = useFilteredBlocks;
-            listener.stop = stop;
-            listener.start = start;
-            listener.done = done;
+            long bcount = 0;
+            long stopValue = stop == -1L ? long.MaxValue : stop;
+            Channel finalChannel = replayTestChannel;
+            ConcurrentDictionary<long, BlockEvent> blockEvents = new ConcurrentDictionary<long, BlockEvent>();
 
-            string blockListenerHandle = replayTestChannel.RegisterBlockListener(listener);
+            string blockListenerHandle = replayTestChannel.RegisterBlockListener((blockEvent)=>
+            {
+
+                try
+                {
+                    long blockNumber = blockEvent.BlockNumber;
+                    if (blockEvents.ContainsKey(blockNumber))
+                        Assert.Fail($"Block number {blockNumber} seen twice");
+                    blockEvents[blockNumber] = blockEvent;
+
+
+                    Assert.IsTrue(useFilteredBlocks ? blockEvent.IsFiltered : !blockEvent.IsFiltered, $"Wrong type of block seen block number {blockNumber}. expected filtered block {useFilteredBlocks} but got {blockEvent.IsFiltered}");
+                    long count = Interlocked.Increment(ref bcount);
+
+
+                    //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
+
+                    if (count == 0 && stop == -1L)
+                    {
+                        BlockchainInfo blockchainInfo = finalChannel.QueryBlockchainInfo();
+
+                        long lh = blockchainInfo.Height;
+                        stopValue = lh - 1L; // blocks 0L 9L are on chain height 10 .. stop on 9
+                        //  out("height: %d", lh);
+                        if (Interlocked.Read(ref bcount) + start > stopValue)
+                        {
+                            // test with latest count.
+
+                            done.SetResult(Interlocked.Read(ref bcount));
+                        }
+                    }
+                    else
+                    {
+                        if (Interlocked.Read(ref bcount) + start > stopValue)
+                        {
+                            done.SetResult(count);
+                        }
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    done.SetException(e);
+                }
+            });
 
 
             try
@@ -795,15 +837,15 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 Thread.Sleep(1000); // sleep a little to see if more blocks trickle in .. they should not
                 replayTestChannel.UnregisterBlockListener(blockListenerHandle);
 
-                long expectNumber = listener.stopValue - listener.start + 1L; // Start 2 and stop is 3  expect 2
+                long expectNumber = stopValue - start + 1L; // Start 2 and stop is 3  expect 2
 
-                Assert.AreEqual(expectNumber, listener.blockEvents.Count, $"Didn't get number we expected {expectNumber} but got {listener.blockEvents.Count} block events. Start: {listener.start}, end: {listener.stop}, height: {listener.stopValue}");
+                Assert.AreEqual(expectNumber, blockEvents.Count, $"Didn't get number we expected {expectNumber} but got {blockEvents.Count} block events. Start: {start}, end: {stop}, height: {stopValue}");
 
-                for (long i = listener.stopValue; i >= listener.start; i--)
+                for (long i = stopValue; i >= start; i--)
                 {
                     //make sure all are there.
-                    BlockEvent blockEvent = listener.blockEvents[i];
-                    Assert.IsNotNull(blockEvent, $"Missing block event for block number {i}. Start= {listener.start}", blockEvent);
+                    BlockEvent blockEvent = blockEvents[i];
+                    Assert.IsNotNull(blockEvent, $"Missing block event for block number {i}. Start= {start}", blockEvent);
                 }
 
                 //light weight test just see if we get reasonable values for traversing the block. Test just whats common between
@@ -812,9 +854,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 int transactionEventCounts = 0;
                 int chaincodeEventsCounts = 0;
 
-                for (long i = listener.stopValue; i >= start; i--)
+                for (long i = stopValue; i >= start; i--)
                 {
-                    BlockEvent blockEvent = listener.blockEvents[i];
+                    BlockEvent blockEvent = blockEvents[i];
 //                out("blockwalker %b, start: %d, stop: %d, i: %d, block %d", useFilteredBlocks, start, stopValue.longValue(), i, blockEvent.getBlockNumber());
                     Assert.AreEqual(useFilteredBlocks, blockEvent.IsFiltered); // check again
 
@@ -833,7 +875,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     foreach (BlockInfo.EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
                     {
-                        if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
+                        if (envelopeInfo.EnvelopeType == BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE)
                         {
                             BlockInfo.TransactionEnvelopeInfo transactionEnvelopeInfo = (BlockInfo.TransactionEnvelopeInfo) envelopeInfo;
                             Assert.IsTrue(envelopeInfo.IsValid); // only have valid blocks.
@@ -847,7 +889,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                                 if (evnt != null)
                                 {
                                     Assert.IsNotNull(evnt.ChaincodeId);
-                                    Assert.IsNotNull(evnt.Name);
+                                    Assert.IsNotNull(evnt.EventName);
                                     chaincodeEventsCounts++;
                                 }
                             }
@@ -922,75 +964,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
         }
 
-        /**
-         * This code test the replay feature of the new peer event services.
-         * Instead of the default of starting the eventing peer to retrieve the newest block it sets it
-         * retrieve starting from the start parameter. Also checks with block and filterblock replays.
-         * Depends on end2end and end2endAndBackagain of have fully run to have the blocks need to work with.
-         *
-         * @param client
-         * @param replayTestChannel
-         * @param start
-         * @param stop
-         * @param useFilteredBlocks
-         * @throws InvalidArgumentException
-         */
 
 
-        public class TestEventListener : IBlockListener
-        {
-            public long bcount = 0;
-            public ConcurrentDictionary<long, BlockEvent> blockEvents = new ConcurrentDictionary<long, BlockEvent>();
-            public TaskCompletionSource<long> done;
-            public Channel finalChannel = null;
-            public long start = 0;
-            public long stop = 0;
-            public long stopValue = 0;
-            public bool useFilteredBlocks;
-
-            public void Received(BlockEvent blockEvent)
-            {
-                try
-                {
-                    long blockNumber = blockEvent.BlockNumber;
-                    if (blockEvents.ContainsKey(blockNumber))
-                        Assert.Fail($"Block number {blockNumber} seen twice");
-                    blockEvents[blockNumber] = blockEvent;
-
-
-                    Assert.IsTrue(useFilteredBlocks ? blockEvent.IsFiltered : !blockEvent.IsFiltered, $"Wrong type of block seen block number {blockNumber}. expected filtered block {useFilteredBlocks} but got {blockEvent.IsFiltered}");
-                    long count = Interlocked.Increment(ref bcount);
-
-
-                    //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
-
-                    if (count == 0 && stop == -1L)
-                    {
-                        BlockchainInfo blockchainInfo = finalChannel.QueryBlockchainInfo();
-
-                        long lh = blockchainInfo.Height;
-                        stopValue = lh - 1L; // blocks 0L 9L are on chain height 10 .. stop on 9
-                        //  out("height: %d", lh);
-                        if (Interlocked.Read(ref bcount) + start > stopValue)
-                        {
-                            // test with latest count.
-
-                            done.SetResult(Interlocked.Read(ref bcount));
-                        }
-                    }
-                    else
-                    {
-                        if (Interlocked.Read(ref bcount) + start > stopValue)
-                        {
-                            done.SetResult(count);
-                        }
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    done.SetException(e);
-                }
-            }
-        }
     }
 }

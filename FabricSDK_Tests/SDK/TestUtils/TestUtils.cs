@@ -91,6 +91,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 MspId = mspId;
                 Enrollment = GetMockEnrollment(MOCK_CERT);
             }
+            public string EnrollmentSecret { get; set; }
 
             public string Name { get; }
             public HashSet<string> Roles { get; }

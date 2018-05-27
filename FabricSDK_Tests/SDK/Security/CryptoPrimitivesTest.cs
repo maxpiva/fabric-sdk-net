@@ -184,7 +184,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 //   testCrypto.init();
                 ICryptoSuite testCrypto = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite(propsIn);
 
-                //          assertEquals(BouncyCastleProvider.class, getField(testCrypto, "SECURITY_PROVIDER").getClass());
+                //          Assert.AreEqual(BouncyCastleProvider.class, getField(testCrypto, "SECURITY_PROVIDER").getClass());
 
                 string expectedCurve = config.GetSecurityCurveMapping()[384];
                 CryptoPrimitives original = (CryptoPrimitives) testCrypto;
@@ -738,7 +738,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             AsymmetricAlgorithm testKeyPair = crypto.KeyGen();
             string certRequest = crypto.GenerateCertificationRequest("common name", testKeyPair);
-            // Assert.assertSame(String.class, crypto.certificationRequestToPEM(certRequest).getClass());
+            // Assert.AreSame(String.class, crypto.certificationRequestToPEM(certRequest).getClass());
 
             Assert.IsTrue(certRequest.Contains("BEGIN CERTIFICATE REQUEST"));
         }

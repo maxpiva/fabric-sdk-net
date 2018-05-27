@@ -34,13 +34,17 @@ using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
+using Hyperledger.Fabric.SDK.Builders;
+using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.SDK.Requests;
+using Hyperledger.Fabric.SDK.Responses;
 using Newtonsoft.Json;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
+using ProposalResponse = Hyperledger.Fabric.SDK.Responses.ProposalResponse;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 
 namespace Hyperledger.Fabric.SDK
@@ -933,7 +937,10 @@ namespace Hyperledger.Fabric.SDK
 
             return ret.ToList();
         }
-
+        public List<Peer> GetPeers(params PeerRole[] roles)
+        {
+            return GetPeers((IEnumerable<PeerRole>) roles);
+        }
         /**
          * Set peerOptions in the channel that has not be initialized yet.
          *
@@ -1550,7 +1557,7 @@ namespace Hyperledger.Fabric.SDK
                 instantiateProposalbuilder.ChaincodeType(instantiateProposalRequest.ChaincodeLanguage);
                 instantiateProposalbuilder.ChaincodePath(instantiateProposalRequest.ChaincodePath);
                 instantiateProposalbuilder.SetChaincodeVersion(instantiateProposalRequest.ChaincodeVersion);
-                instantiateProposalbuilder.ChaincodeEndorsementPolicy(instantiateProposalRequest.EndorsementPolicy);
+                instantiateProposalbuilder.ChaincodeEndorsementPolicy(instantiateProposalRequest.ChaincodeEndorsementPolicy);
                 instantiateProposalbuilder.SetTransientMap(instantiateProposalRequest.TransientMap);
 
                 Proposal instantiateProposal = instantiateProposalbuilder.Build();
@@ -1681,7 +1688,7 @@ namespace Hyperledger.Fabric.SDK
                 upgradeProposalBuilder.ChaincodeName(upgradeProposalRequest.ChaincodeName);
                 upgradeProposalBuilder.ChaincodePath(upgradeProposalRequest.ChaincodePath);
                 upgradeProposalBuilder.SetChaincodeVersion(upgradeProposalRequest.ChaincodeVersion);
-                upgradeProposalBuilder.ChaincodeEndorsementPolicy(upgradeProposalRequest.EndorsementPolicy);
+                upgradeProposalBuilder.ChaincodeEndorsementPolicy(upgradeProposalRequest.ChaincodeEndorsementPolicy);
 
                 SignedProposal signedProposal = GetSignedProposal(transactionContext, upgradeProposalBuilder.Build());
 
@@ -3201,14 +3208,14 @@ namespace Hyperledger.Fabric.SDK
          * @return The handle of the registered block listener.
          * @throws InvalidArgumentException if the channel is shutdown.
          */
-        public string RegisterBlockListener(IBlockListener listener)
+        public string RegisterBlockListener(Action<BlockEvent> listenerAction)
         {
             if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
 
-            return new BL(this, listener).GetHandle();
+            return new BL(this, listenerAction).GetHandle();
         }
 
         /**
@@ -3328,7 +3335,7 @@ namespace Hyperledger.Fabric.SDK
                                 Task.Factory.StartNew((listener) =>
                                 {
                                     BL lis = (BL) listener;
-                                    lis.Listener.Received(blockEvent);
+                                    lis.ListenerAction(blockEvent);
                                 }, l, default(CancellationToken), TaskCreationOptions.None, scheduler);
                             }
                             catch (Exception e)
@@ -3356,7 +3363,7 @@ namespace Hyperledger.Fabric.SDK
 
             // Transaction listener is internal Block listener for transactions
 
-            return RegisterBlockListener(new TransactionListener(this));
+            return RegisterBlockListener(TransactionBlockReceived);
         }
 
         private void RunSweeper()
@@ -3431,8 +3438,7 @@ namespace Hyperledger.Fabric.SDK
          * @return Handle to be used to unregister the event listener {@link #unregisterChaincodeEventListener(String)}
          * @throws InvalidArgumentException
          */
-
-        public string RegisterChaincodeEventListener(Regex chaincodeId, Regex eventName, IChaincodeEventListener chaincodeEventListener)
+        public string RegisterChaincodeEventListener(Regex chaincodeId, Regex eventName, Action<string, BlockEvent, ChaincodeEventDeserializer> listenerAction)
         {
             if (IsShutdown)
             {
@@ -3449,12 +3455,12 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("The eventName argument may not be null.");
             }
 
-            if (chaincodeEventListener == null)
+            if (listenerAction == null)
             {
-                throw new InvalidArgumentException("The chaincodeEventListener argument may not be null.");
+                throw new InvalidArgumentException("The chaincodeListenerAction argument may not be null.");
             }
 
-            ChaincodeEventListenerEntry chaincodeEventListenerEntry = new ChaincodeEventListenerEntry(this, chaincodeId, eventName, chaincodeEventListener);
+            ChaincodeEventListenerEntry chaincodeEventListenerEntry = new ChaincodeEventListenerEntry(this, chaincodeId, eventName, listenerAction);
             lock (this)
             {
                 if (null == blh)
@@ -3518,7 +3524,7 @@ namespace Hyperledger.Fabric.SDK
 
             // Chaincode event listener is internal Block listener for chaincode events.
 
-            return RegisterBlockListener(new ChaincodeListener(this));
+            return RegisterBlockListener(ChaincodeBlockReceived);
         }
 
         /**
@@ -3617,7 +3623,7 @@ namespace Hyperledger.Fabric.SDK
          * @throws InvalidArgumentException
          */
         /*
-        public void serializeChannel(File file) throws IOException, InvalidArgumentException {
+        public void serializeChannel(File file) {
 
             if (null == file) {
                 throw new InvalidArgumentException("File parameter may not be null");
@@ -3636,7 +3642,7 @@ namespace Hyperledger.Fabric.SDK
          * @throws IOException
          */
         /*
-        public byte[] serializeChannel() throws IOException, InvalidArgumentException {
+        public byte[] serializeChannel() {
 
             if (isShutdown()) {
                 throw new InvalidArgumentException(format("Channel %s has been shutdown.", getName()));
@@ -3672,118 +3678,100 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return
          */
-        public class TransactionListener : IBlockListener
+        internal void TransactionBlockReceived(BlockEvent blockEvent)
         {
-            private readonly Channel channel;
-
-            public TransactionListener(Channel ch)
+            if (txListeners.Count == 0)
             {
-                channel = ch;
+                return;
             }
 
-            public void Received(BlockEvent blockEvent)
+            foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
             {
-                if (channel.txListeners.Count == 0)
+                logger.Debug($"Channel {Name} got event for transaction {transactionEvent.TransactionID}");
+
+                List<TL> txL = new List<TL>();
+                lock (txListeners)
                 {
-                    return;
+                    LinkedList<TL> list = txListeners[transactionEvent.TransactionID];
+                    if (null != list)
+                    {
+                        txL.AddRange(list);
+                    }
                 }
 
-                foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.GetTransactionEventsList)
+                foreach (TL l in txL)
                 {
-                    logger.Debug($"Channel {channel.Name} got event for transaction {transactionEvent.TransactionID}");
-
-                    List<TL> txL = new List<TL>();
-                    lock (channel.txListeners)
+                    try
                     {
-                        LinkedList<TL> list = channel.txListeners[transactionEvent.TransactionID];
-                        if (null != list)
+                        // only if we get events from each eventhub on the channel fire the transactions event.
+                        //   if (getEventHubs().containsAll(l.eventReceived(transactionEvent.getEventHub()))) {
+                        if (l.EventReceived(transactionEvent))
                         {
-                            txL.AddRange(list);
+                            l.Fire(transactionEvent);
                         }
                     }
-
-                    foreach (TL l in txL)
+                    catch (Exception e)
                     {
-                        try
-                        {
-                            // only if we get events from each eventhub on the channel fire the transactions event.
-                            //   if (getEventHubs().containsAll(l.eventReceived(transactionEvent.getEventHub()))) {
-                            if (l.EventReceived(transactionEvent))
-                            {
-                                l.Fire(transactionEvent);
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            logger.ErrorException(e.Message, e); // Don't let one register stop rest.
-                        }
+                        logger.ErrorException(e.Message, e); // Don't let one register stop rest.
                     }
                 }
             }
         }
 
-        public class ChaincodeListener : IBlockListener
+        internal void ChaincodeBlockReceived(BlockEvent blockEvent)
         {
-            private readonly Channel channel;
-
-            public ChaincodeListener(Channel ch)
+            if (chainCodeListeners.Count == 0)
             {
-                channel = ch;
+                return;
             }
 
-            public void Received(BlockEvent blockEvent)
+            List<ChaincodeEventDeserializer> chaincodeEvents = new List<ChaincodeEventDeserializer>();
+
+            //Find the chaincode events in the transactions.
+
+            foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
             {
-                if (channel.chainCodeListeners.Count == 0)
+                logger.Debug($"Channel {Name} got event for transaction {transactionEvent.TransactionID}");
+
+                foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo info in transactionEvent.TransactionActionInfos)
                 {
-                    return;
-                }
-
-                List<ChaincodeEventDeserializer> chaincodeEvents = new List<ChaincodeEventDeserializer>();
-
-                //Find the chaincode events in the transactions.
-
-                foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.GetTransactionEventsList)
-                {
-                    logger.Debug($"Channel {channel.Name} got event for transaction {transactionEvent.TransactionID}");
-
-                    foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo info in transactionEvent.TransactionActionInfos)
+                    ChaincodeEventDeserializer evnt = info.Event;
+                    if (null != evnt)
                     {
-                        ChaincodeEventDeserializer evnt = info.Event;
-                        if (null != evnt)
-                        {
-                            chaincodeEvents.Add(evnt);
-                        }
+                        chaincodeEvents.Add(evnt);
                     }
                 }
+            }
 
-                if (chaincodeEvents.Count > 0)
+            if (chaincodeEvents.Count > 0)
+            {
+                List<(ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event)> matches = new List<(ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event)>(); //Find matches.
+
+                lock (chainCodeListeners)
                 {
-                    List<(ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event)> matches = new List<(ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event)>(); //Find matches.
-
-                    lock (channel.chainCodeListeners)
+                    foreach (ChaincodeEventListenerEntry chaincodeEventListenerEntry in chainCodeListeners.Values)
                     {
-                        foreach (ChaincodeEventListenerEntry chaincodeEventListenerEntry in channel.chainCodeListeners.Values)
+                        foreach (ChaincodeEventDeserializer chaincodeEvent in chaincodeEvents)
                         {
-                            foreach (ChaincodeEventDeserializer chaincodeEvent in chaincodeEvents)
+                            if (chaincodeEventListenerEntry.IsMatch(chaincodeEvent))
                             {
-                                if (chaincodeEventListenerEntry.IsMatch(chaincodeEvent))
-                                {
-                                    matches.Add((chaincodeEventListenerEntry, chaincodeEvent));
-                                }
+                                matches.Add((chaincodeEventListenerEntry, chaincodeEvent));
                             }
                         }
                     }
+                }
 
-                    //fire events
-                    foreach ((ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event) match in matches)
-                    {
-                        ChaincodeEventListenerEntry chaincodeEventListenerEntry = match.EventListener;
-                        ChaincodeEventDeserializer ce = match.Event;
-                        chaincodeEventListenerEntry.Fire(blockEvent, ce);
-                    }
+                //fire events
+                foreach ((ChaincodeEventListenerEntry EventListener, ChaincodeEventDeserializer Event) match in matches)
+                {
+                    ChaincodeEventListenerEntry chaincodeEventListenerEntry = match.EventListener;
+                    ChaincodeEventDeserializer ce = match.Event;
+                    chaincodeEventListenerEntry.Fire(blockEvent, ce);
                 }
             }
         }
+
+
 
 
         /**
@@ -3921,7 +3909,11 @@ namespace Hyperledger.Fabric.SDK
                 this.peerRoles = peerRoles;
                 return this;
             }
-
+            public PeerOptions SetPeerRoles(params PeerRole[] peerRoles)
+            {
+                this.peerRoles = peerRoles.ToList();
+                return this;
+            }
             /**
              * Add to the roles this peer will have on the chain it will added or joined.
              *
@@ -4570,20 +4562,20 @@ namespace Hyperledger.Fabric.SDK
 
             private readonly Channel channel;
 
-            public BL(Channel ch, IBlockListener listener)
+            public BL(Channel ch, Action<BlockEvent> listenerAction)
             {
                 channel = ch;
                 Handle = BLOCK_LISTENER_TAG + Utils.GenerateUUID() + BLOCK_LISTENER_TAG;
                 logger.Debug($"Channel {channel.Name} blockListener {Handle} starting");
 
-                Listener = listener;
+                ListenerAction = listenerAction;
                 lock (channel.blockListeners)
                 {
                     channel.blockListeners.Add(Handle, this);
                 }
             }
 
-            public IBlockListener Listener { get; }
+            public Action<BlockEvent> ListenerAction { get; }
             public string Handle { get; }
 
             public string GetHandle()
@@ -4758,18 +4750,18 @@ namespace Hyperledger.Fabric.SDK
         public class ChaincodeEventListenerEntry
         {
             public static readonly string CHAINCODE_EVENTS_TAG = "CHAINCODE_EVENTS_HANDLE";
-            private readonly IChaincodeEventListener chaincodeEventListener;
-
+            private readonly Action<string, BlockEvent, ChaincodeEventDeserializer> listenerAction;
+            
             private readonly Regex chaincodeIdPattern;
             private readonly Channel channel;
             private readonly Regex eventNamePattern;
 
-            public ChaincodeEventListenerEntry(Channel ch, Regex chaincodeIdPattern, Regex eventNamePattern, IChaincodeEventListener chaincodeEventListener)
+            public ChaincodeEventListenerEntry(Channel ch, Regex chaincodeIdPattern, Regex eventNamePattern, Action<string, BlockEvent, ChaincodeEventDeserializer> listenerAction)
             {
                 channel = ch;
                 this.chaincodeIdPattern = chaincodeIdPattern;
                 this.eventNamePattern = eventNamePattern;
-                this.chaincodeEventListener = chaincodeEventListener;
+                this.listenerAction = listenerAction;
                 Handle = CHAINCODE_EVENTS_TAG + Utils.GenerateUUID() + CHAINCODE_EVENTS_TAG;
                 lock (channel.chainCodeListeners)
                 {
@@ -4782,13 +4774,13 @@ namespace Hyperledger.Fabric.SDK
 
             public bool IsMatch(ChaincodeEventDeserializer chaincodeEvent)
             {
-                return chaincodeIdPattern.Match(chaincodeEvent.ChaincodeId).Success && eventNamePattern.Match(chaincodeEvent.Name).Success;
+                return chaincodeIdPattern.Match(chaincodeEvent.ChaincodeId).Success && eventNamePattern.Match(chaincodeEvent.EventName).Success;
             }
 
             public void Fire(BlockEvent blockEvent, ChaincodeEventDeserializer ce)
             {
                 TaskScheduler sch = channel.client.ExecutorService;
-                Task.Factory.StartNew(() => chaincodeEventListener.Received(Handle, blockEvent, ce), default(CancellationToken), TaskCreationOptions.None, sch);
+                Task.Factory.StartNew(() => listenerAction(Handle, blockEvent, ce), default(CancellationToken), TaskCreationOptions.None, sch);
             }
         }
     }

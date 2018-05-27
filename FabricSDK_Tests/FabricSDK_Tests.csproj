@@ -76,9 +76,13 @@
     <Compile Include="SDK\Helper\UtilsTest.cs" />
     <Compile Include="SDK\Integration\End2endAndBackAgainIT.cs" />
     <Compile Include="SDK\Integration\End2endAndBackAgainNodeIT.cs" />
+    <Compile Include="SDK\Integration\End2endIT.cs" />
+    <Compile Include="SDK\Integration\End2endNodeIT.cs" />
+    <Compile Include="SDK\Integration\NetworkConfigIT.cs" />
     <Compile Include="SDK\Integration\SampleOrg.cs" />
     <Compile Include="SDK\Integration\SampleStore.cs" />
     <Compile Include="SDK\Integration\SampleUser.cs" />
+    <Compile Include="SDK\Integration\UpdateChannelIT.cs" />
     <Compile Include="SDK\Integration\Util.cs" />
     <Compile Include="SDK\NetworkConfigTest.cs" />
     <Compile Include="SDK\OrdererTest.cs" />
@@ -95,6 +99,17 @@
     <Compile Include="SDK\Transaction\ProtoUtilsTest.cs" />
     <Compile Include="SDK\Transaction\TransactionContextTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SDK_CA\AttributeTest.cs" />
+    <Compile Include="SDK_CA\EnrollmentRequestTest.cs" />
+    <Compile Include="SDK_CA\Exception\FabricCAExceptionsTest.cs" />
+    <Compile Include="SDK_CA\Helper\ConfigTest.cs" />
+    <Compile Include="SDK_CA\HFCAAffiliationTest.cs" />
+    <Compile Include="SDK_CA\HFCAClientTest.cs" />
+    <Compile Include="SDK_CA\HFCAIdentityTest.cs" />
+    <Compile Include="SDK_CA\Integration\HFCAClientIT.cs" />
+    <Compile Include="SDK_CA\MockHFCAClient.cs" />
+    <Compile Include="SDK_CA\RegistrationRequestTest.cs" />
+    <Compile Include="SDK_CA\RevocationRequestTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -126,8 +141,6 @@
     <Copy SourceFiles="@(RESOURCES)" DestinationFolder="$(TargetDir)\Resources\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(FIXTURE)" DestinationFolder="$(TargetDir)\Fixture\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
-
-  
   <Import Project="..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets" Condition="Exists('..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets')" />
   <PropertyGroup>
     <PreBuildEvent>
@@ -135,6 +148,6 @@
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>
-</PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

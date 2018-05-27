@@ -12,48 +12,40 @@
  *  limitations under the License.
  */
 
-using System;
-using System.Runtime.CompilerServices;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 
-
 namespace Hyperledger.Fabric.SDK
 {
-
     /**
      * TransactionInfo contains the data from a {@link ProcessedTransaction} message
      */
     public class TransactionInfo
     {
-        private string txID;
-        private ProcessedTransaction processedTransaction;
-
         public TransactionInfo(string txID, ProcessedTransaction processedTransaction)
         {
-            this.txID = txID;
-            this.processedTransaction = processedTransaction;
+            TransactionID = txID;
+            ProcessedTransaction = processedTransaction;
         }
 
         /**
          * @return the transaction ID of this {@link ProcessedTransaction}
          */
-        public string TransactionID => txID;
+        public string TransactionID { get; }
 
         /**
          * @return the {@link Envelope} of this {@link ProcessedTransaction}
          */
-        public Envelope Envelope => processedTransaction.TransactionEnvelope;
+        public Envelope Envelope => ProcessedTransaction.TransactionEnvelope;
 
         /**
          * @return the raw {@link ProcessedTransaction}
          */
-        public ProcessedTransaction ProcessedTransaction => processedTransaction;
+        public ProcessedTransaction ProcessedTransaction { get; }
 
         /**
          * @return the {@link TxValidationCode} of this {@link ProcessedTransaction}
          */
-        public TxValidationCode ValidationCode => (TxValidationCode) processedTransaction.ValidationCode;
-
+        public TxValidationCode ValidationCode => (TxValidationCode) ProcessedTransaction.ValidationCode;
     }
 }

@@ -55,11 +55,10 @@ using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-
-using Hyperledger.Fabric.SDK.Transaction;
 using DeliverResponse = Hyperledger.Fabric.Protos.Peer.PeerEvents.DeliverResponse;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 

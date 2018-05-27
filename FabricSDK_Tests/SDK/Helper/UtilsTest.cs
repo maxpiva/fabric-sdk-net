@@ -254,7 +254,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         }
 
         [TestMethod]
-        public void testCheckGrpcUrlInvalid()
+        public void TestCheckGrpcUrlInvalid()
         {
             // Test a number of invalid variations
             Assert.IsNotNull(Utils.CheckGrpcUrl("http://hyperledger.org:1234"));
@@ -264,7 +264,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
 
 
         [TestMethod]
-        public void testLogString()
+        public void TestLogString()
         {
             // Test a number of variations
             Assert.AreEqual(null, ((string) null).LogString());
@@ -281,7 +281,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         }
 
         [TestMethod]
-        public void testToHexStringNull()
+        public void TestToHexStringNull()
         {
             Assert.IsNull(((byte[]) null).ToHexString());
             Assert.IsNull(((ByteString) null).ToHexString());

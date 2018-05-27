@@ -35,7 +35,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ChaincodeEndorsementPolicyParseException), "test")]
-        public void testChaincodeEndorsementPolicyParseException2()
+        public void TestChaincodeEndorsementPolicyParseException2()
         {
             throw new ChaincodeEndorsementPolicyParseException(MESSAGE, new ChaincodeEndorsementPolicyParseException(MESSAGE));
         }
@@ -164,7 +164,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvokeException), "test")]
-        public void testInvokeException()
+        public void TestInvokeException()
         {
             System.Exception baseException = new System.Exception(MESSAGE);
 
@@ -181,49 +181,49 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(NoValidPeerException), "test")]
-        public void testNoValidPeerException()
+        public void TestNoValidPeerException()
         {
             throw new NoValidPeerException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(PeerException), "test")]
-        public void testPeerException1()
+        public void TestPeerException1()
         {
             throw new PeerException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(PeerException), "test")]
-        public void testPeerException2()
+        public void TestPeerException2()
         {
             throw new PeerException(MESSAGE, new PeerException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
-        public void testProposalException1()
+        public void TestProposalException1()
         {
             throw new ProposalException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
-        public void testProposalException2()
+        public void TestProposalException2()
         {
             throw new ProposalException(new ProposalException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "test")]
-        public void testProposalException3()
+        public void TestProposalException3()
         {
             throw new ProposalException(MESSAGE, new ProposalException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(QueryException), "test")]
-        public void testQueryException()
+        public void TestQueryException()
         {
             System.Exception baseException = new System.Exception(MESSAGE);
 
@@ -233,28 +233,28 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
-        public void testTransactionException1()
+        public void TestTransactionException1()
         {
             throw new TransactionException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
-        public void testTransactionException2()
+        public void TestTransactionException2()
         {
             throw new TransactionException(new TransactionException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
-        public void testTransactionException3()
+        public void TestTransactionException3()
         {
             throw new TransactionException(MESSAGE, new TransactionException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
-        public void testTransactionEventException1()
+        public void TestTransactionEventException1()
         {
             throw new TransactionEventException(MESSAGE, null);
         }
@@ -262,7 +262,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
-        public void testTransactionEventException2()
+        public void TestTransactionEventException2()
         {
             TransactionEventException e = new TransactionEventException(MESSAGE, null);
             Assert.IsNull(e.TransactionEvent);
@@ -270,28 +270,28 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
-        public void testTransactionEventException3()
+        public void TestTransactionEventException3()
         {
             throw new TransactionEventException(MESSAGE, null, new TransactionEventException(MESSAGE, null));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
-        public void testInvalidProtocolBufferRuntimeException1()
+        public void TestInvalidProtocolBufferRuntimeException1()
         {
             throw new InvalidProtocolBufferRuntimeException(default(InvalidProtocolBufferException));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
-        public void testInvalidProtocolBufferRuntimeException2()
+        public void TestInvalidProtocolBufferRuntimeException2()
         {
             throw new InvalidProtocolBufferRuntimeException(MESSAGE, default(InvalidProtocolBufferException));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
-        public void testInvalidProtocolBufferRuntimeException3()
+        public void TestInvalidProtocolBufferRuntimeException3()
         {
             InvalidProtocolBufferException e1 = default(InvalidProtocolBufferException);
             InvalidProtocolBufferRuntimeException e2 = new InvalidProtocolBufferRuntimeException(MESSAGE, e1);

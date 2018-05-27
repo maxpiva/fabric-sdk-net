@@ -92,7 +92,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         /*
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(System.Exception), "property of sslProvider has to be either openSSL or JDK")]
-        public void testEmptyPropertySslProvider() {
+        public void TestEmptyPropertySslProvider() {
 
         Properties testprops = new Properties();
         testprops.Set("sslProvider", "closedSSL");

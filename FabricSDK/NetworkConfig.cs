@@ -964,7 +964,7 @@ namespace Hyperledger.Fabric.SDK
             string caName = jsonCA["caName"].Value<string>();
             if (!string.IsNullOrEmpty(caName))
             {
-                caInfo.CaName = caName;
+                caInfo.CAName = caName;
             }
 
             Properties properties = new Properties();
@@ -1203,7 +1203,7 @@ namespace Hyperledger.Fabric.SDK
             public Properties HttpOptions { get; set; } = new Properties();
 
             public string MspId { get; set; }
-            public string CaName { get; set; }
+            public string CAName { get; set; }
             public Properties Properties { get; set; } = new Properties();
 
             public List<UserInfo> Registrars { get; set; }

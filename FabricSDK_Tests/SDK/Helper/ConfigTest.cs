@@ -115,23 +115,23 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
             testLogLevelAny("TRACE", org.apache.log4j.Level.TRACE);
     }
 
-    @Test
-    public void testLogLevelDebug() {
+    [TestMethod]
+    public void TestLogLevelDebug() {
         testLogLevelAny("DEBUG", org.apache.log4j.Level.DEBUG);
     }
 
-    @Test
-    public void testLogLevelInfo() {
+    [TestMethod]
+    public void TestLogLevelInfo() {
         testLogLevelAny("INFO", org.apache.log4j.Level.INFO);
     }
 
-    @Test
-    public void testLogLevelWarn() {
+    [TestMethod]
+    public void TestLogLevelWarn() {
         testLogLevelAny("WARN", org.apache.log4j.Level.WARN);
     }
 
-    @Test
-    public void testLogLevelError() {
+    [TestMethod]
+    public void TestLogLevelError() {
         testLogLevelAny("ERROR", org.apache.log4j.Level.ERROR);
     }
 

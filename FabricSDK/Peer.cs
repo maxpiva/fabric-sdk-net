@@ -23,10 +23,10 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.Transaction;
 
 namespace Hyperledger.Fabric.SDK
 {

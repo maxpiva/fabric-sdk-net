@@ -14,9 +14,7 @@
 
 
 using System.Collections.Generic;
-using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK
@@ -28,10 +26,8 @@ namespace Hyperledger.Fabric.SDK
      */
     public class BlockEvent : BlockInfo
     {
-    //    private static final Log logger = LogFactory.getLog(BlockEvent.class);
+        //    private static final Log logger = LogFactory.getLog(BlockEvent.class);
 
-        private readonly EventHub eventHub;
-        private readonly Peer peer;
         private readonly Event evnt;
 
         /**
@@ -43,16 +39,16 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockEvent(EventHub eventHub, Event evnt) : base(evnt.Block)
         {
-            this.eventHub = eventHub;
-            this.peer = null;
+            EventHub = eventHub;
+            Peer = null;
             this.evnt = evnt;
         }
 
-        public BlockEvent(Peer peer, DeliverResponse resp) : base(resp) {
-            eventHub = null;
-            this.peer = peer;
-            this.evnt = null;
-
+        public BlockEvent(Peer peer, DeliverResponse resp) : base(resp)
+        {
+            EventHub = null;
+            Peer = peer;
+            evnt = null;
         }
 
         /**
@@ -61,30 +57,30 @@ namespace Hyperledger.Fabric.SDK
          * @return an Event Hub. Maybe null if new peer eventing services is being used.
          * @deprecated Use new peer eventing services
          */
-        public EventHub EventHub =>eventHub;
+        public EventHub EventHub { get; }
 
         /**
          * The Peer that received this event.
          *
          * @return Peer that received this event. Maybe null if source is legacy event hub.
          */
-        public Peer Peer => peer;
+        public Peer Peer { get; }
 
-    //    /**
-    //     * Raw proto buff event.
-    //     *
-    //     * @return Return raw protobuf event.
-    //     */
-    //
-    //    public Event getEvent() {
-    //        return event;
-    //    }
+        //    /**
+        //     * Raw proto buff event.
+        //     *
+        //     * @return Return raw protobuf event.
+        //     */
+        //
+        //    public Event getEvent() {
+        //        return event;
+        //    }
 
         public bool IsBlockEvent
         {
             get
             {
-                if (peer != null)
+                if (Peer != null)
                 {
                     return true; //peer always returns Block type events;
                 }
@@ -92,6 +88,9 @@ namespace Hyperledger.Fabric.SDK
                 return evnt != null && evnt.EventCase == Event.EventOneofCase.Block;
             }
         }
+
+        public IEnumerable<TransactionEvent> TransactionEvents => new EnumerableBuilder<TransactionEvent>(() => TransactionCount, GetTransactionEvent);
+
         public TransactionEvent GetTransactionEvent(int index)
         {
             TransactionEvent ret = null;
@@ -99,7 +98,7 @@ namespace Hyperledger.Fabric.SDK
             EnvelopeInfo envelopeInfo = GetEnvelopeInfo(index);
             if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
             {
-                ret = IsFiltered ? new TransactionEvent(this, envelopeInfo.FilteredTX) : new TransactionEvent(this,(TransactionEnvelopeInfo)envelopeInfo);
+                ret = IsFiltered ? new TransactionEvent(this, envelopeInfo.FilteredTX) : new TransactionEvent(this, (TransactionEnvelopeInfo) envelopeInfo);
             }
 
             return ret;
@@ -107,12 +106,12 @@ namespace Hyperledger.Fabric.SDK
 
         public class TransactionEvent : TransactionEnvelopeInfo
         {
-
-            public TransactionEvent(BlockEvent evnt, TransactionEnvelopeInfo transactionEnvelopeInfo) : base(evnt, transactionEnvelopeInfo.TransactionDeserializer) {
+            public TransactionEvent(BlockEvent evnt, TransactionEnvelopeInfo transactionEnvelopeInfo) : base(evnt, transactionEnvelopeInfo.TransactionDeserializer)
+            {
             }
 
             public TransactionEvent(BlockEvent evnt, FilteredTransaction filteredTransaction) : base(evnt, filteredTransaction)
-            { 
+            {
             }
 
             /**
@@ -121,7 +120,7 @@ namespace Hyperledger.Fabric.SDK
              * @return BlockEvent for this transaction.
              */
 
-            public BlockEvent BlockEvent => (BlockEvent)parent;
+            public BlockEvent BlockEvent => (BlockEvent) parent;
 
             /**
              * The event hub that received this event.
@@ -140,8 +139,5 @@ namespace Hyperledger.Fabric.SDK
 
             public Peer Peer => BlockEvent.Peer;
         }
-
-        public IEnumerable<TransactionEvent> GetTransactionEventsList => new EnumerableBuilder<TransactionEvent>(()=>TransactionCount,GetTransactionEvent);
-
     } // BlockEvent
 }

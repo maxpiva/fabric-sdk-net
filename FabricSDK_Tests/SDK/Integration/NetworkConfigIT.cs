@@ -12,61 +12,6 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdkintegration;
-
-import java.io.File;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
-
-import org.hyperledger.fabric.protos.peer.Query.ChaincodeInfo;
-import org.hyperledger.fabric.sdk.BlockEvent;
-import org.hyperledger.fabric.sdk.BlockEvent.TransactionEvent;
-import org.hyperledger.fabric.sdk.ChaincodeEndorsementPolicy;
-import org.hyperledger.fabric.sdk.ChaincodeID;
-import org.hyperledger.fabric.sdk.ChaincodeResponse.Status;
-import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.InstallProposalRequest;
-import org.hyperledger.fabric.sdk.InstantiateProposalRequest;
-import org.hyperledger.fabric.sdk.NetworkConfig;
-import org.hyperledger.fabric.sdk.NetworkConfig.CAInfo;
-import org.hyperledger.fabric.sdk.NetworkConfig.UserInfo;
-import org.hyperledger.fabric.sdk.Orderer;
-import org.hyperledger.fabric.sdk.Peer;
-import org.hyperledger.fabric.sdk.ProposalResponse;
-import org.hyperledger.fabric.sdk.QueryByChaincodeRequest;
-import org.hyperledger.fabric.sdk.SDKUtils;
-import org.hyperledger.fabric.sdk.TestConfigHelper;
-import org.hyperledger.fabric.sdk.TransactionProposalRequest;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.hyperledger.fabric.sdk.exception.TransactionEventException;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestConfig;
-import org.hyperledger.fabric.sdk.testutils.TestUtils.MockUser;
-import org.hyperledger.fabric_ca.sdk.HFCAClient;
-import org.hyperledger.fabric_ca.sdk.HFCAInfo;
-import org.hyperledger.fabric_ca.sdk.RegistrationRequest;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.getMockUser;
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.resetConfig;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 /**
  * Integration test for the Network Configuration YAML (/JSON) file
  * <p>
@@ -82,483 +27,532 @@ import static org.junit.Assert.fail;
  * It first examines the "foo" channel and checks that CHAIN_CODE_NAME has been instantiated on the channel,
  * and if not it deploys the chaincode with that name.
  */
-public class NetworkConfigIT {
 
-    private static final TestConfig testConfig = TestConfig.getConfig();
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Requests;
+using Hyperledger.Fabric.SDK.Responses;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.SDK.TestUtils;
+using Hyperledger.Fabric_CA.SDK;
+using Hyperledger.Fabric_CA.SDK.Requests;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ChaincodeID = Hyperledger.Fabric.SDK.ChaincodeID;
 
-    private static final String TEST_ORG = "Org1";
+namespace Hyperledger.Fabric.Tests.SDK.Integration
+{
+    [TestClass]
+    [TestCategory("SDK_INTEGRATION")]
+    [TestCategory("SDK_INTEGRATION_NODE")]
+    public class NetworkConfigIT
+    {
+        private static readonly TestConfig testConfig = TestConfig.Instance;
 
-    private static final String TEST_FIXTURES_PATH = "src/test/fixture";
+        private static readonly string TEST_ORG = "Org1";
 
-    private static final String CHAIN_CODE_PATH = "github.com/example_cc";
+        private static readonly string TEST_FIXTURES_PATH = "fixture";
 
-    private static final String CHAIN_CODE_NAME = "cc-NetworkConfigTest-001";
+        private static readonly string CHAIN_CODE_PATH = "github.com/example_cc";
 
-    private static final String CHAIN_CODE_VERSION = "1";
+        private static readonly string CHAIN_CODE_NAME = "cc-NetworkConfigTest-001";
 
-    private static final String FOO_CHANNEL_NAME = "foo";
+        private static readonly string CHAIN_CODE_VERSION = "1";
 
-    private static final TestConfigHelper configHelper = new TestConfigHelper();
+        private static readonly string FOO_CHANNEL_NAME = "foo";
 
-    private static NetworkConfig networkConfig;
+        private static readonly TestConfigHelper configHelper = new TestConfigHelper();
 
-    private static Map<String, User> orgRegisteredUsers = new HashMap<>();
+        private static NetworkConfig networkConfig;
 
-    @BeforeClass
-    public static void doMainSetup() throws Exception {
-        out("\n\n\nRUNNING: NetworkConfigIT.\n");
+        private static readonly Dictionary<string, IUser> orgRegisteredUsers = new Dictionary<string, IUser>();
 
-        resetConfig();
-        configHelper.customizeConfig();
+        [ClassInitialize]
+        public static void doMainSetup()
+        {
+            Util.COut("\n\n\nRUNNING: NetworkConfigIT.\n");
 
-        // Use the appropriate TLS/non-TLS network config file
-        networkConfig = NetworkConfig.fromYamlFile(testConfig.getTestNetworkConfigFileYAML());
+            TestUtils.TestUtils.ResetConfig();
+            configHelper.CustomizeConfig();
 
-        networkConfig.getOrdererNames().forEach(ordererName -> {
-            try {
-                Properties ordererProperties = networkConfig.getOrdererProperties(ordererName);
-                Properties testProp = testConfig.getEndPointProperties("orderer", ordererName);
-                ordererProperties.setProperty("clientCertFile", testProp.getProperty("clientCertFile"));
-                ordererProperties.setProperty("clientKeyFile", testProp.getProperty("clientKeyFile"));
-                networkConfig.setOrdererProperties(ordererName, ordererProperties);
+            // Use the appropriate TLS/non-TLS network config file
+            networkConfig = NetworkConfig.FromYamlFile(testConfig.GetTestNetworkConfigFileYAML());
 
-            } catch (InvalidArgumentException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        networkConfig.getPeerNames().forEach(peerName -> {
-            try {
-                Properties peerProperties = networkConfig.getPeerProperties(peerName);
-                Properties testProp = testConfig.getEndPointProperties("peer", peerName);
-                peerProperties.setProperty("clientCertFile", testProp.getProperty("clientCertFile"));
-                peerProperties.setProperty("clientKeyFile", testProp.getProperty("clientKeyFile"));
-                networkConfig.setPeerProperties(peerName, peerProperties);
-
-            } catch (InvalidArgumentException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        networkConfig.getEventHubNames().forEach(eventhubName -> {
-            try {
-                Properties eventHubsProperties = networkConfig.getEventHubsProperties(eventhubName);
-                Properties testProp = testConfig.getEndPointProperties("peer", eventhubName);
-                eventHubsProperties.setProperty("clientCertFile", testProp.getProperty("clientCertFile"));
-                eventHubsProperties.setProperty("clientKeyFile", testProp.getProperty("clientKeyFile"));
-                networkConfig.setEventHubProperties(eventhubName, eventHubsProperties);
-
-            } catch (InvalidArgumentException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        //Check if we get access to defined CAs!
-        NetworkConfig.OrgInfo org = networkConfig.getOrganizationInfo("Org1");
-        CAInfo caInfo = org.getCertificateAuthorities().get(0);
-
-        HFCAClient hfcaClient = HFCAClient.createNewInstance(caInfo);
-        assertEquals(hfcaClient.getCAName(), caInfo.getCAName());
-        HFCAInfo info = hfcaClient.info(); //makes actual REST call.
-        assertEquals(caInfo.getCAName(), info.getCAName());
-
-        Collection<UserInfo> registrars = caInfo.getRegistrars();
-        assertTrue(!registrars.isEmpty());
-        UserInfo registrar = registrars.iterator().next();
-        registrar.setEnrollment(hfcaClient.enroll(registrar.getName(), registrar.getEnrollSecret()));
-        MockUser mockuser = getMockUser(org.getName() + "_mock_" + System.nanoTime(), registrar.getMspId());
-        RegistrationRequest rr = new RegistrationRequest(mockuser.getName(), "org1.department1");
-        mockuser.setEnrollmentSecret(hfcaClient.register(rr, registrar));
-        mockuser.setEnrollment(hfcaClient.enroll(mockuser.getName(), mockuser.getEnrollmentSecret()));
-        orgRegisteredUsers.put(org.getName(), mockuser);
-
-        org = networkConfig.getOrganizationInfo("Org2");
-        caInfo = org.getCertificateAuthorities().get(0);
-
-        hfcaClient = HFCAClient.createNewInstance(caInfo);
-        assertEquals(hfcaClient.getCAName(), caInfo.getCAName());
-        info = hfcaClient.info(); //makes actual REST call.
-        assertEquals(info.getCAName(), "");
-
-        registrars = caInfo.getRegistrars();
-        assertTrue(!registrars.isEmpty());
-        registrar = registrars.iterator().next();
-        registrar.setEnrollment(hfcaClient.enroll(registrar.getName(), registrar.getEnrollSecret()));
-        mockuser = getMockUser(org.getName() + "_mock_" + System.nanoTime(), registrar.getMspId());
-        rr = new RegistrationRequest(mockuser.getName(), "org1.department1");
-        mockuser.setEnrollmentSecret(hfcaClient.register(rr, registrar));
-        mockuser.setEnrollment(hfcaClient.enroll(mockuser.getName(), mockuser.getEnrollmentSecret()));
-        orgRegisteredUsers.put(org.getName(), mockuser);
-
-        deployChaincodeIfRequired();
-    }
-
-    // Determines whether or not the chaincode has been deployed and deploys it if necessary
-    private static void deployChaincodeIfRequired() throws Exception {
-
-        ////////////////////////////
-        // Setup client
-        HFClient client = getTheClient();
-
-        Channel channel = constructChannel(client, FOO_CHANNEL_NAME);
-
-        // Use any old peer...
-        Peer peer = channel.getPeers().iterator().next();
-        if (!checkInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION)) {
-
-            // The chaincode we require does not exist, so deploy it...
-            deployChaincode(client, channel, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION);
-        }
-
-    }
-
-    // Returns a new client instance
-    private static HFClient getTheClient() throws Exception {
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        User peerAdmin = getAdminUser(TEST_ORG);
-        client.setUserContext(peerAdmin);
-
-        return client;
-    }
-
-    private static User getAdminUser(String orgName) throws Exception {
-
-        return networkConfig.getPeerAdmin(orgName);
-    }
-
-    @Test
-    public void testUpdate1() throws Exception {
-
-        // Setup client and channel instances
-        HFClient client = getTheClient();
-        Channel channel = constructChannel(client, FOO_CHANNEL_NAME);
-
-        final ChaincodeID chaincodeID = ChaincodeID.newBuilder().setName(CHAIN_CODE_NAME)
-                .setVersion(CHAIN_CODE_VERSION)
-                .setPath(CHAIN_CODE_PATH).build();
-
-        final String channelName = channel.getName();
-
-        out("Running testUpdate1 - Channel %s", channelName);
-
-        int moveAmount = 5;
-        String originalVal = queryChaincodeForCurrentValue(client, channel, chaincodeID);
-        String newVal = "" + (Integer.parseInt(originalVal) + moveAmount);
-
-        out("Original value = %s", originalVal);
-
-        //user registered user
-        client.setUserContext(orgRegisteredUsers.get("Org1")); // only using org1
-
-        // Move some assets
-        moveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null).thenApply(transactionEvent -> {
-            // Check that they were moved
-            queryChaincodeForExpectedValue(client, channel, newVal, chaincodeID);
-            return null;
-
-        }).thenApply(transactionEvent -> {
-            // Move them back
-            try {
-                return moveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-
-        }).thenApply(transactionEvent -> {
-            // Check that they were moved back
-            queryChaincodeForExpectedValue(client, channel, originalVal, chaincodeID);
-            return null;
-
-        }).exceptionally(e -> {
-            if (e instanceof CompletionException && e.getCause() != null) {
-                e = e.getCause();
-            }
-            if (e instanceof TransactionEventException) {
-                BlockEvent.TransactionEvent te = ((TransactionEventException) e).getTransactionEvent();
-                if (te != null) {
-
-                    e.printStackTrace(System.err);
-                    fail(format("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage()));
+            networkConfig.OrdererNames.ForEach(ordererName =>
+            {
+                try
+                {
+                    Properties ordererProperties = networkConfig.GetOrdererProperties(ordererName);
+                    Properties testProp = testConfig.GetEndPointProperties("orderer", ordererName);
+                    ordererProperties.Set("clientCertFile", testProp.Get("clientCertFile"));
+                    ordererProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
+                    networkConfig.SetOrdererProperties(ordererName, ordererProperties);
                 }
-            }
-
-            e.printStackTrace(System.err);
-            fail(format("Test failed with %s exception %s", e.getClass().getName(), e.getMessage()));
-
-            return null;
-
-        }).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-
-        channel.shutdown(true); // Force channel to shutdown clean up resources.
-
-        out("testUpdate1 - done");
-    }
-
-    private static void queryChaincodeForExpectedValue(HFClient client, Channel channel, final String expect, ChaincodeID chaincodeID) {
-
-        out("Now query chaincode on channel %s for the value of b expecting to see: %s", channel.getName(), expect);
-
-        String value = queryChaincodeForCurrentValue(client, channel, chaincodeID);
-        assertEquals(expect, value);
-    }
-
-    // Returns the current value of b's assets
-    private static String queryChaincodeForCurrentValue(HFClient client, Channel channel, ChaincodeID chaincodeID) {
-
-        out("Now query chaincode on channel %s for the current value of b", channel.getName());
-
-        QueryByChaincodeRequest queryByChaincodeRequest = client.newQueryProposalRequest();
-        queryByChaincodeRequest.setArgs("b");
-        queryByChaincodeRequest.setFcn("query");
-        queryByChaincodeRequest.setChaincodeID(chaincodeID);
-
-        Collection<ProposalResponse> queryProposals;
-
-        try {
-            queryProposals = channel.queryByChaincode(queryByChaincodeRequest);
-        } catch (Exception e) {
-            throw new CompletionException(e);
-        }
-
-        String expect = null;
-        for (ProposalResponse proposalResponse : queryProposals) {
-            if (!proposalResponse.isVerified() || proposalResponse.getStatus() != Status.SUCCESS) {
-                fail("Failed query proposal from peer " + proposalResponse.getPeer().getName() + " status: " + proposalResponse.getStatus() +
-                        ". Messages: " + proposalResponse.getMessage()
-                        + ". Was verified : " + proposalResponse.isVerified());
-            } else {
-                String payload = proposalResponse.getProposalResponse().getResponse().getPayload().toStringUtf8();
-                out("Query payload of b from peer %s returned %s", proposalResponse.getPeer().getName(), payload);
-                if (expect != null) {
-                    assertEquals(expect, payload);
-                } else {
-                    expect = payload;
+                catch (InvalidArgumentException e)
+                {
+                    throw new System.Exception(e.Message, e);
                 }
-            }
+            });
+
+            networkConfig.PeerNames.ForEach(peerName =>
+            {
+                try
+                {
+                    Properties peerProperties = networkConfig.GetPeerProperties(peerName);
+                    Properties testProp = testConfig.GetEndPointProperties("peer", peerName);
+                    peerProperties.Set("clientCertFile", testProp.Get("clientCertFile"));
+                    peerProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
+                    networkConfig.SetPeerProperties(peerName, peerProperties);
+                }
+                catch (InvalidArgumentException e)
+                {
+                    throw new System.Exception(e.Message, e);
+                }
+            });
+
+            networkConfig.EventHubNames.ForEach(eventhubName =>
+            {
+                try
+                {
+                    Properties eventHubsProperties = networkConfig.GetEventHubsProperties(eventhubName);
+                    Properties testProp = testConfig.GetEndPointProperties("peer", eventhubName);
+                    eventHubsProperties.Set("clientCertFile", testProp.Get("clientCertFile"));
+                    eventHubsProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
+                    networkConfig.SetEventHubProperties(eventhubName, eventHubsProperties);
+                }
+                catch (InvalidArgumentException e)
+                {
+                    throw new System.Exception(e.Message, e);
+                }
+            });
+
+            //Check if we get access to defined CAs!
+            NetworkConfig.OrgInfo org = networkConfig.GetOrganizationInfo("Org1");
+            NetworkConfig.CAInfo caInfo = org.CertificateAuthorities[0];
+
+            HFCAClient hfcaClient = HFCAClient.Create(caInfo);
+            Assert.AreEqual(hfcaClient.CAName, caInfo.CAName);
+            HFCAInfo info = hfcaClient.Info(); //makes actual REST call.
+            Assert.AreEqual(caInfo.CAName, info.CAName);
+
+            List<NetworkConfig.UserInfo> registrars = caInfo.Registrars;
+            Assert.IsTrue(registrars.Count > 0);
+            NetworkConfig.UserInfo registrar = registrars.First();
+            registrar.Enrollment = hfcaClient.Enroll(registrar.Name, registrar.EnrollSecret);
+            TestUtils.TestUtils.MockUser mockuser = TestUtils.TestUtils.GetMockUser(org.Name + "_mock_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), registrar.MspId);
+            RegistrationRequest rr = new RegistrationRequest(mockuser.Name, "org1.department1");
+            mockuser.EnrollmentSecret = hfcaClient.Register(rr, registrar);
+            mockuser.Enrollment = hfcaClient.Enroll(mockuser.Name, mockuser.EnrollmentSecret);
+            orgRegisteredUsers.Add(org.Name, mockuser);
+
+            org = networkConfig.GetOrganizationInfo("Org2");
+            caInfo = org.CertificateAuthorities[0];
+
+            hfcaClient = HFCAClient.Create(caInfo);
+            Assert.AreEqual(hfcaClient.CAName, caInfo.CAName);
+            info = hfcaClient.Info(); //makes actual REST call.
+            Assert.AreEqual(info.CAName, "");
+
+            registrars = caInfo.Registrars;
+            Assert.IsTrue(registrars.Count > 0);
+            registrar = registrars.First();
+            registrar.Enrollment = hfcaClient.Enroll(registrar.Name, registrar.EnrollSecret);
+            mockuser = TestUtils.TestUtils.GetMockUser(org.Name + "_mock_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), registrar.MspId);
+            rr = new RegistrationRequest(mockuser.Name, "org1.department1");
+            mockuser.EnrollmentSecret = hfcaClient.Register(rr, registrar);
+            mockuser.Enrollment = hfcaClient.Enroll(mockuser.Name, mockuser.EnrollmentSecret);
+            orgRegisteredUsers.Add(org.Name, mockuser);
+
+            DeployChaincodeIfRequired();
         }
-        return expect;
-    }
 
-    private static CompletableFuture<BlockEvent.TransactionEvent> moveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, String from, String to, String moveAmount, User user) throws Exception {
-
-        Collection<ProposalResponse> successful = new LinkedList<>();
-        Collection<ProposalResponse> failed = new LinkedList<>();
-
-        ///////////////
-        /// Send transaction proposal to all peers
-        TransactionProposalRequest transactionProposalRequest = client.newTransactionProposalRequest();
-        transactionProposalRequest.setChaincodeID(chaincodeID);
-        transactionProposalRequest.setFcn("move");
-        transactionProposalRequest.setArgs(from, to, moveAmount);
-        transactionProposalRequest.setProposalWaitTime(testConfig.getProposalWaitTime());
-        if (user != null) { // specific user use that
-            transactionProposalRequest.setUserContext(user);
-        }
-        out("sending transaction proposal to all peers with arguments: move(%s,%s,%s)", from, to, moveAmount);
-
-        Collection<ProposalResponse> invokePropResp = channel.sendTransactionProposal(transactionProposalRequest);
-        for (ProposalResponse response : invokePropResp) {
-            if (response.getStatus() == Status.SUCCESS) {
-                out("Successful transaction proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                successful.add(response);
-            } else {
-                failed.add(response);
-            }
-        }
-
-        // Check that all the proposals are consistent with each other. We should have only one set
-        // where all the proposals above are consistent.
-        Collection<Set<ProposalResponse>> proposalConsistencySets = SDKUtils.getProposalConsistencySets(invokePropResp);
-        if (proposalConsistencySets.size() != 1) {
-            fail(format("Expected only one set of consistent move proposal responses but got %d", proposalConsistencySets.size()));
-        }
-
-        out("Received %d transaction proposal responses. Successful+verified: %d . Failed: %d",
-                invokePropResp.size(), successful.size(), failed.size());
-        if (failed.size() > 0) {
-            ProposalResponse firstTransactionProposalResponse = failed.iterator().next();
-
-            throw new ProposalException(format("Not enough endorsers for invoke(move %s,%s,%s):%d endorser error:%s. Was verified:%b",
-                    from, to, moveAmount, firstTransactionProposalResponse.getStatus().getStatus(), firstTransactionProposalResponse.getMessage(), firstTransactionProposalResponse.isVerified()));
-        }
-        out("Successfully received transaction proposal responses.");
-
-        ////////////////////////////
-        // Send transaction to orderer
-        out("Sending chaincode transaction(move %s,%s,%s) to orderer.", from, to, moveAmount);
-        if (user != null) {
-            return channel.sendTransaction(successful, user);
-        }
-
-        return channel.sendTransaction(successful);
-    }
-
-    private static ChaincodeID deployChaincode(HFClient client, Channel channel, String ccName, String ccPath, String ccVersion) throws Exception {
-
-        out("deployChaincode - enter");
-        ChaincodeID chaincodeID = null;
-
-        try {
-
-            final String channelName = channel.getName();
-            out("deployChaincode - channelName = " + channelName);
-
-            Collection<Orderer> orderers = channel.getOrderers();
-            Collection<ProposalResponse> responses;
-            Collection<ProposalResponse> successful = new LinkedList<>();
-            Collection<ProposalResponse> failed = new LinkedList<>();
-
-            chaincodeID = ChaincodeID.newBuilder().setName(ccName)
-                    .setVersion(ccVersion)
-                    .setPath(ccPath).build();
-
+        // Determines whether or not the chaincode has been deployed and deploys it if necessary
+        private static void DeployChaincodeIfRequired()
+        {
             ////////////////////////////
-            // Install Proposal Request
-            //
-            out("Creating install proposal");
+            // Setup client
+            HFClient client = GetTheClient();
 
-            InstallProposalRequest installProposalRequest = client.newInstallProposalRequest();
-            installProposalRequest.setChaincodeID(chaincodeID);
+            Channel channel = ConstructChannel(client, FOO_CHANNEL_NAME);
 
-            ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-            installProposalRequest.setChaincodeSourceLocation(new File(TEST_FIXTURES_PATH + "/sdkintegration/gocc/sample1"));
+            // Use any old peer...
+            Peer peer = channel.GetPeers().First();
+            if (!CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
+            {
+                // The chaincode we require does not exist, so deploy it...
+                DeployChaincode(client, channel, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION);
+            }
+        }
 
-            installProposalRequest.setChaincodeVersion(ccVersion);
+        // Returns a new client instance
+        private static HFClient GetTheClient()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
 
-            out("Sending install proposal");
+            IUser peerAdmin = GetAdminUser(TEST_ORG);
+            client.UserContext = peerAdmin;
 
-            ////////////////////////////
-            // only a client from the same org as the peer can issue an install request
-            int numInstallProposal = 0;
+            return client;
+        }
 
-            Collection<Peer> peersFromOrg = channel.getPeers();
-            numInstallProposal = numInstallProposal + peersFromOrg.size();
-            responses = client.sendInstallProposal(installProposalRequest, peersFromOrg);
+        private static IUser GetAdminUser(string orgName)
+        {
+            return networkConfig.GetPeerAdmin(orgName);
+        }
 
-            for (ProposalResponse response : responses) {
-                if (response.getStatus() == ProposalResponse.Status.SUCCESS) {
-                    out("Successful install proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                    successful.add(response);
-                } else {
-                    failed.add(response);
+        [TestMethod]
+        public void TestUpdate1()
+        {
+            // Setup client and channel instances
+            HFClient client = GetTheClient();
+            Channel channel = ConstructChannel(client, FOO_CHANNEL_NAME);
+
+            ChaincodeID chaincodeID = new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION).SetPath(CHAIN_CODE_PATH);
+
+            string channelName = channel.Name;
+
+            Util.COut("Running testUpdate1 - Channel %s", channelName);
+
+            int moveAmount = 5;
+            string originalVal = QueryChaincodeForCurrentValue(client, channel, chaincodeID);
+            string newVal = "" + (int.Parse(originalVal) + moveAmount);
+
+            Util.COut("Original value = {0}", originalVal);
+
+            //user registered user
+            client.UserContext = orgRegisteredUsers.GetOrNull("Org1"); // only using org1
+
+            // Move some assets
+            TaskCompletionSource<BlockEvent.TransactionEvent> tsk = MoveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null);
+            tsk.Task.Wait(testConfig.GetTransactionWaitTime() * 1000);
+            bool erro = false;
+            if (tsk.Task.IsCompleted)
+            {
+                QueryChaincodeForExpectedValue(client, channel, newVal, chaincodeID);
+                TaskCompletionSource<BlockEvent.TransactionEvent> tsk2 = MoveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null);
+                tsk2.Task.Wait(testConfig.GetTransactionWaitTime() * 1000);
+                if (tsk2.Task.IsCompleted)
+                {
+                    QueryChaincodeForExpectedValue(client, channel, originalVal, chaincodeID);
+                }
+                else
+                {
+                    tsk = tsk2;
+                    erro = true;
+                }
+            }
+            else
+            {
+                erro = true;
+            }
+
+            if (erro)
+            {
+                if (tsk.Task.IsFaulted)
+                {
+                    if (tsk.Task.Exception.InnerException is TransactionEventException)
+                    {
+                        TransactionEventException t = (TransactionEventException) tsk.Task.Exception.InnerException;
+                        BlockEvent.TransactionEvent te = t.TransactionEvent;
+                        if (te != null)
+                            Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+                    }
+
+                    Assert.Fail($"Test failed with {tsk.Task.Exception.InnerException.GetType().Name} exception {tsk.Task.Exception.InnerException.Message}");
+                }
+                else if (tsk.Task.IsCanceled)
+                {
+                    Assert.Fail("Task Canceled");
                 }
             }
 
-            out("Received %d install proposal responses. Successful+verified: %d . Failed: %d", numInstallProposal, successful.size(), failed.size());
+            channel.Shutdown(true); // Force channel to shutdown clean up resources.
 
-            if (failed.size() > 0) {
-                ProposalResponse first = failed.iterator().next();
-                fail("Not enough endorsers for install :" + successful.size() + ".  " + first.getMessage());
+            Util.COut("testUpdate1 - done");
+        }
+
+        private static void QueryChaincodeForExpectedValue(HFClient client, Channel channel, string expect, ChaincodeID chaincodeID)
+        {
+            Util.COut("Now query chaincode on channel {0} for the value of b expecting to see: {1}", channel.Name, expect);
+
+            string value = QueryChaincodeForCurrentValue(client, channel, chaincodeID);
+            Assert.AreEqual(expect, value);
+        }
+
+        // Returns the current value of b's assets
+        private static string QueryChaincodeForCurrentValue(HFClient client, Channel channel, ChaincodeID chaincodeID)
+        {
+            Util.COut("Now query chaincode on channel {0} for the current value of {1}", channel.Name);
+
+            QueryByChaincodeRequest queryByChaincodeRequest = client.NewQueryProposalRequest();
+            queryByChaincodeRequest.SetArgs("b");
+            queryByChaincodeRequest.SetFcn("query");
+            queryByChaincodeRequest.SetChaincodeID(chaincodeID);
+
+            List<ProposalResponse> queryProposals;
+
+            queryProposals = channel.QueryByChaincode(queryByChaincodeRequest);
+            string expect = null;
+            foreach (ProposalResponse proposalResponse in queryProposals)
+            {
+                if (!proposalResponse.IsVerified || proposalResponse.Status != ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                {
+                    Assert.Fail($"Failed query proposal from peer {proposalResponse.Peer.Name} status: {proposalResponse.Status}. Messages: {proposalResponse.Message}. Was verified : {proposalResponse.IsVerified}");
+                }
+                else
+                {
+                    string payload = proposalResponse.ProtoProposalResponse.Response.Payload.ToStringUtf8();
+                    Util.COut("Query payload of b from peer {0} returned {1}", proposalResponse.Peer.Name, payload);
+                    if (expect != null)
+                    {
+                        Assert.AreEqual(expect, payload);
+                    }
+                    else
+                    {
+                        expect = payload;
+                    }
+                }
             }
+
+            return expect;
+        }
+
+        private static TaskCompletionSource<BlockEvent.TransactionEvent> MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
+        {
+            List<ProposalResponse> successful = new List<ProposalResponse>();
+            List<ProposalResponse> failed = new List<ProposalResponse>();
 
             ///////////////
-            //// Instantiate chaincode.
-            //
-            // From the docs:
-            // The instantiate transaction invokes the lifecycle System Chaincode (LSCC) to create and initialize a chaincode on a channel
-            // After being successfully instantiated, the chaincode enters the active state on the channel and is ready to process any transaction proposals of type ENDORSER_TRANSACTION
+            /// Send transaction proposal to all peers
+            TransactionProposalRequest transactionProposalRequest = client.NewTransactionProposalRequest();
+            transactionProposalRequest.SetChaincodeID(chaincodeID);
+            transactionProposalRequest.SetFcn("move");
+            transactionProposalRequest.SetArgs(from, to, moveAmount);
+            transactionProposalRequest.SetProposalWaitTime(testConfig.GetProposalWaitTime());
+            if (user != null)
+            {
+                // specific user use that
+                transactionProposalRequest.SetUserContext(user);
+            }
 
-            InstantiateProposalRequest instantiateProposalRequest = client.newInstantiationProposalRequest();
-            instantiateProposalRequest.setProposalWaitTime(testConfig.getProposalWaitTime());
-            instantiateProposalRequest.setChaincodeID(chaincodeID);
-            instantiateProposalRequest.setFcn("init");
-            instantiateProposalRequest.setArgs("a", "500", "b", "999");
+            Util.COut("sending transaction proposal to all peers with arguments: move(%s,%s,%s)", from, to, moveAmount);
 
-            Map<String, byte[]> tm = new HashMap<>();
-            tm.put("HyperLedgerFabric", "InstantiateProposalRequest:JavaSDK".getBytes(UTF_8));
-            tm.put("method", "InstantiateProposalRequest".getBytes(UTF_8));
-            instantiateProposalRequest.setTransientMap(tm);
-
-            /*
-              policy OR(Org1MSP.member, Org2MSP.member) meaning 1 signature from someone in either Org1 or Org2
-              See README.md Chaincode endorsement policies section for more details.
-            */
-            ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-            chaincodeEndorsementPolicy.fromYamlFile(new File(TEST_FIXTURES_PATH + "/sdkintegration/chaincodeendorsementpolicy.yaml"));
-            instantiateProposalRequest.setChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
-
-            out("Sending instantiateProposalRequest to all peers...");
-            successful.clear();
-            failed.clear();
-
-            responses = channel.sendInstantiationProposal(instantiateProposalRequest);
-
-            for (ProposalResponse response : responses) {
-                if (response.isVerified() && response.getStatus() == ProposalResponse.Status.SUCCESS) {
-                    successful.add(response);
-                    out("Succesful instantiate proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                } else {
-                    failed.add(response);
+            List<ProposalResponse> invokePropResp = channel.SendTransactionProposal(transactionProposalRequest);
+            foreach (ProposalResponse response in invokePropResp)
+            {
+                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                {
+                    Util.COut("Successful transaction proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                    successful.Add(response);
+                }
+                else
+                {
+                    failed.Add(response);
                 }
             }
-            out("Received %d instantiate proposal responses. Successful+verified: %d . Failed: %d", responses.size(), successful.size(), failed.size());
-            if (failed.size() > 0) {
-                ProposalResponse first = failed.iterator().next();
-                fail("Not enough endorsers for instantiate :" + successful.size() + "endorser failed with " + first.getMessage() + ". Was verified:" + first.isVerified());
+
+            // Check that all the proposals are consistent with each other. We should have only one set
+            // where all the proposals above are consistent.
+            List<HashSet<ProposalResponse>> proposalConsistencySets = SDKUtils.GetProposalConsistencySets(invokePropResp);
+            if (proposalConsistencySets.Count != 1)
+            {
+                Assert.Fail($"Expected only one set of consistent move proposal responses but got {proposalConsistencySets.Count}");
             }
 
-            ///////////////
-            /// Send instantiate transaction to orderer
-            out("Sending instantiateTransaction to orderer...");
-            CompletableFuture<TransactionEvent> future = channel.sendTransaction(successful, orderers);
+            Util.COut("Received {0} transaction proposal responses. Successful+verified: {1} . Failed: {2}", invokePropResp.Count, successful.Count, failed.Count);
+            if (failed.Count > 0)
+            {
+                ProposalResponse firstTransactionProposalResponse = failed.First();
 
-            out("calling get...");
-            TransactionEvent event = future.get(30, TimeUnit.SECONDS);
-            out("get done...");
-
-            assertTrue(event.isValid()); // must be valid to be here.
-            out("Finished instantiate transaction with transaction id %s", event.getTransactionID());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            out("Caught an exception running channel %s", channel.getName());
-            fail("Test failed with error : " + e.getMessage());
-        }
-
-        return chaincodeID;
-    }
-
-    private static Channel constructChannel(HFClient client, String channelName) throws Exception {
-
-        //Channel newChannel = client.getChannel(channelName);
-        Channel newChannel = client.loadChannelFromConfig(channelName, networkConfig);
-        if (newChannel == null) {
-            throw new RuntimeException("Channel " + channelName + " is not defined in the config file!");
-        }
-
-        return newChannel.initialize();
-    }
-
-    // Determines if the specified chaincode has been instantiated on the channel
-    private static boolean checkInstantiatedChaincode(Channel channel, Peer peer, String ccName, String ccPath, String ccVersion) throws InvalidArgumentException, ProposalException {
-        out("Checking instantiated chaincode: %s, at version: %s, on peer: %s", ccName, ccVersion, peer.getName());
-        List<ChaincodeInfo> ccinfoList = channel.queryInstantiatedChaincodes(peer);
-
-        boolean found = false;
-
-        for (ChaincodeInfo ccifo : ccinfoList) {
-            found = ccName.equals(ccifo.getName()) && ccPath.equals(ccifo.getPath()) && ccVersion.equals(ccifo.getVersion());
-            if (found) {
-                break;
+                throw new ProposalException($"Not enough endorsers for invoke(move {from},{to},{moveAmount}):{firstTransactionProposalResponse.Status} endorser error:{firstTransactionProposalResponse.Message}. Was verified:{firstTransactionProposalResponse.IsVerified}");
             }
 
+            Util.COut("Successfully received transaction proposal responses.");
+
+            ////////////////////////////
+            // Send transaction to orderer
+            Util.COut("Sending chaincode transaction(move %s,%s,%s) to orderer.", from, to, moveAmount);
+            if (user != null)
+            {
+                return channel.SendTransaction(successful, user);
+            }
+
+            return channel.SendTransaction(successful);
         }
 
-        return found;
+        private static ChaincodeID DeployChaincode(HFClient client, Channel channel, string ccName, string ccPath, string ccVersion)
+        {
+            Util.COut("deployChaincode - enter");
+            ChaincodeID chaincodeID = null;
+
+            try
+            {
+                string channelName = channel.Name;
+                Util.COut("deployChaincode - channelName = " + channelName);
+
+                IReadOnlyList<Orderer> orderers = channel.Orderers;
+                List<ProposalResponse> responses;
+                List<ProposalResponse> successful = new List<ProposalResponse>();
+                List<ProposalResponse> failed = new List<ProposalResponse>();
+
+                chaincodeID = new ChaincodeID().SetName(ccName).SetVersion(ccVersion).SetPath(ccPath);
+
+                ////////////////////////////
+                // Install Proposal Request
+                //
+                Util.COut("Creating install proposal");
+
+                InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
+                installProposalRequest.SetChaincodeID(chaincodeID);
+
+                ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
+                installProposalRequest.SetChaincodeSourceLocation(new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/gocc/sample1"))));
+
+                installProposalRequest.SetChaincodeVersion(ccVersion);
+
+                Util.COut("Sending install proposal");
+
+                ////////////////////////////
+                // only a client from the same org as the peer can issue an install request
+                int numInstallProposal = 0;
+
+                List<Peer> peersFromOrg = channel.GetPeers();
+                numInstallProposal = numInstallProposal + peersFromOrg.Count;
+                responses = client.SendInstallProposal(installProposalRequest, peersFromOrg);
+
+                foreach (ProposalResponse response in responses)
+                {
+                    if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                    {
+                        Util.COut("Successful install proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                        successful.Add(response);
+                    }
+                    else
+                    {
+                        failed.Add(response);
+                    }
+                }
+
+                Util.COut("Received {0} install proposal responses. Successful+verified: {1} . Failed: {2}", numInstallProposal, successful.Count, failed.Count);
+
+                if (failed.Count > 0)
+                {
+                    ProposalResponse first = failed.First();
+                    Assert.Fail($"Not enough endorsers for install : {successful.Count}.  {first.Message}");
+                }
+
+                ///////////////
+                //// Instantiate chaincode.
+                //
+                // From the docs:
+                // The instantiate transaction invokes the lifecycle System Chaincode (LSCC) to create and initialize a chaincode on a channel
+                // After being successfully instantiated, the chaincode enters the active state on the channel and is ready to process any transaction proposals of type ENDORSER_TRANSACTION
+
+                InstantiateProposalRequest instantiateProposalRequest = client.NewInstantiationProposalRequest();
+                instantiateProposalRequest.SetProposalWaitTime(testConfig.GetProposalWaitTime());
+                instantiateProposalRequest.SetChaincodeID(chaincodeID);
+                instantiateProposalRequest.SetFcn("init");
+                instantiateProposalRequest.SetArgs("a", "500", "b", "999");
+
+                Dictionary<string, byte[]> tm = new Dictionary<string, byte[]>();
+                tm.Add("HyperLedgerFabric", "InstantiateProposalRequest:JavaSDK".ToBytes());
+                tm.Add("method", "InstantiateProposalRequest".ToBytes());
+                instantiateProposalRequest.SetTransientMap(tm);
+
+                /*
+                  policy OR(Org1MSP.member, Org2MSP.member) meaning 1 signature from someone in either Org1 or Org2
+                  See README.md Chaincode endorsement policies section for more details.
+                */
+                ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
+                chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
+                instantiateProposalRequest.SetChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
+
+                Util.COut("Sending instantiateProposalRequest to all peers...");
+                successful.Clear();
+                failed.Clear();
+
+                responses = channel.SendInstantiationProposal(instantiateProposalRequest);
+
+                foreach (ProposalResponse response in responses)
+                {
+                    if (response.IsVerified && response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                    {
+                        successful.Add(response);
+                        Util.COut("Succesful instantiate proposal response Txid:{0} from peer {1}", response.TransactionID, response.Peer.Name);
+                    }
+                    else
+                    {
+                        failed.Add(response);
+                    }
+                }
+
+                Util.COut("Received {0} instantiate proposal responses. Successful+verified: {1} . Failed: {2}", responses.Count, successful.Count, failed.Count);
+                if (failed.Count > 0)
+                {
+                    ProposalResponse first = failed.First();
+                    Assert.Fail($"Not enough endorsers for instantiate :{successful.Count} endorser failed with {first.Message}. Was verified:{first.IsVerified}");
+                }
+
+                ///////////////
+                /// Send instantiate transaction to orderer
+                Util.COut("Sending instantiateTransaction to orderer...");
+                TaskCompletionSource<BlockEvent.TransactionEvent> future = channel.SendTransaction(successful, orderers);
+                future.Task.Wait(30 * 1000);
+                if (future.Task.IsCanceled || future.Task.IsCanceled)
+                    throw new TimeoutException("Timeout waiting for transaction");
+                Util.COut("calling get...");
+                BlockEvent.TransactionEvent evnt = future.Task.Result;
+                Util.COut("get done...");
+
+                Assert.IsTrue(evnt.IsValid); // must be valid to be here.
+                Util.COut("Finished instantiate transaction with transaction id {0}", evnt.TransactionID);
+            }
+            catch (System.Exception e)
+            {
+                Util.COut("Caught an exception running channel {0}", channel.Name);
+                Assert.Fail("Test failed with error : {e.Message}");
+            }
+
+            return chaincodeID;
+        }
+
+        private static Channel ConstructChannel(HFClient client, string channelName)
+        {
+            //Channel newChannel = client.GetChannel(channelName);
+            Channel newChannel = client.LoadChannelFromConfig(channelName, networkConfig);
+            if (newChannel == null)
+            {
+                throw new System.Exception("Channel " + channelName + " is not defined in the config file!");
+            }
+
+            return newChannel.Initialize();
+        }
+
+        // Determines if the specified chaincode has been instantiated on the channel
+        private static bool CheckInstantiatedChaincode(Channel channel, Peer peer, string ccName, string ccPath, string ccVersion)
+        {
+            Util.COut("Checking instantiated chaincode: {0}, at version: {1}, on peer: {2}", ccName, ccVersion, peer.Name);
+            List<ChaincodeInfo> ccinfoList = channel.QueryInstantiatedChaincodes(peer);
+
+            bool found = false;
+
+            foreach (ChaincodeInfo ccifo in ccinfoList)
+            {
+                found = ccName.Equals(ccifo.Name) && ccPath.Equals(ccifo.Path) && ccVersion.Equals(ccifo.Version);
+                if (found)
+                {
+                    break;
+                }
+            }
+
+            return found;
+        }
     }
-
-    private static void out(String format, Object... args) {
-
-        System.err.flush();
-        System.out.flush();
-
-        System.out.println(format(format, args));
-        System.err.flush();
-        System.out.flush();
-
-    }
-
 }

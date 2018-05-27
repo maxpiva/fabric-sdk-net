@@ -138,6 +138,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
+using Hyperledger.Fabric_CA.SDK.Requests;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.X509;
@@ -307,7 +308,7 @@ namespace Hyperledger.Fabric_CA.SDK
          *
          * @return statusCode
          */
-        public int StatusCode { get; } = 400;
+        public int StatusCode { get; internal set;  } = 400;
 
         public ICryptoSuite CryptoSuite { get; set; }
 
@@ -367,7 +368,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 throw new InvalidArgumentException("The cryptoSuite parameter can not be null.");
             }
 
-            HFCAClient ret = new HFCAClient(caInfo.CaName, caInfo.Url, caInfo.Properties);
+            HFCAClient ret = new HFCAClient(caInfo.CAName, caInfo.Url, caInfo.Properties);
             ret.CryptoSuite = cryptoSuite;
             return ret;
         }
@@ -1170,7 +1171,7 @@ namespace Hyperledger.Fabric_CA.SDK
             }
         }
 
-        private void SetUpSSL()
+        internal void SetUpSSL()
         {
             if (cryptoPrimitives == null)
             {
@@ -1263,7 +1264,7 @@ namespace Hyperledger.Fabric_CA.SDK
          * @return Body of post returned.
          * @throws Exception
          */
-        public string HttpPost(string url, string body, NetworkCredential credentials)
+        public virtual string HttpPost(string url, string body, NetworkCredential credentials)
         {
             logger.Debug($"httpPost {url}, body:{body}");
             HttpClientHandler handler = new HttpClientHandler();
@@ -1292,7 +1293,7 @@ namespace Hyperledger.Fabric_CA.SDK
             }
         }
 
-        public JObject HttpPost(string url, string body, IUser registrar)
+        public virtual JObject HttpPost(string url, string body, IUser registrar)
         {
             return HttpVerb(url, "POST", body, registrar);
         }

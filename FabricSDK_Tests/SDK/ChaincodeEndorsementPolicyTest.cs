@@ -130,12 +130,12 @@ namespace Hyperledger.Fabric.Tests.SDK
 //    /**
 //     * Test method for {@link org.hyperledger.fabric.sdk.ChaincodeEndorsementPolicy#fromBytes(byte[])}.
 //     */
-//    @Test
-//    public void testSetPolicy() {
+//    [TestMethod]
+//    public void TestSetPolicy() {
 //        byte[] testInput = "this is a test".getBytes(UTF_8);
 //        ChaincodeEndorsementPolicy fakePolicy = new ChaincodeEndorsementPolicy() ;
 //        fakePolicy.fromBytes(testInput);
-//        assertEquals(fakePolicy.getChaincodeEndorsementPolicyAsBytes(), testInput);
+//        Assert.AreEqual(fakePolicy.getChaincodeEndorsementPolicyAsBytes(), testInput);
 //    }
     }
 }

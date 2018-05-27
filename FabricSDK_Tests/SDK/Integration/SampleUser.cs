@@ -48,7 +48,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             keyValStore = fs;
             Organization = org;
-            KeyValStoreName = toKeyValStoreName(Name, org);
+            KeyValStoreName = ToKeyValStoreName(Name, org);
             string memberStr = keyValStore.GetValue(KeyValStoreName);
             if (null == memberStr)
             {
@@ -137,7 +137,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         public static bool IsStored(string name, string org, SampleStore fs)
         {
-            return fs.HasValue(toKeyValStoreName(name, org));
+            return fs.HasValue(ToKeyValStoreName(name, org));
         }
 
 
@@ -150,20 +150,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             @code false
         }.*/
 
-        public bool IsRegistered()
-        {
-            return !string.IsNullOrEmpty(EnrollmentSecret);
-        }
+        public bool IsRegistered => !string.IsNullOrEmpty(EnrollmentSecret);
 
         /**
          * Determine if this name has been enrolled.
          *
          * @return {@code true} if enrolled; otherwise {@code false}.
          */
-        public bool IsEnrolled()
-        {
-            return enrollment != null;
-        }
+        public bool IsEnrolled => enrollment != null;
 
         public void SaveState()
         {
@@ -202,7 +196,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
 
-        public static string toKeyValStoreName(string name, string org)
+        public static string ToKeyValStoreName(string name, string org)
         {
             return "user." + name + org;
         }

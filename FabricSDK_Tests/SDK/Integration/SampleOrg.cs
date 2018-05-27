@@ -29,59 +29,38 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
     public class SampleOrg
     {
         private readonly Dictionary<string, string> eventHubLocations = new Dictionary<string, string>();
-        private readonly string mspid;
-        private readonly string name;
         private readonly Dictionary<string, string> ordererLocations = new Dictionary<string, string>();
         private readonly Dictionary<string, string> peerLocations = new Dictionary<string, string>();
 
         private readonly Dictionary<string, IUser> userMap = new Dictionary<string, IUser>();
-        private SampleUser admin;
-        private HFCAClient caClient;
-        private string caLocation;
-
-        private string caName;
-        private Properties caProperties = null;
-
-
-        private string domainName;
-
-        private SampleUser peerAdmin;
 
         public SampleOrg(string name, string mspid)
         {
-            this.name = name;
-            this.mspid = mspid;
+            Name = name;
+            MSPID = mspid;
         }
 
-        public string getCAName()
-        {
-            return caName;
-        }
+        public string CAName { get; set; }
 
-        public SampleUser GetAdmin()
-        {
-            return admin;
-        }
+        public SampleUser Admin { get; set; }
 
-        public void SetAdmin(SampleUser admin)
-        {
-            this.admin = admin;
-        }
+        public string MSPID { get; }
 
-        public string GetMSPID()
-        {
-            return mspid;
-        }
+        public string CALocation { get; set; }
 
-        public string GetCALocation()
-        {
-            return caLocation;
-        }
+        public HFCAClient CAClient { get; set; }
 
-        public void SetCALocation(string caLocation)
-        {
-            this.caLocation = caLocation;
-        }
+        public string Name { get; }
+
+        public IReadOnlyList<string> OrdererLocations => ordererLocations.Values.ToList();
+
+        public IReadOnlyList<string> EventHubLocations => eventHubLocations.Values.ToList();
+
+        public Properties CAProperties { get; set; } = null;
+
+        public SampleUser PeerAdmin { get; set; }
+
+        public string DomainName { get; set; }
 
         public void AddPeerLocation(string name, string location)
         {
@@ -129,21 +108,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return eventHubLocations.Keys.ToList();
         }
 
-        public HFCAClient GetCAClient()
-        {
-            return caClient;
-        }
-
-        public void SetCAClient(HFCAClient caClient)
-        {
-            this.caClient = caClient;
-        }
-
-        public string GetName()
-        {
-            return name;
-        }
-
         public void AddUser(SampleUser user)
         {
             userMap.Add(user.Name, user);
@@ -152,53 +116,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         public IUser GetUser(string name)
         {
             return userMap.GetOrNull(name);
-        }
-
-        public IReadOnlyList<string> getOrdererLocations()
-        {
-            return ordererLocations.Values.ToList();
-        }
-
-        public IReadOnlyList<string> getEventHubLocations()
-        {
-            return eventHubLocations.Values.ToList();
-        }
-
-
-        public void SetCAProperties(Properties caProperties)
-        {
-            this.caProperties = caProperties;
-        }
-
-        public Properties GetCAProperties()
-        {
-            return caProperties;
-        }
-
-
-        public SampleUser GetPeerAdmin()
-        {
-            return peerAdmin;
-        }
-
-        public void SetPeerAdmin(SampleUser peerAdmin)
-        {
-            this.peerAdmin = peerAdmin;
-        }
-
-        public void SetDomainName(string domainName)
-        {
-            this.domainName = domainName;
-        }
-
-        public string GetDomainName()
-        {
-            return domainName;
-        }
-
-        public void SetCAName(string caName)
-        {
-            this.caName = caName;
         }
     }
 }

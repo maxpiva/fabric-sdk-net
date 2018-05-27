@@ -127,7 +127,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 BlockEvent be = new BlockEvent(eventHub, goodEventBlock);
                 Assert.AreEqual(be.ChannelId, "TESTCHANNEL");
                 CollectionAssert.AreEqual(be.Block.ToByteArray(), block.ToByteArray());
-                List<BlockEvent.TransactionEvent> txList = be.GetTransactionEventsList.ToList();
+                List<BlockEvent.TransactionEvent> txList = be.TransactionEvents.ToList();
                 Assert.AreEqual(txList.Count, 3);
                 BlockEvent.TransactionEvent te = txList[1];
                 Assert.IsFalse(te.IsValid);

@@ -58,7 +58,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         private static readonly string PROPOSALWAITTIME = PROPBASE + "ProposalWaitTime";
 
         private static readonly string INTEGRATIONTESTS_ORG = PROPBASE + "integrationTests.org.";
-        private static readonly Regex orgPat = new Regex("^\"" + INTEGRATIONTESTS_ORG + "\"([^\\.]+)\\.mspid$", RegexOptions.Compiled);
+        private static readonly Regex orgPat = new Regex("^" + Regex.Escape(INTEGRATIONTESTS_ORG) + "([^\\.]+)\\.mspid$", RegexOptions.Compiled);
 
         private static readonly string INTEGRATIONTESTSTLS = PROPBASE + "integrationtests.tls";
 
@@ -150,7 +150,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
                     string domainName = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".domname");
 
-                    sampleOrg.SetDomainName(domainName);
+                    sampleOrg.DomainName = domainName;
 
                     string ordererNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".orderer_locations");
                     ps = new Regex("[ \t]*,[ \t]*").Split(ordererNames);
@@ -168,9 +168,9 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                         sampleOrg.AddEventHubLocation(nl[0], GrpcTLSify(nl[1]));
                     }
 
-                    sampleOrg.SetCALocation(HttpTLSify(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".ca_location")));
+                    sampleOrg.CALocation = HttpTLSify(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".ca_location"));
 
-                    sampleOrg.SetCAName(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".caName"));
+                    sampleOrg.CAName = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".caName");
 
                     if (runningFabricCATLS)
                     {
@@ -187,7 +187,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
                         properties.Set("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
 
-                        sampleOrg.SetCAProperties(properties);
+                        sampleOrg.CAProperties = properties;
                     }
                 }
             }

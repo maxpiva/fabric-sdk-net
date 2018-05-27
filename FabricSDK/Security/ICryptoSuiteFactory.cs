@@ -78,7 +78,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @throws InvocationTargetException
          */
          /*
-        static CryptoSuiteFactory getDefault() throws ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+        static CryptoSuiteFactory getDefault() {
 
             return HLSDKJCryptoSuiteFactory.getDefault();
 

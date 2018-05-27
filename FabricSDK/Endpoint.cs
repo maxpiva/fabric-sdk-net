@@ -350,7 +350,7 @@ namespace Hyperledger.Fabric.SDK
         .put(Boolean.class, boolean.class).put(Byte.class, byte.class).put(Character.class, char.class).put(Double.class, double.class).put(Float.class, float.class).put(Integer.class, int.class).put(Long.class, long.class).put(Short.class, short.class).put(Void.class, void.class).build();
 
         private void addNettyBuilderProps(NettyChannelBuilder channelBuilder, Properties props)
-        throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        {
 
             if (props == null)
             {

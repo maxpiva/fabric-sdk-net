@@ -16,7 +16,7 @@
 
 using System;
 using Google.Protobuf.WellKnownTypes;
-using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.SDK.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Transaction

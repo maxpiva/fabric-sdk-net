@@ -11,31 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.common.Common.Block;
-import org.hyperledger.fabric.protos.ledger.rwset.Rwset.TxReadWriteSet;
-import org.hyperledger.fabric.protos.msp.Identities;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeInput;
-import org.hyperledger.fabric.protos.peer.FabricTransaction;
-import org.hyperledger.fabric.protos.peer.PeerEvents;
-import org.hyperledger.fabric.protos.peer.PeerEvents.FilteredTransaction;
-import org.hyperledger.fabric.sdk.exception.InvalidProtocolBufferRuntimeException;
-import org.hyperledger.fabric.sdk.transaction.ProtoUtils;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.protos.peer.FabricProposalResponse.Endorsement;
-import static org.hyperledger.fabric.sdk.BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE;
-*/
 
 using System;
 using System.Collections.Generic;
@@ -46,23 +21,25 @@ using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
+using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 
 
+
 namespace Hyperledger.Fabric.SDK
 {
-    public enum EnvelopeType
-    {
-        TRANSACTION_ENVELOPE,
-        ENVELOPE
-    }
-
     /**
      * BlockInfo contains the data from a {@link Block}
      */
     public class BlockInfo
     {
+        public enum EnvelopeType
+        {
+            TRANSACTION_ENVELOPE,
+            ENVELOPE
+        }
+
         private readonly BlockDeserializer block; //can be only one or the other.
         private readonly FilteredBlock filteredBlock;
 
@@ -314,6 +291,7 @@ namespace Hyperledger.Fabric.SDK
             public bool IsFiltered => filteredTx != null;
 
             public FilteredTransaction FilteredTX => filteredTx;
+
             /**
              * Get channel id
              *
@@ -460,19 +438,19 @@ namespace Hyperledger.Fabric.SDK
 
             public int TransactionActionInfoCount => parent.IsFiltered ? filteredTx.TransactionActions.ChaincodeActions.Count : transactionDeserializer.Payload.Transaction.ActionsCount;
 
+            public IEnumerable<TransactionActionInfo> TransactionActionInfos => new EnumerableBuilder<TransactionActionInfo>(() => TransactionActionInfoCount, GetTransactionActionInfo);
+
             public TransactionActionInfo GetTransactionActionInfo(int index)
             {
                 return parent.IsFiltered ? new TransactionActionInfo(parent, filteredTx.TransactionActions.ChaincodeActions[index]) : new TransactionActionInfo(parent, transactionDeserializer.Payload.Transaction.GetTransactionAction(index));
             }
 
-            public IEnumerable<TransactionActionInfo> TransactionActionInfos => new EnumerableBuilder<TransactionActionInfo>(() => TransactionActionInfoCount, GetTransactionActionInfo);
-
             public class TransactionActionInfo
             {
                 private readonly FilteredChaincodeAction filteredAction;
-                private readonly TransactionActionDeserializer transactionAction;
                 private readonly WeakDictionary<int, EndorserInfo> infos;
                 private readonly BlockInfo parent;
+                private readonly TransactionActionDeserializer transactionAction;
 
                 public TransactionActionInfo(BlockInfo parent, TransactionActionDeserializer transactionAction)
                 {

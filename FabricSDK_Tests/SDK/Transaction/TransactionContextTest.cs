@@ -16,8 +16,8 @@ using System;
 using System.IO;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Security;
-using Hyperledger.Fabric.SDK.Transaction;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Transaction

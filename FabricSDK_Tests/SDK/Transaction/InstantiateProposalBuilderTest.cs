@@ -12,8 +12,8 @@
  *  limitations under the License.
  */
 
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
-using Hyperledger.Fabric.SDK.Transaction;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -43,7 +43,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode type is required")]
 
-        public void testInvalidType()
+        public void TestInvalidType()
         {
 
 

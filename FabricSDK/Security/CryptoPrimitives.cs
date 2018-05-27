@@ -43,7 +43,7 @@ using Org.BouncyCastle.Utilities.IO.Pem;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
 using HashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
-[assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
+
 namespace Hyperledger.Fabric.SDK.Security
 {
 
@@ -84,7 +84,7 @@ namespace Hyperledger.Fabric.SDK.Security
             // Security.insertProviderAt(SECURITY_PROVIDER, 1); // 1 is top not 0 :)
         }
         /*
-        public Provider setUpExplicitProvider(String securityProviderClassName) throws InstantiationException, ClassNotFoundException, IllegalAccessException {
+        public Provider setUpExplicitProvider(String securityProviderClassName) {
             if (null == securityProviderClassName)
             {
                 throw new InstantiationException(format("Security provider class name property (%s) set to null  ", Config.SECURITY_PROVIDER_CLASS_NAME));
@@ -810,7 +810,7 @@ namespace Hyperledger.Fabric.SDK.Security
         }
 
         /**
-         * @throws ClassCastException if the supplied private key is not of type {@link ECPrivateKey}.
+         * @{@link ECPrivateKey}.
          */
 
         public byte[] Sign(AsymmetricAlgorithm privateKey, byte[] data)

@@ -765,6 +765,7 @@ namespace Hyperledger.Fabric.SDK
             }
 
             Properties props = ExtractProperties(jsonNode, "grpcOptions");
+            ReplaceNettyOptions(props);
 
             // Extract the pem details
             GetTLSCerts(nodeName, jsonNode, props);
@@ -772,6 +773,33 @@ namespace Hyperledger.Fabric.SDK
             return new Node(nodeName, url, props);
         }
 
+        public static void ReplaceNettyOptions(Properties props)
+        {
+            if (null != props)
+            {
+                String value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTime");
+                if (null != value)
+                {
+                    props.Remove("grpc.NettyChannelBuilderOption.keepAliveTime");
+                    props.Set("grpc.keepalive_time_ms", value);
+                }
+
+                value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTimeout");
+                if (null != value)
+                {
+                    props.Remove("grpc.NettyChannelBuilderOption.keepAliveTimeout");
+                    props.Set("grpc.keepalive_timeout_ms", value);
+                }
+                value = props.Get("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
+                if (null != value)
+                {
+                    props.Remove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
+                    props.Set("grpc.max_receive_message_length", value);
+                }
+
+            }
+
+        }
         private void GetTLSCerts(string nodeName, JToken jsonOrderer,Properties props)
         {
             JToken jsonTlsCaCerts = jsonOrderer["tlsCACerts"];

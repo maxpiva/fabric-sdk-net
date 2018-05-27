@@ -25,6 +25,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Hyperledger.Fabric.Tests.SDK
 {
     [TestClass]
+    [TestCategory("SDK")]
     public class ChaincodeEndorsementPolicyTest
     {
         /**

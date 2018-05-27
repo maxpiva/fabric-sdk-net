@@ -104,15 +104,15 @@ namespace Hyperledger.Fabric.SDK
         {
 
             this.channelBuilder = endpoint;
-            this.filterBlock = peerOptions.IsRegisterEventsForFilteredBlocks();
+            this.filterBlock = peerOptions.IsRegisterEventsForFilteredBlocks;
             this.peer = peer;
             name = peer.Name;
             url = peer.Url;
-            channelName = peer.GetChannel().Name;
+            channelName = peer.Channel.Name;
             this.peerOptions = peerOptions;
             clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
 
-            this.channelEventQue = peer.GetChannel().GetChannelEventQue();
+            this.channelEventQue = peer.Channel.ChannelEventQueue;
 
             if (null == properties) {
 
@@ -224,7 +224,7 @@ namespace Hyperledger.Fabric.SDK
                                         if (resp.Status == Status.Success)
                                         {
                                             // unlike you may think this only happens when all blocks are fetched.
-                                            peer.SetLastConnectTime(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                                            peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                             peer.ResetReconnectCount();
                                         }
                                         else
@@ -244,8 +244,8 @@ namespace Hyperledger.Fabric.SDK
                                             logger.Trace($"Channel {channelName} peer {peer.Name} got event block hex hashcode: {resp.FilteredBlock.GetHashCode():X8}, block number: {resp.FilteredBlock.Number}");
                                         }
 
-                                        peer.SetLastConnectTime(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                                        long reconnectCount = peer.GetReconnectCount();
+                                        peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                        long reconnectCount = peer.ReconnectCount;
                                         if (reconnectCount > 1)
                                         {
 
@@ -283,7 +283,7 @@ namespace Hyperledger.Fabric.SDK
 
                             if (!shutdown)
                             {
-                                long reconnectCount = peer.GetReconnectCount();
+                                long reconnectCount = peer.ReconnectCount;
                                 if (PEER_EVENT_RECONNECTION_WARNING_RATE > 1 && reconnectCount % PEER_EVENT_RECONNECTION_WARNING_RATE == 1)
                                 {
                                     logger.Warn($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");

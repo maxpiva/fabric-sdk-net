@@ -51,269 +51,242 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Hyperledger.Fabric.SDK.NetExtensions;
-using Org.BouncyCastle.Asn1.Pkcs;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.Utilities.Encoders;
+using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
     /**
  * A local file-based key value store.
  */
-    public class SampleStore {
-
-    private string file;
-        private ILog logger = LogProvider.GetLogger(typeof(SampleStore));
-        
-    public SampleStore(FileInfo file)
+    public class SampleStore
     {
+        private readonly string file;
+        private readonly ILog logger = LogProvider.GetLogger(typeof(SampleStore));
 
-        this.file = file.FullName;
-    }
+        private readonly Dictionary<string, SampleUser> members = new Dictionary<string, SampleUser>();
 
-    /**
-     * Get the value associated with name.
-     *
-     * @param name
-     * @return value associated with the name
-     */
-    public string GetValue(string name) {
-        Dictionary<string, string> properties = loadProperties();
-        return properties.GetOrNull(name);
-    }
-
-    /**
-     * Has the value present.
-     *
-     * @param name
-     * @return true if it's present.
-     */
-    public bool HasValue(string name) {
-        Dictionary<string, string> properties = loadProperties();
-        return properties.ContainsKey(name);
-    }
-
-        private Dictionary<string, string> loadProperties()
+        public SampleStore(FileInfo file)
         {
-            Dictionary<string, string> properties = new Dictionary<string, string>();
-        try (InputStream input = new FileInputStream(file)) {
-            properties.load(input);
-            input.close();
-        } catch (FileNotFoundException e) {
-            logger.warn(String.format("Could not find the file \"%s\"", file));
-        } catch (System.IO.IOException e) {
-            logger.warn(String.format("Could not load keyvalue store from file \"%s\", reason:%s",
-                    file, e.getMessage()));
+            this.file = file.FullName;
         }
 
-        return properties;
-    }
-
-    /**
-     * Set the value associated with name.
-     *
-     * @param name  The name of the parameter
-     * @param value Value for the parameter
-     */
-    public void setValue(String name, String value) {
-        Properties properties = loadProperties();
-        try (
-                OutputStream output = new FileOutputStream(file)
-        ) {
-            properties.setProperty(name, value);
-            properties.store(output, "");
-            output.close();
-
-        } catch (System.IO.IOException e) {
-            logger.warn(String.format("Could not save the keyvalue store, reason:%s", e.getMessage()));
-        }
-    }
-
-    private final Map<String, SampleUser> members = new HashMap<>();
-
-    /**
-     * Get the user with a given name
-     *
-     * @param name
-     * @param org
-     * @return user
-     */
-    public SampleUser getMember(String name, String org) {
-
-        // Try to get the SampleUser state from the cache
-        SampleUser sampleUser = members.get(SampleUser.toKeyValStoreName(name, org));
-        if (null != sampleUser) {
-            return sampleUser;
+        /**
+         * Get the value associated with name.
+         *
+         * @param name
+         * @return value associated with the name
+         */
+        public string GetValue(string name)
+        {
+            Properties properties = loadProperties();
+            return properties[name];
         }
 
-        // Create the SampleUser and try to restore it's state from the key value store (if found).
-        sampleUser = new SampleUser(name, org, this);
-
-        return sampleUser;
-
-    }
-
-    /**
-     * Check if store has user.
-     *
-     * @param name
-     * @param org
-     * @return true if the user exists.
-     */
-    public boolean hasMember(String name, String org) {
-
-        // Try to get the SampleUser state from the cache
-
-        if (members.containsKey(SampleUser.toKeyValStoreName(name, org))) {
-            return true;
+        /**
+         * Has the value present.
+         *
+         * @param name
+         * @return true if it's present.
+         */
+        public bool HasValue(string name)
+        {
+            Properties properties = loadProperties();
+            return properties.Contains(name);
         }
-        return SampleUser.isStored(name, org, this);
 
-    }
+        private Properties loadProperties()
+        {
+            Properties properties = new Properties();
+            try
+            {
+                properties.Load(file);
+            }
+            catch (FileNotFoundException e)
+            {
+                logger.Warn($"Could not find the file \"{file}\"");
+            }
+            catch (IOException e)
+            {
+                logger.Warn($"Could not load keyvalue store from file \"{file}\", reason:{e.Message}");
+            }
 
-    /**
-     * Get the user with a given name
-     *
-     * @param name
-     * @param org
-     * @param mspId
-     * @param privateKeyFile
-     * @param certificateFile
-     * @return user
-     * @throws IOException
-     * @throws NoSuchAlgorithmException
-     * @throws NoSuchProviderException
-     * @throws InvalidKeySpecException
-     */
-    public SampleUser getMember(String name, String org, String mspId, File privateKeyFile,
-                                File certificateFile) throws IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+            return properties;
+        }
 
-        try {
+        /**
+         * Set the value associated with name.
+         *
+         * @param name  The name of the parameter
+         * @param value Value for the parameter
+         */
+        public void SetValue(string name, string value)
+        {
+            Properties properties = loadProperties();
+            try
+            {
+                properties.Set(name, value);
+                properties.Save();
+            }
+            catch (IOException e)
+            {
+                logger.Warn($"Could not save the keyvalue store, reason:{e.Message}%s");
+            }
+        }
+
+        /**
+         * Get the user with a given name
+         *
+         * @param name
+         * @param org
+         * @return user
+         */
+        public SampleUser GetMember(string name, string org)
+        {
             // Try to get the SampleUser state from the cache
-            SampleUser sampleUser = members.get(SampleUser.toKeyValStoreName(name, org));
-            if (null != sampleUser) {
+
+            SampleUser sampleUser = members.GetOrNull(SampleUser.toKeyValStoreName(name, org));
+            if (null != sampleUser)
+            {
                 return sampleUser;
             }
 
             // Create the SampleUser and try to restore it's state from the key value store (if found).
             sampleUser = new SampleUser(name, org, this);
-            sampleUser.setMspId(mspId);
-
-            String certificate = new String(IOUtils.toByteArray(new FileInputStream(certificateFile)), "UTF-8");
-
-            PrivateKey privateKey = getPrivateKeyFromBytes(IOUtils.toByteArray(new FileInputStream(privateKeyFile)));
-
-            sampleUser.setEnrollment(new SampleStoreEnrollement(privateKey, certificate));
-
-            sampleUser.saveState();
 
             return sampleUser;
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw e;
-
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            throw e;
-        } catch (NoSuchProviderException e) {
-            e.printStackTrace();
-            throw e;
-        } catch (InvalidKeySpecException e) {
-            e.printStackTrace();
-            throw e;
-        } catch (ClassCastException e) {
-            e.printStackTrace();
-            throw e;
         }
 
-    }
+        /**
+         * Check if store has user.
+         *
+         * @param name
+         * @param org
+         * @return true if the user exists.
+         */
+        public bool HasMember(string name, string org)
+        {
+            // Try to get the SampleUser state from the cache
 
-    static {
-        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-    }
+            if (members.ContainsKey(SampleUser.toKeyValStoreName(name, org)))
+            {
+                return true;
+            }
 
-    static PrivateKey getPrivateKeyFromBytes(byte[] data) throws IOException, NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
-        final Reader pemReader = new StringReader(new String(data));
-
-        final PrivateKeyInfo pemPair;
-        try (PEMParser pemParser = new PEMParser(pemReader)) {
-            pemPair = (PrivateKeyInfo) pemParser.readObject();
+            return SampleUser.IsStored(name, org, this);
         }
 
-        PrivateKey privateKey = new JcaPEMKeyConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME).getPrivateKey(pemPair);
+        /**
+         * Get the user with a given name
+         *
+         * @param name
+         * @param org
+         * @param mspId
+         * @param privateKeyFile
+         * @param certificateFile
+         * @return user
+         * @throws IOException
+         * @throws NoSuchAlgorithmException
+         * @throws NoSuchProviderException
+         * @throws InvalidKeySpecException
+         */
+        public SampleUser GetMember(string name, string org, string mspId, FileInfo privateKeyFile, FileInfo certificateFile)
+        {
+            try
+            {
+                // Try to get the SampleUser state from the cache
+                SampleUser sampleUser = members.GetOrNull(SampleUser.toKeyValStoreName(name, org));
+                if (null != sampleUser)
+                {
+                    return sampleUser;
+                }
 
-        return privateKey;
-    }
+                // Create the SampleUser and try to restore it's state from the key value store (if found).
+                sampleUser = new SampleUser(name, org, this);
+                sampleUser.MspId = mspId;
+                string certificate = File.ReadAllText(certificateFile.FullName, Encoding.UTF8);
 
-    static final class SampleStoreEnrollement implements Enrollment, Serializable {
+                AsymmetricAlgorithm privateKey = GetPrivateKeyFromBytes(File.ReadAllBytes(privateKeyFile.FullName));
 
-        private static final long serialVersionUID = -2784835212445309006L;
-        private final PrivateKey privateKey;
-        private final String certificate;
+                sampleUser.Enrollment = new SampleStoreEnrollement(privateKey, certificate);
 
-        SampleStoreEnrollement(PrivateKey privateKey, String certificate) {
+                sampleUser.SaveState();
 
-            this.certificate = certificate;
-
-            this.privateKey = privateKey;
+                return sampleUser;
+            }
+            catch (IOException e)
+            {
+                logger.ErrorException(e.Message, e);
+                throw e;
+            }
+            catch (System.Exception e)
+            {
+                logger.ErrorException(e.Message, e);
+                throw e;
+            }
         }
 
-        @Override
-        public PrivateKey getKey() {
 
-            return privateKey;
+        private static AsymmetricAlgorithm GetPrivateKeyFromBytes(byte[] data)
+        {
+            CryptoPrimitives prim = new CryptoPrimitives();
+            return prim.BytesToPrivateKey(data);
         }
 
-        @Override
-        public String getCert() {
-            return certificate;
+
+        private void SaveChannel(Channel channel)
+        {
+            SetValue("channel." + channel.Name, channel.Serialize().ToBytes().ToHexString());
         }
 
-    }
+        public Channel GetChannel(HFClient client, string name)
+        {
+            Channel ret = null;
 
-    void saveChannel(Channel channel) throws IOException, InvalidArgumentException {
+            string channelHex = GetValue("channel." + name);
+            if (channelHex != null)
+            {
+                ret = client.DeSerializeChannel(channelHex.FromHexString().ToUTF8String());
+            }
 
-        setValue("channel." + channel.getName(), Hex.toHexString(channel.serializeChannel()));
-
-    }
-
-    Channel getChannel(HFClient client, String name) throws IOException, ClassNotFoundException, InvalidArgumentException {
-        Channel ret = null;
-
-        String channelHex = getValue("channel." + name);
-        if (channelHex != null) {
-
-            ret = client.deSerializeChannel(Hex.decode(channelHex));
-
+            return ret;
         }
-        return ret;
+
+        public void StoreClientPEMTLSKey(SampleOrg sampleOrg, string key)
+        {
+            SetValue("clientPEMTLSKey." + sampleOrg.GetName(), key);
+        }
+
+        public string GetClientPEMTLSKey(SampleOrg sampleOrg)
+        {
+            return GetValue("clientPEMTLSKey." + sampleOrg.GetName());
+        }
+
+        public void StoreClientPEMTLCertificate(SampleOrg sampleOrg, string certificate)
+        {
+            SetValue("clientPEMTLSCertificate." + sampleOrg.GetName(), certificate);
+        }
+
+        public string getClientPEMTLSCertificate(SampleOrg sampleOrg)
+        {
+            return GetValue("clientPEMTLSCertificate." + sampleOrg.GetName());
+        }
+
+        [Serializable]
+        private class SampleStoreEnrollement : IEnrollment
+        {
+            public SampleStoreEnrollement(AsymmetricAlgorithm privateKey, string certificate)
+            {
+                Key = privateKey;
+                Cert = certificate;
+            }
+
+            public AsymmetricAlgorithm Key { get; }
+            public string Cert { get; }
+        }
     }
-
-    public void storeClientPEMTLSKey(SampleOrg sampleOrg, String key) {
-
-        setValue("clientPEMTLSKey." + sampleOrg.getName(), key);
-
-    }
-
-    public String getClientPEMTLSKey(SampleOrg sampleOrg) {
-
-        return getValue("clientPEMTLSKey." + sampleOrg.getName());
-
-    }
-
-    public void storeClientPEMTLCertificate(SampleOrg sampleOrg, String certificate) {
-
-        setValue("clientPEMTLSCertificate." + sampleOrg.getName(), certificate);
-
-    }
-
-    public String getClientPEMTLSCertificate(SampleOrg sampleOrg) {
-
-        return getValue("clientPEMTLSCertificate." + sampleOrg.getName());
-
-    }
-
 }

@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Hyperledger.Fabric.Tests.SDK.Exception
 {
     [TestClass]
+    [TestCategory("SDK")]
     public class FabricExceptionsTest
     {
         private static readonly string MESSAGE = "test";

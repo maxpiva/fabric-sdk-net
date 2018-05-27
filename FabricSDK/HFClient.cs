@@ -13,8 +13,10 @@
  */
 
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
@@ -197,16 +199,20 @@ namespace Hyperledger.Fabric.SDK
      * @throws ClassNotFoundException
      * @throws InvalidArgumentException
      */
-        /*
-   public Channel deSerializeChannel(File file) throws IOException, ClassNotFoundException, InvalidArgumentException {
 
-       if (null == file) {
-           throw new InvalidArgumentException("File parameter may not be null");
-       }
+        public Channel DeSerializeChannel(FileInfo file)
+        {
+            if (null == file)
+            {
+                throw new InvalidArgumentException("File parameter may not be null");
+            }
 
-       return deSerializeChannel(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
-   }
-*/
+            return DeSerializeChannel(File.ReadAllBytes(file.FullName).ToUTF8String());
+        }
+
+
+
+
         /**
     * Deserialize a channel serialized by {@link Channel#serializeChannel()}
     *
@@ -216,40 +222,25 @@ namespace Hyperledger.Fabric.SDK
     * @throws ClassNotFoundException
     * @throws InvalidArgumentException
     */
-        /*
-    public Channel deSerializeChannel(byte[] channelBytes)
-            throws IOException, ClassNotFoundException, InvalidArgumentException {
+        public Channel DeSerializeChannel(string str)
+        {
 
-        Channel channel;
-        ObjectInputStream in = null;
-        try {
-            in = new ObjectInputStream(new ByteArrayInputStream(channelBytes));
-            channel = (Channel) in.readObject();
-            final String name = channel.getName();
-            synchronized (channels) {
-                if (null != getChannel(name)) {
-                    channel.shutdown(true);
-                    throw new InvalidArgumentException(format("Channel %s already exists in the client", name));
+            Channel channel;
+            channel = Channel.Deserialize(str);
+            string name = channel.Name;
+            lock (channels)
+            {
+                if (null != GetChannel(name))
+                {
+                    channel.Shutdown(true);
+                    throw new InvalidArgumentException($"Channel {name} already exists in the client");
                 }
-                channels.put(name, channel);
+
+                channels.Add(name, channel);
                 channel.client = this;
             }
-
-        } finally {
-            try {
-                if (in != null) {
-                    in.close();
-                }
-            } catch (IOException e) {
-                // Best effort here.
-                logger.error(e);
-            }
+            return channel;
         }
-
-        return channel;
-
-    }
-    */
         /**
      * newPeer create a new peer
      *

@@ -30,6 +30,7 @@ using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 namespace Hyperledger.Fabric.Tests.SDK.Security
 {
     [TestClass]
+    [TestCategory("SDK")]
     public class CryptoPrimitivesTest
     {
         // run End2EndIT test and copy from first peer ProposalResponse ( fabric at
@@ -171,7 +172,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testGetSetProperties()
+        public void TestGetSetProperties()
         {
             Properties propsIn = new Properties();
             try
@@ -392,7 +393,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
         [TestMethod]
         [ExpectedException(typeof(CryptoException))]
-        public void testAddCACertificateToTrustStoreInvalidCertFile()
+        public void TestAddCACertificateToTrustStoreInvalidCertFile()
         {
             try
             {
@@ -406,7 +407,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
         [TestMethod]
         [ExpectedException(typeof(InvalidArgumentException))]
-        public void testAddCACertificateToTrustStoreNoCert()
+        public void TestAddCACertificateToTrustStoreNoCert()
         {
             try
             {
@@ -462,7 +463,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testValidateNullCertificate()
+        public void TestValidateNullCertificate()
         {
             Assert.IsFalse(crypto.ValidateCertificate((X509Certificate2) null));
         }
@@ -641,7 +642,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         } // testVerify
 
         [TestMethod]
-        public void testSignNullKey()
+        public void TestSignNullKey()
         {
             try
             {
@@ -664,7 +665,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testSignValidData()
+        public void TestSignValidData()
         {
             AsymmetricAlgorithm key = FindRightKey();
             crypto.Sign(key, plainText);
@@ -672,7 +673,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testSignNullData()
+        public void TestSignNullData()
         {
             try
             {
@@ -690,8 +691,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
+        [Ignore]
         // TODO need to regen key now that we're using CryptoSuite
-        public void testSign()
+        public void TestSign()
         {
             byte[] plainText = "123456".ToBytes();
             byte[] signature;
@@ -709,7 +711,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testKeyGen()
+        public void TestKeyGen()
         {
             Assert.IsNotNull(crypto.KeyGen());
             Assert.AreSame(typeof(AsymmetricAlgorithm), crypto.KeyGen().GetType());
@@ -718,21 +720,21 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         // Try to generate a key without initializing crypto
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(CryptoException), "Unable to generate")]
-        public void testKeyGenBadCrypto()
+        public void TestKeyGenBadCrypto()
         {
             CryptoPrimitives tmpCrypto = new CryptoPrimitives();
             tmpCrypto.KeyGen();
         }
 
         [TestMethod]
-        public void testGenerateCertificateRequest()
+        public void TestGenerateCertificateRequest()
         {
             AsymmetricAlgorithm testKeyPair = crypto.KeyGen();
             Assert.AreSame(typeof(string), crypto.GenerateCertificationRequest("common name", testKeyPair).GetType());
         }
 
         [TestMethod]
-        public void testCertificationRequestToPEM()
+        public void TestCertificationRequestToPEM()
         {
             AsymmetricAlgorithm testKeyPair = crypto.KeyGen();
             string certRequest = crypto.GenerateCertificationRequest("common name", testKeyPair);
@@ -742,7 +744,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testCertificateToDER()
+        public void TestCertificateToDER()
         {
             AsymmetricAlgorithm testKeyPair = crypto.KeyGen();
             string certRequest = crypto.GenerateCertificationRequest("common name", testKeyPair);
@@ -752,7 +754,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testHashSHA2()
+        public void TestHashSHA2()
         {
             byte[] input = "TheQuickBrownFox".ToBytes();
             string expectedHash = "cd0b1763383f460e94a2e6f0aefc3749bbeec60db11c12d678c682da679207ad";
@@ -763,7 +765,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        public void testHashSHA3()
+        public void TestHashSHA3()
         {
             byte[] input = "TheQuickBrownFox".ToBytes();
             string expectedHash = "feb69c5c360a15802de6af23a3f5622da9d96aff2be78c8f188cce57a3549db6";
@@ -779,7 +781,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
          * @throws Exception
          */
         [TestMethod]
-        public void testValidationOfCertWithFabicCAattributes()
+        public void TestValidationOfCertWithFabicCAattributes()
         {
             ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
             byte[] onceFailingPem = File.ReadAllBytes(Path.GetFullPath("Fixture/testPems/peerCert.pem"));

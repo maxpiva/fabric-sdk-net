@@ -12,959 +12,985 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdkintegration;
 
-import java.io.File;
-import java.net.MalformedURLException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Hyperledger.Fabric.Protos.Common;
+using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.SDK;
+using Hyperledger.Fabric.Tests.SDK.Integration;
+using Hyperledger.Fabric.Tests.SDK.TestUtils;
+using Hyperledger.Fabric_CA.SDK;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using BlockchainInfo = Hyperledger.Fabric.SDK.BlockchainInfo;
+using ChaincodeID = Hyperledger.Fabric.SDK.ChaincodeID;
+using Config = Hyperledger.Fabric.Protos.Common.Config;
 
-import org.hyperledger.fabric.protos.common.Configtx;
-import org.hyperledger.fabric.protos.peer.Query.ChaincodeInfo;
-import org.hyperledger.fabric.sdk.BlockEvent;
-import org.hyperledger.fabric.sdk.BlockInfo;
-import org.hyperledger.fabric.sdk.BlockchainInfo;
-import org.hyperledger.fabric.sdk.ChaincodeEndorsementPolicy;
-import org.hyperledger.fabric.sdk.ChaincodeEvent;
-import org.hyperledger.fabric.sdk.ChaincodeID;
-import org.hyperledger.fabric.sdk.ChaincodeResponse.Status;
-import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.Channel.PeerOptions;
-import org.hyperledger.fabric.sdk.EventHub;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.InstallProposalRequest;
-import org.hyperledger.fabric.sdk.Peer;
-import org.hyperledger.fabric.sdk.Peer.PeerRole;
-import org.hyperledger.fabric.sdk.ProposalResponse;
-import org.hyperledger.fabric.sdk.QueryByChaincodeRequest;
-import org.hyperledger.fabric.sdk.TestConfigHelper;
-import org.hyperledger.fabric.sdk.TransactionProposalRequest;
-import org.hyperledger.fabric.sdk.TransactionRequest;
-import org.hyperledger.fabric.sdk.UpgradeProposalRequest;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.hyperledger.fabric.sdk.exception.TransactionEventException;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestConfig;
-import org.hyperledger.fabric.sdk.testutils.TestUtils;
-import org.hyperledger.fabric_ca.sdk.HFCAClient;
-import org.junit.Before;
-import org.junit.Test;
+namespace Hyperledger.Fabric.Tests.SDK.Integration
+{
+    /**
+     * Test end to end scenario
+     */
+    [TestClass]
+    [TestCategory("SDK_INTEGRATION")]
+    public class End2endAndBackAgainIT
+    {
+        private static readonly TestConfig testConfig = TestConfig.Instance;
+        private static readonly bool IS_FABRIC_V10 = testConfig.IsRunningAgainstFabric10();
+        private static readonly string TEST_ADMIN_NAME = "admin";
+        private static readonly string TESTUSER_1_NAME = "user1";
+        private static readonly string TEST_FIXTURES_PATH = "fixture";
 
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hyperledger.fabric.sdk.BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE;
-import static org.hyperledger.fabric.sdk.Channel.PeerOptions.createPeerOptions;
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.resetConfig;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+        private static readonly string FOO_CHANNEL_NAME = "foo";
+        private static readonly string BAR_CHANNEL_NAME = "bar";
 
-/**
- * Test end to end scenario
- */
-public class End2endAndBackAgainIT {
+        internal virtual string CHAIN_CODE_FILEPATH {get;}="sdkintegration/gocc/sample_11";
 
-    private static final TestConfig testConfig = TestConfig.getConfig();
-    private static final boolean IS_FABRIC_V10 = testConfig.isRunningAgainstFabric10();
-    private static final String TEST_ADMIN_NAME = "admin";
-    private static final String TESTUSER_1_NAME = "user1";
-    private static final String TEST_FIXTURES_PATH = "src/test/fixture";
+        internal virtual string CHAIN_CODE_NAME { get; }= "example_cc_go";
+        internal virtual string CHAIN_CODE_PATH { get; }= "github.com/example_cc";
+        internal static readonly string CHAIN_CODE_VERSION_11 = "11";
+        internal static readonly string CHAIN_CODE_VERSION = "1";
+        private readonly TestConfigHelper configHelper = new TestConfigHelper();
+        internal virtual TransactionRequest.Type CHAIN_CODE_LANG { get; } = TransactionRequest.Type.GO_LANG;
 
-    private static final String FOO_CHANNEL_NAME = "foo";
-    private static final String BAR_CHANNEL_NAME = "bar";
-    private final TestConfigHelper configHelper = new TestConfigHelper();
-    String testTxID = null;  // save the CC invoke TxID and use in queries
-    SampleStore sampleStore;
-    private Collection<SampleOrg> testSampleOrgs;
+        internal virtual ChaincodeID chaincodeID => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION).SetPath(CHAIN_CODE_PATH);
 
-    String testName = "End2endAndBackAgainIT";
+        internal virtual ChaincodeID chaincodeID_11 => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION_11).SetPath(CHAIN_CODE_PATH);
+        internal SampleStore sampleStore;
 
-    String CHAIN_CODE_FILEPATH = "sdkintegration/gocc/sample_11";
-    String CHAIN_CODE_NAME = "example_cc_go";
-    String CHAIN_CODE_PATH = "github.com/example_cc";
-    String CHAIN_CODE_VERSION_11 = "11";
-    String CHAIN_CODE_VERSION = "1";
-    TransactionRequest.Type CHAIN_CODE_LANG = TransactionRequest.Type.GO_LANG;
+        internal readonly FileInfo sampleStoreFile = new FileInfo(Path.GetTempPath() + "/HFCSampletest.properties");
 
-    ChaincodeID chaincodeID = ChaincodeID.newBuilder().setName(CHAIN_CODE_NAME)
-            .setVersion(CHAIN_CODE_VERSION)
-            .setPath(CHAIN_CODE_PATH).build();
-    ChaincodeID chaincodeID_11 = ChaincodeID.newBuilder().setName(CHAIN_CODE_NAME)
-            .setVersion(CHAIN_CODE_VERSION_11)
-            .setPath(CHAIN_CODE_PATH).build();
+        internal virtual string testName { get; }= "End2endAndBackAgainIT";
+        private IReadOnlyList<SampleOrg> testSampleOrgs;
+        private string testTxID = null; // save the CC invoke TxID and use in queries
 
-//    @After
-//    public void clearConfig() {
-//        try {
-// //           configHelper.clearConfig();
-//        } catch (Exception e) {
-//        }
-//    }
 
-    private static boolean checkInstalledChaincode(HFClient client, Peer peer, String ccName, String ccPath, String ccVersion) throws InvalidArgumentException, ProposalException {
+        private static bool CheckInstalledChaincode(HFClient client, Peer peer, string ccName, string ccPath, string ccVersion)
+        {
+            Util.COut("Checking installed chaincode: {0}, at version: {1}, on peer: {2}", ccName, ccVersion, peer.Name);
+            List<ChaincodeInfo> ccinfoList = client.QueryInstalledChaincodes(peer);
 
-        out("Checking installed chaincode: %s, at version: %s, on peer: %s", ccName, ccVersion, peer.getName());
-        List<ChaincodeInfo> ccinfoList = client.queryInstalledChaincodes(peer);
+            bool found = false;
 
-        boolean found = false;
+            foreach (ChaincodeInfo ccifo in ccinfoList)
+            {
+                if (ccPath != null)
+                {
+                    found = ccName.Equals(ccifo.Name) && ccPath.Equals(ccifo.Path) && ccVersion.Equals(ccifo.Version);
+                    if (found)
+                    {
+                        break;
+                    }
+                }
 
-        for (ChaincodeInfo ccifo : ccinfoList) {
-
-            if (ccPath != null) {
-                found = ccName.equals(ccifo.getName()) && ccPath.equals(ccifo.getPath()) && ccVersion.equals(ccifo.getVersion());
-                if (found) {
+                found = ccName.Equals(ccifo.Name) && ccVersion.Equals(ccifo.Version);
+                if (found)
+                {
                     break;
                 }
             }
 
-            found = ccName.equals(ccifo.getName()) && ccVersion.equals(ccifo.getVersion());
-            if (found) {
-                break;
-            }
-
+            return found;
         }
 
-        return found;
-    }
+        private static bool CheckInstantiatedChaincode(Channel channel, Peer peer, string ccName, string ccPath, string ccVersion)
+        {
+            Util.COut("Checking instantiated chaincode: {0}, at version: {1}, on peer: {2}", ccName, ccVersion, peer.Name);
+            List<ChaincodeInfo> ccinfoList = channel.QueryInstantiatedChaincodes(peer);
 
-    private static boolean checkInstantiatedChaincode(Channel channel, Peer peer, String ccName, String ccPath, String ccVersion) throws InvalidArgumentException, ProposalException {
-        out("Checking instantiated chaincode: %s, at version: %s, on peer: %s", ccName, ccVersion, peer.getName());
-        List<ChaincodeInfo> ccinfoList = channel.queryInstantiatedChaincodes(peer);
+            bool found = false;
 
-        boolean found = false;
+            foreach (ChaincodeInfo ccifo in ccinfoList)
+            {
+                if (ccPath != null)
+                {
+                    found = ccName.Equals(ccifo.Name) && ccPath.Equals(ccifo.Path) && ccVersion.Equals(ccifo.Version);
+                    if (found)
+                    {
+                        break;
+                    }
+                }
 
-        for (ChaincodeInfo ccifo : ccinfoList) {
-
-            if (ccPath != null) {
-                found = ccName.equals(ccifo.getName()) && ccPath.equals(ccifo.getPath()) && ccVersion.equals(ccifo.getVersion());
-                if (found) {
+                found = ccName.Equals(ccifo.Name) && ccVersion.Equals(ccifo.Version);
+                if (found)
+                {
                     break;
                 }
             }
 
-            found = ccName.equals(ccifo.getName()) && ccVersion.equals(ccifo.getVersion());
-            if (found) {
-                break;
+            return found;
+        }
+
+
+        [TestInitialize]
+        public void CheckConfig()
+        {
+            Util.COut("\n\n\nRUNNING: {0}.\n", testName);
+
+            //      configHelper.clearConfig();
+            TestUtils.TestUtils.ResetConfig();
+            configHelper.CustomizeConfig();
+            //      Assert.AreEqual(256, Config.getConfig().getSecurityLevel());
+
+            testSampleOrgs = testConfig.GetIntegrationTestsSampleOrgs();
+            //Set up hfca for each sample org
+
+            foreach (SampleOrg sampleOrg in testSampleOrgs)
+            {
+                string caURL = sampleOrg.GetCALocation();
+                sampleOrg.SetCAClient(HFCAClient.Create(caURL, null));
             }
-
         }
 
-        return found;
-    }
+        [TestMethod]
+        public virtual void Setup()
+        {
+            try
+            {
+                // client.setMemberServices(peerOrg1FabricCA);
 
-    static void out(String format, Object... args) {
-
-        System.err.flush();
-        System.out.flush();
-
-        System.out.println(format(format, args));
-        System.err.flush();
-        System.out.flush();
-
-    }
-
-    @Before
-    public void checkConfig() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, MalformedURLException {
-
-        out("\n\n\nRUNNING: %s.\n", testName);
-
-        //      configHelper.clearConfig();
-        resetConfig();
-        configHelper.customizeConfig();
-        //      assertEquals(256, Config.getConfig().getSecurityLevel());
-
-        testSampleOrgs = testConfig.getIntegrationTestsSampleOrgs();
-        //Set up hfca for each sample org
-
-        for (SampleOrg sampleOrg : testSampleOrgs) {
-            String caURL = sampleOrg.getCALocation();
-            sampleOrg.setCAClient(HFCAClient.createNewInstance(caURL, null));
-        }
-    }
-
-    File sampleStoreFile = new File(System.getProperty("java.io.tmpdir") + "/HFCSampletest.properties");
-
-    @Test
-    public void setup() throws Exception {
-
-        try {
-
-            // client.setMemberServices(peerOrg1FabricCA);
-
-            //Persistence is not part of SDK. Sample file store is for demonstration purposes only!
-            //   MUST be replaced with more robust application implementation  (Database, LDAP)
+                //Persistence is not part of SDK. Sample file store is for demonstration purposes only!
+                //   MUST be replaced with more robust application implementation  (Database, LDAP)
 
 //            if (sampleStoreFile.exists()) { //For testing start fresh
 //                sampleStoreFile.delete();
 //            }
-            sampleStore = new SampleStore(sampleStoreFile);
+                sampleStore = new SampleStore(sampleStoreFile);
 
-            setupUsers(sampleStore);
-            runFabricTest(sampleStore);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
-        }
-    }
-
-    /**
-     * Will register and enroll users persisting them to samplestore.
-     *
-     * @param sampleStore
-     * @throws Exception
-     */
-    public void setupUsers(SampleStore sampleStore) {
-        //SampleUser can be any implementation that implements org.hyperledger.fabric.sdk.User Interface
-
-        ////////////////////////////
-        // get users for all orgs
-        for (SampleOrg sampleOrg : testSampleOrgs) {
-            final String orgName = sampleOrg.getName();
-
-            SampleUser admin = sampleStore.getMember(TEST_ADMIN_NAME, orgName);
-            sampleOrg.setAdmin(admin); // The admin of this org.
-
-            // No need to enroll or register all done in End2endIt !
-            SampleUser user = sampleStore.getMember(TESTUSER_1_NAME, orgName);
-            sampleOrg.addUser(user);  //Remember user belongs to this Org
-
-            sampleOrg.setPeerAdmin(sampleStore.getMember(orgName + "Admin", orgName));
-        }
-    }
-
-    public void runFabricTest(final SampleStore sampleStore) throws Exception {
-        ////////////////////////////
-        // Setup client
-
-        //Create instance of client.
-        HFClient client = HFClient.createNewInstance();
-
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        ////////////////////////////
-        //Reconstruct and run the channels
-        SampleOrg sampleOrg = testConfig.getIntegrationTestsSampleOrg("peerOrg1");
-        Channel fooChannel = reconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
-        runChannel(client, fooChannel, sampleOrg, 0);
-        assertFalse(fooChannel.isShutdown());
-        assertTrue(fooChannel.isInitialized());
-        fooChannel.shutdown(true); //clean up resources no longer needed.
-        assertTrue(fooChannel.isShutdown());
-        out("\n");
-
-        sampleOrg = testConfig.getIntegrationTestsSampleOrg("peerOrg2");
-        Channel barChannel = reconstructChannel(BAR_CHANNEL_NAME, client, sampleOrg);
-        runChannel(client, barChannel, sampleOrg, 100); //run a newly constructed foo channel with different b value!
-        assertFalse(barChannel.isShutdown());
-        assertTrue(barChannel.isInitialized());
-
-        if (!testConfig.isRunningAgainstFabric10()) { //Peer eventing service support started with v1.1
-
-            // Now test replay feature of V1.1 peer eventing services.
-            byte[] replayChannelBytes = barChannel.serializeChannel();
-            barChannel.shutdown(true);
-
-            Channel replayChannel = client.deSerializeChannel(replayChannelBytes);
-
-            out("doing testPeerServiceEventingReplay,0,-1,false");
-            testPeerServiceEventingReplay(client, replayChannel, 0L, -1L, false);
-
-            replayChannel = client.deSerializeChannel(replayChannelBytes);
-            out("doing testPeerServiceEventingReplay,0,-1,true"); // block 0 is import to test
-            testPeerServiceEventingReplay(client, replayChannel, 0L, -1L, true);
-
-            //Now do it again starting at block 1
-            replayChannel = client.deSerializeChannel(replayChannelBytes);
-            out("doing testPeerServiceEventingReplay,1,-1,false");
-            testPeerServiceEventingReplay(client, replayChannel, 1L, -1L, false);
-
-            //Now do it again starting at block 2 to 3
-            replayChannel = client.deSerializeChannel(replayChannelBytes);
-            out("doing testPeerServiceEventingReplay,2,3,false");
-            testPeerServiceEventingReplay(client, replayChannel, 2L, 3L, false);
-
+                SetupUsers(sampleStore);
+                RunFabricTest(sampleStore);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail(e.Message);
+            }
         }
 
-        out("That's all folks!");
-    }
+        /**
+         * Will register and enroll users persisting them to samplestore.
+         *
+         * @param sampleStore
+         * @throws Exception
+         */
+        public void SetupUsers(SampleStore sampleStore)
+        {
+            //SampleUser can be any implementation that implements org.hyperledger.fabric.sdk.User Interface
 
-    // Disable MethodLength as this method is for instructional purposes and hence
-    // we don't want to split it into smaller pieces
-    // CHECKSTYLE:OFF: MethodLength
-    void runChannel(HFClient client, Channel channel, SampleOrg sampleOrg, final int delta) {
-        final String channelName = channel.getName();
-        try {
+            ////////////////////////////
+            // get users for all orgs
+            foreach (SampleOrg sampleOrg in testSampleOrgs)
+            {
+                string orgName = sampleOrg.GetName();
 
-            client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
+                SampleUser admin = sampleStore.GetMember(TEST_ADMIN_NAME, orgName);
+                sampleOrg.SetAdmin(admin); // The admin of this org.
+
+                // No need to enroll or register all done in End2endIt !
+                SampleUser user = sampleStore.GetMember(TESTUSER_1_NAME, orgName);
+                sampleOrg.AddUser(user); //Remember user belongs to this Org
+
+                sampleOrg.SetPeerAdmin(sampleStore.GetMember(orgName + "Admin", orgName));
+            }
+        }
+
+        public void RunFabricTest(SampleStore sampleStore)
+        {
+            ////////////////////////////
+            // Setup client
+
+            //Create instance of client.
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+
+            ////////////////////////////
+            //Reconstruct and run the channels
+            SampleOrg sampleOrg = testConfig.GetIntegrationTestsSampleOrg("peerOrg1");
+            Channel fooChannel = reconstructChannel(FOO_CHANNEL_NAME, client, sampleOrg);
+            RunChannel(client, fooChannel, sampleOrg, 0);
+            Assert.IsFalse(fooChannel.IsShutdown);
+            Assert.IsTrue(fooChannel.IsInitialized);
+            fooChannel.Shutdown(true); //clean up resources no longer needed.
+            Assert.IsTrue(fooChannel.IsShutdown);
+            Util.COut("\n");
+
+            sampleOrg = testConfig.GetIntegrationTestsSampleOrg("peerOrg2");
+            Channel barChannel = reconstructChannel(BAR_CHANNEL_NAME, client, sampleOrg);
+            RunChannel(client, barChannel, sampleOrg, 100); //run a newly constructed foo channel with different b value!
+            Assert.IsFalse(barChannel.IsShutdown);
+            Assert.IsTrue(barChannel.IsInitialized);
+
+            if (!testConfig.IsRunningAgainstFabric10())
+            {
+                //Peer eventing service support started with v1.1
+
+                // Now test replay feature of V1.1 peer eventing services.
+                string json = barChannel.Serialize();
+                barChannel.Shutdown(true);
+
+                Channel replayChannel = client.DeSerializeChannel(json);
+
+                Util.COut("doing testPeerServiceEventingReplay,0,-1,false");
+                TestPeerServiceEventingReplay(client, replayChannel, 0L, -1L, false);
+
+                replayChannel = client.DeSerializeChannel(json);
+                Util.COut("doing testPeerServiceEventingReplay,0,-1,true"); // block 0 is import to test
+                TestPeerServiceEventingReplay(client, replayChannel, 0L, -1L, true);
+
+                //Now do it again starting at block 1
+                replayChannel = client.DeSerializeChannel(json);
+                Util.COut("doing testPeerServiceEventingReplay,1,-1,false");
+                TestPeerServiceEventingReplay(client, replayChannel, 1L, -1L, false);
+
+                //Now do it again starting at block 2 to 3
+                replayChannel = client.DeSerializeChannel(json);
+                Util.COut("doing testPeerServiceEventingReplay,2,3,false");
+                TestPeerServiceEventingReplay(client, replayChannel, 2L, 3L, false);
+            }
+
+            Util.COut("That's all folks!");
+        }
+
+        // Disable MethodLength as this method is for instructional purposes and hence
+        // we don't want to split it into smaller pieces
+        // CHECKSTYLE:OFF: MethodLength
+        private void RunChannel(HFClient client, Channel channel, SampleOrg sampleOrg, int delta)
+        {
+            string channelName = channel.Name;
+            try
+            {
+                client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
 
 //            final boolean changeContext = false; // BAR_CHANNEL_NAME.equals(channel.getName()) ? true : false;
-            final boolean changeContext = BAR_CHANNEL_NAME.equals(channel.getName());
+                bool changeContext = BAR_CHANNEL_NAME.Equals(channel.Name);
 
-            out("Running Channel %s with a delta %d", channelName, delta);
+                Util.COut("Running Channel {0} with a delta {1}", channelName, delta);
 
-            out("ChaincodeID: ", chaincodeID);
-            ////////////////////////////
-            // Send Query Proposal to all peers see if it's what we expect from end of End2endIT
-            //
-            queryChaincodeForExpectedValue(client, channel, "" + (300 + delta), chaincodeID);
+                Util.COut("ChaincodeID: {0}", chaincodeID);
+                ////////////////////////////
+                // Send Query Proposal to all peers see if it's what we expect from end of End2endIT
+                //
+                QueryChaincodeForExpectedValue(client, channel, "" + (300 + delta), chaincodeID);
 
-            //Set user context on client but use explicit user contest on each call.
-            if (changeContext) {
-                client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
-
-            }
-
-            // exercise v1 of chaincode
-
-            moveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.getPeerAdmin() : null).thenApply((BlockEvent.TransactionEvent transactionEvent) -> {
-                try {
-
-                    waitOnFabric();
-                    client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
-
-                    queryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
-
-                    //////////////////
-                    // Start of upgrade first must install it.
-
-                    client.setUserContext(sampleOrg.getPeerAdmin());
-                    ///////////////
-                    ////
-                    InstallProposalRequest installProposalRequest = client.newInstallProposalRequest();
-                    installProposalRequest.setChaincodeID(chaincodeID);
-                    ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                    installProposalRequest.setChaincodeSourceLocation(Paths.get(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).toFile());
-                    installProposalRequest.setChaincodeVersion(CHAIN_CODE_VERSION_11);
-                    installProposalRequest.setProposalWaitTime(testConfig.getProposalWaitTime());
-                    installProposalRequest.setChaincodeLanguage(CHAIN_CODE_LANG);
-
-                    if (changeContext) {
-                        installProposalRequest.setUserContext(sampleOrg.getPeerAdmin());
-                    }
-
-                    out("Sending install proposal for channel: %s", channel.getName());
-
-                    ////////////////////////////
-                    // only a client from the same org as the peer can issue an install request
-                    int numInstallProposal = 0;
-
-                    Collection<ProposalResponse> responses;
-                    final Collection<ProposalResponse> successful = new LinkedList<>();
-                    final Collection<ProposalResponse> failed = new LinkedList<>();
-                    Collection<Peer> peersFromOrg = channel.getPeers();
-                    numInstallProposal = numInstallProposal + peersFromOrg.size();
-
-                    responses = client.sendInstallProposal(installProposalRequest, peersFromOrg);
-
-                    for (ProposalResponse response : responses) {
-                        if (response.getStatus() == Status.SUCCESS) {
-                            out("Successful install proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                            successful.add(response);
-                        } else {
-                            failed.add(response);
-                        }
-                    }
-
-                    out("Received %d install proposal responses. Successful+verified: %d . Failed: %d", numInstallProposal, successful.size(), failed.size());
-
-                    if (failed.size() > 0) {
-                        ProposalResponse first = failed.iterator().next();
-                        fail("Not enough endorsers for install :" + successful.size() + ".  " + first.getMessage());
-                    }
-
-                    //////////////////
-                    // Upgrade chaincode to ***double*** our move results.
-
-                    if (changeContext) {
-                        installProposalRequest.setUserContext(sampleOrg.getPeerAdmin());
-                    }
-
-                    UpgradeProposalRequest upgradeProposalRequest = client.newUpgradeProposalRequest();
-                    upgradeProposalRequest.setChaincodeID(chaincodeID_11);
-                    upgradeProposalRequest.setProposalWaitTime(testConfig.getProposalWaitTime());
-                    upgradeProposalRequest.setFcn("init");
-                    upgradeProposalRequest.setArgs(new String[] {});    // no arguments don't change the ledger see chaincode.
-
-                    ChaincodeEndorsementPolicy chaincodeEndorsementPolicy;
-
-                    chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                    chaincodeEndorsementPolicy.fromYamlFile(new File(TEST_FIXTURES_PATH + "/sdkintegration/chaincodeendorsementpolicy.yaml"));
-
-                    upgradeProposalRequest.setChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
-                    Map<String, byte[]> tmap = new HashMap<>();
-                    tmap.put("test", "data".getBytes());
-                    upgradeProposalRequest.setTransientMap(tmap);
-
-                    if (changeContext) {
-                        upgradeProposalRequest.setUserContext(sampleOrg.getPeerAdmin());
-                    }
-
-                    out("Sending upgrade proposal");
-
-                    Collection<ProposalResponse> responses2;
-
-                    responses2 = channel.sendUpgradeProposal(upgradeProposalRequest);
-
-                    successful.clear();
-                    failed.clear();
-                    for (ProposalResponse response : responses2) {
-                        if (response.getStatus() == Status.SUCCESS) {
-                            out("Successful upgrade proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                            successful.add(response);
-                        } else {
-                            failed.add(response);
-                        }
-                    }
-
-                    out("Received %d upgrade proposal responses. Successful+verified: %d . Failed: %d", channel.getPeers().size(), successful.size(), failed.size());
-
-                    if (failed.size() > 0) {
-                        ProposalResponse first = failed.iterator().next();
-                        throw new AssertionError("Not enough endorsers for upgrade :"
-                                + successful.size() + ".  " + first.getMessage());
-                    }
-
-                    if (changeContext) {
-                        return channel.sendTransaction(successful, sampleOrg.getPeerAdmin()).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-
-                    } else {
-
-                        return channel.sendTransaction(successful).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-
-                    }
-
-                } catch (CompletionException e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new CompletionException(e);
+                //Set user context on client but use explicit user contest on each call.
+                if (changeContext)
+                {
+                    client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
                 }
 
-            }).thenApply(transactionEvent -> {
-                try {
-                    waitOnFabric(10000);
-
-                    out("Chaincode has been upgraded to version %s", CHAIN_CODE_VERSION_11);
-
-                    //Check to see if peers have new chaincode and old chaincode is gone.
-
-                    client.setUserContext(sampleOrg.getPeerAdmin());
-                    for (Peer peer : channel.getPeers()) {
-
-                        if (!checkInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11)) {
-                            throw new AssertionError(format("Peer %s is missing chaincode name:%s, path:%s, version: %s",
-                                    peer.getName(), CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_PATH));
-                        }
-
-                        //should be instantiated too..
-                        if (!checkInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11)) {
-
-                            throw new AssertionError(format("Peer %s is missing instantiated chaincode name:%s, path:%s, version: %s",
-                                    peer.getName(), CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_PATH));
-                        }
-
-                        if (checkInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION)) {
-
-                            throw new AssertionError(format("Peer %s still has old instantiated chaincode name:%s, path:%s, version: %s",
-                                    peer.getName(), CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_PATH));
-                        }
-
-                    }
-
-                    client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
-
-                    ///Check if we still get the same value on the ledger
-                    out("delta is %s", delta);
-                    queryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
-
-                    //Now lets run the new chaincode which should *double* the results we asked to move.
-                    return moveAmount(client, channel, chaincodeID_11, "50",
-                            changeContext ? sampleOrg.getPeerAdmin() : null).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS); // really move 100
-                } catch (CompletionException e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new CompletionException(e);
-                }
-
-            }).thenApply(transactionEvent -> {
-
-                waitOnFabric(10000);
-
-                queryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
-
-                return null;
-            }).exceptionally(e -> {
-                if (e instanceof CompletionException && e.getCause() != null) {
-                    e = e.getCause();
-                }
-                if (e instanceof TransactionEventException) {
-                    BlockEvent.TransactionEvent te = ((TransactionEventException) e).getTransactionEvent();
-                    if (te != null) {
-
-                        e.printStackTrace(System.err);
-                        fail(format("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage()));
-                    }
-                }
-
-                e.printStackTrace(System.err);
-                fail(format("Test failed with %s exception %s", e.getClass().getName(), e.getMessage()));
-
-                return null;
-            }).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        out("Running for Channel %s done", channelName);
-
-    }
-
-    CompletableFuture<BlockEvent.TransactionEvent> moveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, String moveAmount, User user) {
-
-        try {
-            Collection<ProposalResponse> successful = new LinkedList<>();
-            Collection<ProposalResponse> failed = new LinkedList<>();
-
-            ///////////////
-            /// Send transaction proposal to all peers
-            TransactionProposalRequest transactionProposalRequest = client.newTransactionProposalRequest();
-            transactionProposalRequest.setChaincodeID(chaincodeID);
-            transactionProposalRequest.setFcn("move");
-            transactionProposalRequest.setArgs(new byte[][] {//test using bytes .. end2end uses Strings.
-                    "a".getBytes(UTF_8), "b".getBytes(UTF_8), moveAmount.getBytes(UTF_8)});
-            transactionProposalRequest.setProposalWaitTime(testConfig.getProposalWaitTime());
-            if (user != null) { // specific user use that
-                transactionProposalRequest.setUserContext(user);
-            }
-            out("sending transaction proposal to all peers with arguments: move(a,b,%s)", moveAmount);
-
-            Collection<ProposalResponse> invokePropResp = channel.sendTransactionProposal(transactionProposalRequest);
-            for (ProposalResponse response : invokePropResp) {
-                if (response.getStatus() == Status.SUCCESS) {
-                    out("Successful transaction proposal response Txid: %s from peer %s", response.getTransactionID(), response.getPeer().getName());
-                    successful.add(response);
-                } else {
-                    failed.add(response);
-                }
-            }
-
-            out("Received %d transaction proposal responses. Successful+verified: %d . Failed: %d",
-                    invokePropResp.size(), successful.size(), failed.size());
-            if (failed.size() > 0) {
-                ProposalResponse firstTransactionProposalResponse = failed.iterator().next();
-
-                throw new ProposalException(format("Not enough endorsers for invoke(move a,b,%s):%d endorser error:%s. Was verified:%b",
-                        moveAmount, firstTransactionProposalResponse.getStatus().getStatus(), firstTransactionProposalResponse.getMessage(), firstTransactionProposalResponse.isVerified()));
-
-            }
-            out("Successfully received transaction proposal responses.");
-
-            ////////////////////////////
-            // Send transaction to orderer
-            out("Sending chaincode transaction(move a,b,%s) to orderer.", moveAmount);
-            if (user != null) {
-                return channel.sendTransaction(successful, user);
-            }
-            return channel.sendTransaction(successful);
-        } catch (Exception e) {
-
-            throw new CompletionException(e);
-
-        }
-
-    }
-
-    private Channel reconstructChannel(String name, HFClient client, SampleOrg sampleOrg) throws Exception {
-        out("Reconstructing %s channel", name);
-
-        client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
-
-        Channel newChannel;
-
-        if (BAR_CHANNEL_NAME.equals(name)) { // bar channel was stored in samplestore in End2endIT testcase.
-
-            /**
-             *  sampleStore.getChannel uses {@link HFClient#deSerializeChannel(byte[])}
-             */
-            newChannel = sampleStore.getChannel(client, name);
-
-            if (!IS_FABRIC_V10) {
-                // Make sure there is one of each type peer at the very least. see End2end for how peers were constructed.
-                assertFalse(newChannel.getPeers(EnumSet.of(PeerRole.EVENT_SOURCE)).isEmpty());
-                assertFalse(newChannel.getPeers(PeerRole.NO_EVENT_SOURCE).isEmpty());
-
-            }
-            assertEquals(2, newChannel.getEventHubs().size());
-            out("Retrieved channel %s from sample store.", name);
-
-        } else {
-
-            newChannel = client.newChannel(name);
-
-            for (String ordererName : sampleOrg.getOrdererNames()) {
-                newChannel.addOrderer(client.newOrderer(ordererName, sampleOrg.getOrdererLocation(ordererName),
-                        testConfig.getOrdererProperties(ordererName)));
-            }
-
-            boolean everyOther = false;
-
-            for (String peerName : sampleOrg.getPeerNames()) {
-                String peerLocation = sampleOrg.getPeerLocation(peerName);
-                Properties peerProperties = testConfig.getPeerProperties(peerName);
-                Peer peer = client.newPeer(peerName, peerLocation, peerProperties);
-                final PeerOptions peerEventingOptions = // we have two peers on one use block on other use filtered
-                        everyOther ?
-                                createPeerOptions().registerEventsForBlocks() :
-                                createPeerOptions().registerEventsForFilteredBlocks();
-
-                newChannel.addPeer(peer, IS_FABRIC_V10 ?
-                        createPeerOptions().setPeerRoles(PeerRole.NO_EVENT_SOURCE) : peerEventingOptions);
-
-                everyOther = !everyOther;
-            }
-
-            //For testing mix it up. For v1.1 use just peer eventing service for foo channel.
-            if (IS_FABRIC_V10) {
-                //Should have no peers with event sources.
-                assertTrue(newChannel.getPeers(EnumSet.of(PeerRole.EVENT_SOURCE)).isEmpty());
-                //Should have two peers with all roles but event source.
-                assertEquals(2, newChannel.getPeers(PeerRole.NO_EVENT_SOURCE).size());
-                for (String eventHubName : sampleOrg.getEventHubNames()) {
-                    EventHub eventHub = client.newEventHub(eventHubName, sampleOrg.getEventHubLocation(eventHubName),
-                            testConfig.getEventHubProperties(eventHubName));
-                    newChannel.addEventHub(eventHub);
-                }
-            } else {
-                //Peers should have all roles. Do some sanity checks that they do.
-
-                //Should have two peers with event sources.
-                assertEquals(2, newChannel.getPeers(EnumSet.of(PeerRole.EVENT_SOURCE)).size());
-                //Check some other roles too..
-                assertEquals(2, newChannel.getPeers(EnumSet.of(PeerRole.CHAINCODE_QUERY, PeerRole.LEDGER_QUERY)).size());
-                assertEquals(2, newChannel.getPeers(PeerRole.ALL).size());  //really same as newChannel.getPeers()
-            }
-
-            assertEquals(IS_FABRIC_V10 ? sampleOrg.getEventHubNames().size() : 0, newChannel.getEventHubs().size());
-        }
-
-        //Just some sanity check tests
-        assertTrue(newChannel == client.getChannel(name));
-        assertTrue(client == TestUtils.getField(newChannel, "client"));
-        assertEquals(name, newChannel.getName());
-        assertEquals(2, newChannel.getPeers().size());
-        assertEquals(1, newChannel.getOrderers().size());
-        assertFalse(newChannel.isShutdown());
-        assertFalse(newChannel.isInitialized());
-        byte[] serializedChannelBytes = newChannel.serializeChannel();
-
-        //Just checks if channel can be serialized and deserialized .. otherwise this is just a waste :)
-        // Get channel back.
-
-        newChannel.shutdown(true);
-        newChannel = client.deSerializeChannel(serializedChannelBytes);
-
-        assertEquals(2, newChannel.getPeers().size());
-
-        assertEquals(1, newChannel.getOrderers().size());
-
-        assertNotNull(client.getChannel(name));
-        assertEquals(newChannel, client.getChannel(name));
-        assertFalse(newChannel.isInitialized());
-        assertFalse(newChannel.isShutdown());
-        assertEquals(TESTUSER_1_NAME, client.getUserContext().getName());
-        newChannel.initialize();
-        assertTrue(newChannel.isInitialized());
-        assertFalse(newChannel.isShutdown());
-
-        //Begin tests with de-serialized channel.
-
-        //Query the actual peer for which channels it belongs to and check it belongs to this channel
-        for (Peer peer : newChannel.getPeers()) {
-            Set<String> channels = client.queryChannels(peer);
-            if (!channels.contains(name)) {
-                throw new AssertionError(format("Peer %s does not appear to belong to channel %s", peer.getName(), name));
-            }
-        }
-
-        //Just see if we can get channelConfiguration. Not required for the rest of scenario but should work.
-        final byte[] channelConfigurationBytes = newChannel.getChannelConfigurationBytes();
-        Configtx.Config channelConfig = Configtx.Config.parseFrom(channelConfigurationBytes);
-
-        assertNotNull(channelConfig);
-
-        Configtx.ConfigGroup channelGroup = channelConfig.getChannelGroup();
-
-        assertNotNull(channelGroup);
-
-        Map<String, Configtx.ConfigGroup> groupsMap = channelGroup.getGroupsMap();
-
-        assertNotNull(groupsMap.get("Orderer"));
-
-        assertNotNull(groupsMap.get("Application"));
-
-        //Before return lets see if we have the chaincode on the peers that we expect from End2endIT
-        //And if they were instantiated too. this requires peer admin user
-
-        client.setUserContext(sampleOrg.getPeerAdmin());
-
-        for (Peer peer : newChannel.getPeers()) {
-
-            if (!checkInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION)) {
-                throw new AssertionError(format("Peer %s is missing chaincode name: %s, path:%s, version: %s",
-                        peer.getName(), CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_PATH));
-            }
-
-            if (!checkInstantiatedChaincode(newChannel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION)) {
-
-                throw new AssertionError(format("Peer %s is missing instantiated chaincode name: %s, path:%s, version: %s",
-                        peer.getName(), CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_PATH));
-            }
-
-        }
-
-        client.setUserContext(sampleOrg.getUser(TESTUSER_1_NAME));
-
-        assertTrue(newChannel.isInitialized());
-        assertFalse(newChannel.isShutdown());
-
-        out("Finished reconstructing channel %s.", name);
-
-        return newChannel;
-    }
-
-    /**
-     * This code test the replay feature of the new peer event services.
-     * Instead of the default of starting the eventing peer to retrieve the newest block it sets it
-     * retrieve starting from the start parameter. Also checks with block and filterblock replays.
-     * Depends on end2end and end2endAndBackagain of have fully run to have the blocks need to work with.
-     *
-     * @param client
-     * @param replayTestChannel
-     * @param start
-     * @param stop
-     * @param useFilteredBlocks
-     * @throws InvalidArgumentException
-     */
-
-    private void testPeerServiceEventingReplay(HFClient client, Channel replayTestChannel, final long start, final long stop,
-                                               final boolean useFilteredBlocks) throws InvalidArgumentException {
-
-        if (testConfig.isRunningAgainstFabric10()) {
-            return; // not supported for v1.0
-        }
-
-        assertFalse(replayTestChannel.isInitialized()); //not yet initialized
-        assertFalse(replayTestChannel.isShutdown()); // not yet shutdown.
-
-        //Remove all peers just have one ledger peer and one eventing peer.
-        List<Peer> savedPeers = new ArrayList<>(replayTestChannel.getPeers());
-        for (Peer peer : savedPeers) {
-            replayTestChannel.removePeer(peer);
-        }
-        assertTrue(savedPeers.size() > 1); //need at least two
-        final Peer eventingPeer = savedPeers.remove(0);
-        Peer ledgerPeer = savedPeers.remove(0);
-
-        assertTrue(replayTestChannel.getPeers().isEmpty()); // no more peers.
-        assertTrue(replayTestChannel.getPeers(EnumSet.of(PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER)).isEmpty()); // just checking :)
-        assertTrue(replayTestChannel.getPeers(EnumSet.of(PeerRole.LEDGER_QUERY)).isEmpty()); // just checking
-
-        assertNotNull(client.getChannel(replayTestChannel.getName())); // should be known by client.
-
-        final PeerOptions eventingPeerOptions = createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.EVENT_SOURCE));
-        if (useFilteredBlocks) {
-            eventingPeerOptions.registerEventsForFilteredBlocks();
-        }
-
-        if (-1L == stop) { //the height of the blockchain
-
-            replayTestChannel.addPeer(eventingPeer, eventingPeerOptions.startEvents(start)); // Eventing peer start getting blocks from block 0
-        } else {
-            replayTestChannel.addPeer(eventingPeer, eventingPeerOptions
-                    .startEvents(start).stopEvents(stop)); // Eventing peer start getting blocks from block 0
-        }
-        //add a ledger peer
-        replayTestChannel.addPeer(ledgerPeer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.LEDGER_QUERY)));
-
-        CompletableFuture<Long> done = new CompletableFuture<>(); // future to set when done.
-        // some variable used by the block listener being set up.
-        final AtomicLong bcount = new AtomicLong(0);
-        final AtomicLong stopValue = new AtomicLong(stop == -1L ? Long.MAX_VALUE : stop);
-        final Channel finalChannel = replayTestChannel;
-
-        final Map<Long, BlockEvent> blockEvents = Collections.synchronizedMap(new HashMap<>(100));
-
-        final String blockListenerHandle = replayTestChannel.registerBlockListener(blockEvent -> { // register a block listener
-
-            try {
-                final long blockNumber = blockEvent.getBlockNumber();
-                BlockEvent seen = blockEvents.put(blockNumber, blockEvent);
-                assertNull(format("Block number %d seen twice", blockNumber), seen);
-
-                assertTrue(format("Wrong type of block seen block number %d. expected filtered block %b but got %b",
-                        blockNumber, useFilteredBlocks, blockEvent.isFiltered()),
-                        useFilteredBlocks ? blockEvent.isFiltered() : !blockEvent.isFiltered());
-                final long count = bcount.getAndIncrement(); //count starts with 0 not 1 !
-
-                //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
-
-                if (count == 0 && stop == -1L) {
-                    final BlockchainInfo blockchainInfo = finalChannel.queryBlockchainInfo();
-
-                    long lh = blockchainInfo.getHeight();
-                    stopValue.set(lh - 1L);  // blocks 0L 9L are on chain height 10 .. stop on 9
-                    //  out("height: %d", lh);
-                    if (bcount.get() + start > stopValue.longValue()) { // test with latest count.
-                        done.complete(bcount.get()); // report back latest count.
-                    }
-
-                } else {
-                    if (bcount.longValue() + start > stopValue.longValue()) {
-                        done.complete(count);
-                    }
-                }
-            } catch (AssertionError | Exception e) {
-                e.printStackTrace();
-                done.completeExceptionally(e);
-            }
-
-        });
-
-        try {
-            replayTestChannel.initialize(); // start it all up.
-            done.get(30, TimeUnit.SECONDS); // give a timeout here.
-            Thread.sleep(1000); // sleep a little to see if more blocks trickle in .. they should not
-            replayTestChannel.unregisterBlockListener(blockListenerHandle);
-
-            final long expectNumber = stopValue.longValue() - start + 1L; // Start 2 and stop is 3  expect 2
-
-            assertEquals(format("Didn't get number we expected %d but got %d block events. Start: %d, end: %d, height: %d",
-                    expectNumber, blockEvents.size(), start, stop, stopValue.longValue()), expectNumber, blockEvents.size());
-
-            for (long i = stopValue.longValue(); i >= start; i--) { //make sure all are there.
-                final BlockEvent blockEvent = blockEvents.get(i);
-                assertNotNull(format("Missing block event for block number %d. Start= %d", i, start), blockEvent);
-            }
-
-            //light weight test just see if we get reasonable values for traversing the block. Test just whats common between
-            // Block and FilteredBlock.
-
-            int transactionEventCounts = 0;
-            int chaincodeEventsCounts = 0;
-
-            for (long i = stopValue.longValue(); i >= start; i--) {
-
-                final BlockEvent blockEvent = blockEvents.get(i);
-//                out("blockwalker %b, start: %d, stop: %d, i: %d, block %d", useFilteredBlocks, start, stopValue.longValue(), i, blockEvent.getBlockNumber());
-                assertEquals(useFilteredBlocks, blockEvent.isFiltered()); // check again
-
-                if (useFilteredBlocks) {
-                    assertNull(blockEvent.getBlock()); // should not have raw block event.
-                    assertNotNull(blockEvent.getFilteredBlock()); // should have raw filtered block.
-                } else {
-                    assertNotNull(blockEvent.getBlock()); // should not have raw block event.
-                    assertNull(blockEvent.getFilteredBlock()); // should have raw filtered block.
-                }
-
-                assertEquals(replayTestChannel.getName(), blockEvent.getChannelId());
-
-                for (BlockInfo.EnvelopeInfo envelopeInfo : blockEvent.getEnvelopeInfos()) {
-                    if (envelopeInfo.getType() == TRANSACTION_ENVELOPE) {
-
-                        BlockInfo.TransactionEnvelopeInfo transactionEnvelopeInfo = (BlockInfo.TransactionEnvelopeInfo) envelopeInfo;
-                        assertTrue(envelopeInfo.isValid()); // only have valid blocks.
-                        assertEquals(envelopeInfo.getValidationCode(), 0);
-
-                        ++transactionEventCounts;
-                        for (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo ta : transactionEnvelopeInfo.getTransactionActionInfos()) {
-                            //    out("\nTA:", ta + "\n\n");
-                            ChaincodeEvent event = ta.getEvent();
-                            if (event != null) {
-                                assertNotNull(event.getChaincodeId());
-                                assertNotNull(event.getEventName());
-                                chaincodeEventsCounts++;
+                // exercise v1 of chaincode
+
+                TaskCompletionSource<BlockEvent.TransactionEvent> fl = MoveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.GetPeerAdmin() : null).ThenApply((transactionEvent) =>
+                    {
+                        try
+                        {
+                            WaitOnFabric();
+                            client.UserContext=sampleOrg.GetUser(TESTUSER_1_NAME);
+
+                            QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
+
+                            //////////////////
+                            // Start of upgrade first must install it.
+
+                            client.UserContext = sampleOrg.GetPeerAdmin();
+                            ///////////////
+                            ////
+                            InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
+                            installProposalRequest.ChaincodeID = chaincodeID;
+                            ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
+                            installProposalRequest.ChaincodeSourceLocation = new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH)));
+
+                            installProposalRequest.ChaincodeVersion = CHAIN_CODE_VERSION_11;
+                            installProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                            installProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
+
+                            if (changeContext)
+                            {
+                                installProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
                             }
 
+                            Util.COut("Sending install proposal for channel: {0}", channel.Name);
+
+                            ////////////////////////////
+                            // only a client from the same org as the peer can issue an install request
+                            int numInstallProposal = 0;
+
+                            List<ProposalResponse> responses;
+                            List<ProposalResponse> successful = new List<ProposalResponse>();
+                            List<ProposalResponse> failed = new List<ProposalResponse>();
+                            IReadOnlyList<Peer> peersFromOrg = channel.Peers;
+                            numInstallProposal = numInstallProposal + peersFromOrg.Count;
+
+                            responses = client.SendInstallProposal(installProposalRequest, peersFromOrg);
+
+                            foreach (ProposalResponse response in responses)
+                            {
+                                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                                {
+                                    Util.COut("Successful install proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                                    successful.Add(response);
+                                }
+                                else
+                                {
+                                    failed.Add(response);
+                                }
+                            }
+
+                            Util.COut("Received {0} install proposal responses. Successful+verified: {1} . Failed: {2}", numInstallProposal, successful.Count, failed.Count);
+
+                            if (failed.Count > 0)
+                            {
+                                ProposalResponse first = failed.First();
+                                Assert.Fail($"Not enough endorsers for install : {successful.Count}.  {first.Message}");
+                            }
+
+                            //////////////////
+                            // Upgrade chaincode to ***double*** our move results.
+
+                            if (changeContext)
+                            {
+                                installProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
+                            }
+
+                            UpgradeProposalRequest upgradeProposalRequest = client.NewUpgradeProposalRequest();
+                            upgradeProposalRequest.ChaincodeID = chaincodeID_11;
+                            upgradeProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                            upgradeProposalRequest.Fcn = "init";
+                            upgradeProposalRequest.Args = new List<string>(); // no arguments don't change the ledger see chaincode.
+
+                            ChaincodeEndorsementPolicy chaincodeEndorsementPolicy;
+
+                            chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
+                            chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
+
+                            upgradeProposalRequest.EndorsementPolicy = chaincodeEndorsementPolicy;
+                            Dictionary<string, byte[]> tmap = new Dictionary<string, byte[]>();
+                            tmap.Add("test", "data".ToBytes());
+                            upgradeProposalRequest.SetTransientMap(tmap);
+
+                            if (changeContext)
+                            {
+                                upgradeProposalRequest.UserContext = sampleOrg.GetPeerAdmin();
+                            }
+
+                            Util.COut("Sending upgrade proposal");
+
+                            List<ProposalResponse> responses2;
+
+                            responses2 = channel.SendUpgradeProposal(upgradeProposalRequest);
+
+                            successful.Clear();
+                            failed.Clear();
+                            foreach (ProposalResponse response in responses2)
+                            {
+                                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                                {
+                                    Util.COut("Successful upgrade proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                                    successful.Add(response);
+                                }
+                                else
+                                {
+                                    failed.Add(response);
+                                }
+                            }
+
+                            Util.COut("Received {0} upgrade proposal responses. Successful+verified: {1} . Failed: {2}", channel.Peers.Count, successful.Count, failed.Count);
+
+                            if (failed.Count > 0)
+                            {
+                                ProposalResponse first = failed.First();
+                                Assert.Fail($"Not enough endorsers for upgrade : {successful.Count}.  {first.Message}");
+                            }
+
+                            if (changeContext)
+                            {
+                                return channel.SendTransaction(successful, sampleOrg.GetPeerAdmin());
+                            }
+                            else
+                            {
+                                return channel.SendTransaction(successful);
+                            }
                         }
+                        catch (TimeoutException e)
+                        {
+                            throw;
+                        }
+                        catch (System.Exception e)
+                        {
+                            throw;
+                        }
+                    }, testConfig.GetTransactionWaitTime() * 1000).ThenApply(transactionEvent =>
+                    {
+                        try
+                        {
+                            WaitOnFabric(10000);
 
-                    } else {
-                        assertEquals("Only non transaction block should be block 0.", blockEvent.getBlockNumber(), 0);
+                            Util.COut("Chaincode has been upgraded to version {0}", CHAIN_CODE_VERSION_11);
 
+                            //Check to see if peers have new chaincode and old chaincode is gone.
+
+                            client.UserContext = sampleOrg.GetPeerAdmin();
+                            foreach (Peer peer in channel.Peers)
+                            {
+                                if (!CheckInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
+                                {
+                                    Assert.Fail($"Peer {peer.Name} is missing chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
+                                }
+
+                                //should be instantiated too..
+                                if (!CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
+                                {
+                                    Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
+                                }
+
+                                if (CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
+                                {
+                                    Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION}");
+                                }
+                            }
+
+                            client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+                            ///Check if we still get the same value on the ledger
+                            Util.COut("delta is {0}", delta);
+                            QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
+
+                            //Now lets run the new chaincode which should *double* the results we asked to move.
+                            return MoveAmount(client, channel, chaincodeID_11, "50", changeContext ? sampleOrg.GetPeerAdmin() : null); // really move 100
+                        }
+                        catch (TimeoutException e)
+                        {
+                            throw;
+                        }
+                        catch (System.Exception e)
+                        {
+                            throw;
+                        }
+                    }, testConfig.GetTransactionWaitTime() * 1000);
+                fl.Task.Wait();
+                WaitOnFabric(10000);
+
+                QueryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
+                if (fl.Task.IsFaulted)
+                {
+                    if (fl.Task.Exception.InnerException is TransactionEventException)
+                    {
+                        TransactionEventException t = (TransactionEventException) fl.Task.Exception.InnerException;
+                        BlockEvent.TransactionEvent te = t.TransactionEvent;
+                        if (te != null)
+                            Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
                     }
 
+                    Assert.Fail($"Test failed with {fl.Task.Exception.InnerException.GetType().Name} exception {fl.Task.Exception.InnerException.Message}");
                 }
 
+                ;
+            }
+            catch (System.Exception)
+            {
+                throw;
             }
 
-            assertTrue(transactionEventCounts > 0);
+            Util.COut("Running for Channel {0} done", channelName);
+        }
 
-            if (expectNumber > 4) { // this should be enough blocks with CC events.
+        private TaskCompletionSource<BlockEvent.TransactionEvent> MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string moveAmount, IUser user)
+        {
+            try
+            {
+                List<ProposalResponse> successful = new List<ProposalResponse>();
+                List<ProposalResponse> failed = new List<ProposalResponse>();
 
-                assertTrue(chaincodeEventsCounts > 0);
+                ///////////////
+                /// Send transaction proposal to all peers
+                TransactionProposalRequest transactionProposalRequest = client.NewTransactionProposalRequest();
+                transactionProposalRequest.ChaincodeID = chaincodeID;
+                transactionProposalRequest.Fcn = "move";
+                transactionProposalRequest.SetArgs( //test using bytes .. end2end uses Strings.
+                    "a".ToBytes(), "b".ToBytes(), moveAmount.ToBytes());
+                transactionProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                if (user != null)
+                {
+                    // specific user use that
+                    transactionProposalRequest.UserContext = user;
+                }
+
+                Util.COut("sending transaction proposal to all peers with arguments: move(a,b,{0})", moveAmount);
+
+                List<ProposalResponse> invokePropResp = channel.SendTransactionProposal(transactionProposalRequest);
+                foreach (ProposalResponse response in invokePropResp)
+                {
+                    if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                    {
+                        Util.COut("Successful transaction proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                        successful.Add(response);
+                    }
+                    else
+                    {
+                        failed.Add(response);
+                    }
+                }
+
+                Util.COut("Received {0} transaction proposal responses. Successful+verified: {1} . Failed: {2}", invokePropResp.Count, successful.Count, failed.Count);
+                if (failed.Count > 0)
+                {
+                    ProposalResponse firstTransactionProposalResponse = failed.First();
+
+                    throw new ProposalException($"Not enough endorsers for invoke(move a,b,{moveAmount}):{firstTransactionProposalResponse.Status} endorser error:{firstTransactionProposalResponse.Message}. Was verified:{firstTransactionProposalResponse.IsVerified}x");
+                }
+
+                Util.COut("Successfully received transaction proposal responses.");
+
+                ////////////////////////////
+                // Send transaction to orderer
+                Util.COut("Sending chaincode transaction(move a,b,{0}) to orderer.", moveAmount);
+                if (user != null)
+                    return channel.SendTransaction(successful, user);
+                return channel.SendTransaction(successful);
+            }
+            catch (System.Exception e)
+            {
+                throw new TaskCanceledException();
+            }
+        }
+
+        private Channel reconstructChannel(string name, HFClient client, SampleOrg sampleOrg)
+        {
+            Util.COut("Reconstructing {0} channel", name);
+
+            client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+            Channel newChannel;
+
+            if (BAR_CHANNEL_NAME.Equals(name))
+            {
+                // bar channel was stored in samplestore in End2endIT testcase.
+
+                /**
+                 *  sampleStore.getChannel uses {@link HFClient#deSerializeChannel(byte[])}
+                 */
+                newChannel = sampleStore.GetChannel(client, name);
+
+                if (!IS_FABRIC_V10)
+                {
+                    // Make sure there is one of each type peer at the very least. see End2end for how peers were constructed.
+                    Assert.IsFalse(newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count == 0);
+                    Assert.IsFalse(newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count == 0);
+                }
+
+                Assert.AreEqual(2, newChannel.EventHubs.Count);
+                Util.COut("Retrieved channel {0} from sample store.", name);
+            }
+            else
+            {
+                newChannel = client.NewChannel(name);
+
+                foreach (string ordererName in sampleOrg.GetOrdererNames())
+                {
+                    newChannel.AddOrderer(client.NewOrderer(ordererName, sampleOrg.GetOrdererLocation(ordererName), testConfig.GetOrdererProperties(ordererName)));
+                }
+
+                bool everyOther = false;
+
+                foreach (string peerName in sampleOrg.GetPeerNames())
+                {
+                    string peerLocation = sampleOrg.GetPeerLocation(peerName);
+                    Properties peerProperties = testConfig.GetPeerProperties(peerName);
+                    Peer peer = client.NewPeer(peerName, peerLocation, peerProperties);
+                    Channel.PeerOptions peerEventingOptions = // we have two peers on one use block on other use filtered
+                        everyOther ? Channel.PeerOptions.CreatePeerOptions().RegisterEventsForBlocks() : Channel.PeerOptions.CreatePeerOptions().RegisterEventsForFilteredBlocks();
+
+                    newChannel.AddPeer(peer, IS_FABRIC_V10 ? Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRoleExtensions.NoEventSource()) : peerEventingOptions);
+
+                    everyOther = !everyOther;
+                }
+
+                //For testing mix it up. For v1.1 use just peer eventing service for foo channel.
+                if (IS_FABRIC_V10)
+                {
+                    //Should have no peers with event sources.
+                    Assert.IsTrue(newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count == 0);
+                    //Should have two peers with all roles but event source.
+                    Assert.AreEqual(2, newChannel.Peers.Count);
+                    foreach (string eventHubName in sampleOrg.GetEventHubNames())
+                    {
+                        EventHub eventHub = client.NewEventHub(eventHubName, sampleOrg.GetEventHubLocation(eventHubName), testConfig.GetEventHubProperties(eventHubName));
+                        newChannel.AddEventHub(eventHub);
+                    }
+                }
+                else
+                {
+                    //Peers should have all roles. Do some sanity checks that they do.
+
+                    //Should have two peers with event sources.
+                    Assert.AreEqual(2, newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count);
+                    //Check some other roles too..
+                    Assert.AreEqual(2, newChannel.GetPeers(new[] {PeerRole.CHAINCODE_QUERY, PeerRole.LEDGER_QUERY}).Count);
+                    Assert.AreEqual(2, newChannel.GetPeers(PeerRoleExtensions.All()).Count); //really same as newChannel.getPeers()
+                }
+
+                Assert.AreEqual(IS_FABRIC_V10 ? sampleOrg.GetEventHubNames().Count : 0, newChannel.EventHubs.Count);
             }
 
-            replayTestChannel.shutdown(true); //all done.
-        } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            //Just some sanity check tests
+            Assert.IsTrue(newChannel == client.GetChannel(name));
+            Assert.IsTrue(client == newChannel.client);
+            Assert.AreEqual(name, newChannel.Name);
+            Assert.AreEqual(2, newChannel.Peers.Count);
+            Assert.AreEqual(1, newChannel.Orderers.Count);
+            Assert.IsFalse(newChannel.IsShutdown);
+            Assert.IsFalse(newChannel.IsInitialized);
+            string serializedChannelBytes = newChannel.Serialize();
+
+            //Just checks if channel can be serialized and deserialized .. otherwise this is just a waste :)
+            // Get channel back.
+
+            newChannel.Shutdown(true);
+            newChannel = client.DeSerializeChannel(serializedChannelBytes);
+
+            Assert.AreEqual(2, newChannel.Peers.Count);
+
+            Assert.AreEqual(1, newChannel.Orderers.Count);
+            Assert.IsNotNull(client.GetChannel(name));
+            Assert.AreEqual(newChannel, client.GetChannel(name));
+            Assert.IsFalse(newChannel.IsInitialized);
+            Assert.IsFalse(newChannel.IsShutdown);
+            Assert.AreEqual(TESTUSER_1_NAME, client.UserContext.Name);
+            newChannel.Initialize();
+            Assert.IsTrue(newChannel.IsInitialized);
+            Assert.IsFalse(newChannel.IsShutdown);
+
+            //Begin tests with de-serialized channel.
+
+            //Query the actual peer for which channels it belongs to and check it belongs to this channel
+            foreach (Peer peer in newChannel.Peers)
+            {
+                HashSet<string> channels = client.QueryChannels(peer);
+                if (!channels.Contains(name))
+                {
+                    Assert.Fail($"Peer {peer.Name} does not appear to belong to channel {name}");
+                }
+            }
+
+            //Just see if we can get channelConfiguration. Not required for the rest of scenario but should work.
+            byte[] channelConfigurationBytes = newChannel.GetChannelConfigurationBytes();
+            Config channelConfig = Config.Parser.ParseFrom(channelConfigurationBytes);
+
+            Assert.IsNotNull(channelConfig);
+
+            ConfigGroup channelGroup = channelConfig.ChannelGroup;
+
+            Assert.IsNotNull(channelGroup);
+
+            Dictionary<string, ConfigGroup> groupsMap = channelGroup.Groups.ToDictionary(a => a.Key, a => a.Value);
+
+            Assert.IsNotNull(groupsMap.GetOrNull("Orderer"));
+
+            Assert.IsNotNull(groupsMap.GetOrNull("Application"));
+
+            //Before return lets see if we have the chaincode on the peers that we expect from End2endIT
+            //And if they were instantiated too. this requires peer admin user
+
+            client.UserContext = sampleOrg.GetPeerAdmin();
+
+            foreach (Peer peer in newChannel.Peers)
+            {
+                if (!CheckInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
+                {
+                    Assert.Fail($"Peer {peer.Name} is missing chaincode name: {CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION}");
+                }
+
+                if (!CheckInstantiatedChaincode(newChannel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
+                {
+                    Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name: {CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION}");
+                }
+            }
+
+            client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+            Assert.IsTrue(newChannel.IsInitialized);
+            Assert.IsFalse(newChannel.IsShutdown);
+
+            Util.COut("Finished reconstructing channel {0}.", name);
+
+            return newChannel;
         }
-    }
 
-    private void queryChaincodeForExpectedValue(HFClient client, Channel channel, final String expect, ChaincodeID chaincodeID) {
+        private void TestPeerServiceEventingReplay(HFClient client, Channel replayTestChannel, long start, long stop, bool useFilteredBlocks)
+        {
+            if (testConfig.IsRunningAgainstFabric10())
+            {
+                return; // not supported for v1.0
+            }
 
-        out("Now query chaincode %s on channel %s for the value of b expecting to see: %s", chaincodeID, channel.getName(), expect);
-        QueryByChaincodeRequest queryByChaincodeRequest = client.newQueryProposalRequest();
-        queryByChaincodeRequest.setArgs("b".getBytes(UTF_8)); // test using bytes as args. End2end uses Strings.
-        queryByChaincodeRequest.setFcn("query");
-        queryByChaincodeRequest.setChaincodeID(chaincodeID);
+            Assert.IsFalse(replayTestChannel.IsInitialized); //not yet initialized
+            Assert.IsFalse(replayTestChannel.IsShutdown); // not yet shutdown.
 
-        Collection<ProposalResponse> queryProposals;
+            //Remove all peers just have one ledger peer and one eventing peer.
+            List<Peer> savedPeers = new List<Peer>(replayTestChannel.Peers);
+            foreach (Peer peer in savedPeers)
+            {
+                replayTestChannel.RemovePeer(peer);
+            }
 
-        try {
-            queryProposals = channel.queryByChaincode(queryByChaincodeRequest);
-        } catch (Exception e) {
-            throw new CompletionException(e);
+            Assert.IsTrue(savedPeers.Count > 1); //need at least two
+            Peer eventingPeer = savedPeers[0];
+            Peer ledgerPeer = savedPeers[1];
+            savedPeers.RemoveAt(0);
+            savedPeers.RemoveAt(0);
+
+            Assert.IsTrue(replayTestChannel.Peers.Count == 0); // no more peers.
+            Assert.IsTrue(replayTestChannel.GetPeers(new[] {PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER}).Count == 0); // just checking :)
+            Assert.IsTrue(replayTestChannel.GetPeers(new[] {PeerRole.LEDGER_QUERY}).Count == 0); // just checking
+
+            Assert.IsNotNull(client.GetChannel(replayTestChannel.Name)); // should be known by client.
+
+            Channel.PeerOptions eventingPeerOptions = Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.EVENT_SOURCE});
+            if (useFilteredBlocks)
+            {
+                eventingPeerOptions.RegisterEventsForFilteredBlocks();
+            }
+
+            if (-1L == stop)
+            {
+                //the height of the blockchain
+
+                replayTestChannel.AddPeer(eventingPeer, eventingPeerOptions.StartEvents(start)); // Eventing peer start getting blocks from block 0
+            }
+            else
+            {
+                replayTestChannel.AddPeer(eventingPeer, eventingPeerOptions.StartEvents(start).StopEvents(stop)); // Eventing peer start getting blocks from block 0
+            }
+
+            //add a ledger peer
+            replayTestChannel.AddPeer(ledgerPeer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.LEDGER_QUERY}));
+
+            TaskCompletionSource<long> done = new TaskCompletionSource<long>(); // future to set when done.
+            // some variable used by the block listener being set up.
+
+            TestEventListener listener = new TestEventListener();
+            listener.bcount = 0;
+            listener.stopValue = stop == -1L ? long.MaxValue : stop;
+            listener.finalChannel = replayTestChannel;
+            listener.useFilteredBlocks = useFilteredBlocks;
+            listener.stop = stop;
+            listener.start = start;
+            listener.done = done;
+
+            string blockListenerHandle = replayTestChannel.RegisterBlockListener(listener);
+
+
+            try
+            {
+                replayTestChannel.Initialize(); // start it all up.
+                done.Task.Wait(30 * 1000);
+                Thread.Sleep(1000); // sleep a little to see if more blocks trickle in .. they should not
+                replayTestChannel.UnregisterBlockListener(blockListenerHandle);
+
+                long expectNumber = listener.stopValue - listener.start + 1L; // Start 2 and stop is 3  expect 2
+
+                Assert.AreEqual(expectNumber, listener.blockEvents.Count, $"Didn't get number we expected {expectNumber} but got {listener.blockEvents.Count} block events. Start: {listener.start}, end: {listener.stop}, height: {listener.stopValue}");
+
+                for (long i = listener.stopValue; i >= listener.start; i--)
+                {
+                    //make sure all are there.
+                    BlockEvent blockEvent = listener.blockEvents[i];
+                    Assert.IsNotNull(blockEvent, $"Missing block event for block number {i}. Start= {listener.start}", blockEvent);
+                }
+
+                //light weight test just see if we get reasonable values for traversing the block. Test just whats common between
+                // Block and FilteredBlock.
+
+                int transactionEventCounts = 0;
+                int chaincodeEventsCounts = 0;
+
+                for (long i = listener.stopValue; i >= start; i--)
+                {
+                    BlockEvent blockEvent = listener.blockEvents[i];
+//                out("blockwalker %b, start: %d, stop: %d, i: %d, block %d", useFilteredBlocks, start, stopValue.longValue(), i, blockEvent.getBlockNumber());
+                    Assert.AreEqual(useFilteredBlocks, blockEvent.IsFiltered); // check again
+
+                    if (useFilteredBlocks)
+                    {
+                        Assert.IsNull(blockEvent.Block); // should not have raw block event.
+                        Assert.IsNotNull(blockEvent.FilteredBlock); // should have raw filtered block.
+                    }
+                    else
+                    {
+                        Assert.IsNotNull(blockEvent.Block); // should not have raw block event.
+                        Assert.IsNull(blockEvent.FilteredBlock); // should have raw filtered block.
+                    }
+
+                    Assert.AreEqual(replayTestChannel.Name, blockEvent.ChannelId);
+
+                    foreach (BlockInfo.EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
+                    {
+                        if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
+                        {
+                            BlockInfo.TransactionEnvelopeInfo transactionEnvelopeInfo = (BlockInfo.TransactionEnvelopeInfo) envelopeInfo;
+                            Assert.IsTrue(envelopeInfo.IsValid); // only have valid blocks.
+                            Assert.AreEqual(envelopeInfo.ValidationCode, 0);
+
+                            ++transactionEventCounts;
+                            foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo ta in transactionEnvelopeInfo.TransactionActionInfos)
+                            {
+                                //    out("\nTA:", ta + "\n\n");
+                                ChaincodeEventDeserializer evnt = ta.Event;
+                                if (evnt != null)
+                                {
+                                    Assert.IsNotNull(evnt.ChaincodeId);
+                                    Assert.IsNotNull(evnt.Name);
+                                    chaincodeEventsCounts++;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Assert.AreEqual(blockEvent.BlockNumber, 0, "Only non transaction block should be block 0.");
+                        }
+                    }
+                }
+
+                Assert.IsTrue(transactionEventCounts > 0);
+
+                if (expectNumber > 4)
+                {
+                    // this should be enough blocks with CC events.
+
+                    Assert.IsTrue(chaincodeEventsCounts > 0);
+                }
+
+                replayTestChannel.Shutdown(true); //all done.
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail(e.Message);
+            }
         }
 
-        for (ProposalResponse proposalResponse : queryProposals) {
-            if (!proposalResponse.isVerified() || proposalResponse.getStatus() != Status.SUCCESS) {
-                fail("Failed query proposal from peer " + proposalResponse.getPeer().getName() + " status: " + proposalResponse.getStatus() +
-                        ". Messages: " + proposalResponse.getMessage()
-                        + ". Was verified : " + proposalResponse.isVerified());
-            } else {
-                String payload = proposalResponse.getProposalResponse().getResponse().getPayload().toStringUtf8();
-                out("Query payload of b from peer %s returned %s", proposalResponse.getPeer().getName(), payload);
-                assertEquals(format("Failed compare on channel %s chaincode id %s expected value:'%s', but got:'%s'",
-                        channel.getName(), chaincodeID, expect, payload), expect, payload);
+        private void QueryChaincodeForExpectedValue(HFClient client, Channel channel, string expect, ChaincodeID chaincodeID)
+        {
+            Util.COut("Now query chaincode {0} on channel {1} for the value of b expecting to see: {2}", chaincodeID, channel.Name, expect);
+            QueryByChaincodeRequest queryByChaincodeRequest = client.NewQueryProposalRequest();
+            queryByChaincodeRequest.SetArgs("b".ToBytes()); // test using bytes as args. End2end uses Strings.
+            queryByChaincodeRequest.SetFcn("query");
+            queryByChaincodeRequest.ChaincodeID = chaincodeID;
+
+            List<ProposalResponse> queryProposals;
+
+            try
+            {
+                queryProposals = channel.QueryByChaincode(queryByChaincodeRequest);
+            }
+            catch (System.Exception)
+            {
+                throw;
+            }
+
+            ;
+
+            foreach (ProposalResponse proposalResponse in queryProposals)
+            {
+                if (!proposalResponse.IsVerified || proposalResponse.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                {
+                    Assert.Fail($"Failed query proposal from peer {proposalResponse.Peer.Name} status: {proposalResponse.Status}. Messages: {proposalResponse.Message}. Was verified : {proposalResponse.IsVerified}");
+                }
+                else
+                {
+                    string payload = proposalResponse.ProtoProposalResponse.Response.Payload.ToStringUtf8();
+                    Util.COut("Query payload of b from peer {0} returned {1}", proposalResponse.Peer.Name, payload);
+                    Assert.AreEqual(expect, payload, $"Failed compare on channel {channel.Name} chaincode id {chaincodeID} expected value:'{expect}', but got:'{payload}'");
+                }
+            }
+        }
+
+        private void WaitOnFabric()
+        {
+            WaitOnFabric(0);
+        }
+
+        ///// NO OP ... leave in case it's needed.
+        private void WaitOnFabric(int additional)
+        {
+        }
+
+        /**
+         * This code test the replay feature of the new peer event services.
+         * Instead of the default of starting the eventing peer to retrieve the newest block it sets it
+         * retrieve starting from the start parameter. Also checks with block and filterblock replays.
+         * Depends on end2end and end2endAndBackagain of have fully run to have the blocks need to work with.
+         *
+         * @param client
+         * @param replayTestChannel
+         * @param start
+         * @param stop
+         * @param useFilteredBlocks
+         * @throws InvalidArgumentException
+         */
+
+
+        public class TestEventListener : IBlockListener
+        {
+            public long bcount = 0;
+            public ConcurrentDictionary<long, BlockEvent> blockEvents = new ConcurrentDictionary<long, BlockEvent>();
+            public TaskCompletionSource<long> done;
+            public Channel finalChannel = null;
+            public long start = 0;
+            public long stop = 0;
+            public long stopValue = 0;
+            public bool useFilteredBlocks;
+
+            public void Received(BlockEvent blockEvent)
+            {
+                try
+                {
+                    long blockNumber = blockEvent.BlockNumber;
+                    if (blockEvents.ContainsKey(blockNumber))
+                        Assert.Fail($"Block number {blockNumber} seen twice");
+                    blockEvents[blockNumber] = blockEvent;
+
+
+                    Assert.IsTrue(useFilteredBlocks ? blockEvent.IsFiltered : !blockEvent.IsFiltered, $"Wrong type of block seen block number {blockNumber}. expected filtered block {useFilteredBlocks} but got {blockEvent.IsFiltered}");
+                    long count = Interlocked.Increment(ref bcount);
+
+
+                    //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
+
+                    if (count == 0 && stop == -1L)
+                    {
+                        BlockchainInfo blockchainInfo = finalChannel.QueryBlockchainInfo();
+
+                        long lh = blockchainInfo.Height;
+                        stopValue = lh - 1L; // blocks 0L 9L are on chain height 10 .. stop on 9
+                        //  out("height: %d", lh);
+                        if (Interlocked.Read(ref bcount) + start > stopValue)
+                        {
+                            // test with latest count.
+
+                            done.SetResult(Interlocked.Read(ref bcount));
+                        }
+                    }
+                    else
+                    {
+                        if (Interlocked.Read(ref bcount) + start > stopValue)
+                        {
+                            done.SetResult(count);
+                        }
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    done.SetException(e);
+                }
             }
         }
     }
-
-    private void waitOnFabric() {
-
-        waitOnFabric(0);
-    }
-
-    ///// NO OP ... leave in case it's needed.
-    private void waitOnFabric(int additional) {
-
-    }
-
 }

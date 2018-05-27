@@ -206,7 +206,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
         }
 
-        private List<X509Certificate2> GetX509Certificates(byte[] pemCertificates)
+        internal List<X509Certificate2> GetX509Certificates(byte[] pemCertificates)
         {
             List<X509Certificate2> certs = new List<X509Certificate2>();
             List<(X509CertificateEntry, AsymmetricCipherKeyPair)> ls = new List<(X509CertificateEntry, AsymmetricCipherKeyPair)>();

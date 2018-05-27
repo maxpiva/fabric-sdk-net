@@ -30,9 +30,8 @@ import static java.lang.String.format;
 import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;*/
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
+using System.Runtime.Serialization;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -44,77 +43,37 @@ namespace Hyperledger.Fabric.SDK
     /**
      * The Orderer class represents a orderer to which SDK sends deploy, invoke, or query requests.
      */
-    [Serializable]
-    public class Orderer
+    [DataContract]
+    public class Orderer : BaseClient
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Orderer));
-        private readonly Properties properties;
-        private Channel channel;
 
-        [NonSerialized] private byte[] clientTLSCertificateDigest;
+        private byte[] clientTLSCertificateDigest;
 
-        [NonSerialized] private OrdererClient ordererClient = null;
+        private OrdererClient ordererClient;
 
-        [NonSerialized] private bool shutdown = false;
 
-        public Orderer(string name, string url, Properties properties)
+        public Orderer(string name, string url, Properties properties) : base(name, url, properties)
         {
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new InvalidArgumentException("Invalid name for orderer");
-            }
-
-            Exception e = Utils.CheckGrpcUrl(url);
-            if (e != null)
-            {
-                throw new InvalidArgumentException(e);
-            }
-
-            Name = name;
-            Url = url;
-            this.properties = properties?.Clone();
         }
 
-        public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = new Endpoint(Url, properties).GetClientTLSCertificateDigest());
-
-        /**
-         * Get Orderer properties.
-         *
-         * @return properties
-         */
-
-        public Properties Properties => properties?.Clone();
-
-        /**
-         * Return Orderer's name
-         *
-         * @return orderer's name.
-         */
-        public string Name { get; }
-
-        /**
-         * getUrl - the Grpc url of the Orderer
-         *
-         * @return the Grpc url of the Orderer
-         */
-        public string Url { get; }
+        public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = new Endpoint(Url, Properties).GetClientTLSCertificateDigest());
 
         /**
          * Get the channel of which this orderer is a member.
          *
          * @return {Channel} The channel of which this orderer is a member.
          */
-        public Channel Channel
+        public override Channel Channel
         {
-            get => channel;
+            get => base.Channel;
             set
             {
                 if (value == null)
                     throw new InvalidArgumentException("Channel can not be null");
-
-                if (null != channel && channel != value)
-                    throw new InvalidArgumentException($"Can not add orderer {Name} to channel {value.Name} because it already belongs to channel {channel.Name}.");
-                channel = value;
+                if (null != base.Channel && base.Channel != value)
+                    throw new InvalidArgumentException($"Can not add orderer {Name} to channel {value.Name} because it already belongs to channel {Channel.Name}.");
+                base.Channel = value;
             }
         }
 
@@ -126,7 +85,7 @@ namespace Hyperledger.Fabric.SDK
 
         public void UnsetChannel()
         {
-            channel = null;
+            base.Channel = null;
         }
 
 
@@ -140,25 +99,21 @@ namespace Hyperledger.Fabric.SDK
         {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
-
             logger.Debug($"Order.sendTransaction name: {Name}, url: {Url}");
-
             OrdererClient localOrdererClient = ordererClient;
-
             if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
             {
-                ordererClient = new OrdererClient(this, new Endpoint(Url, properties), properties);
+                ordererClient = new OrdererClient(this, new Endpoint(Url, Properties), Properties);
                 localOrdererClient = ordererClient;
             }
-
             try
             {
                 return localOrdererClient.SendTransaction(transaction);
             }
-            catch (Exception t)
+            catch (Exception)
             {
                 ordererClient = null;
-                throw t;
+                throw;
             }
         }
 
@@ -167,23 +122,20 @@ namespace Hyperledger.Fabric.SDK
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
             OrdererClient localOrdererClient = ordererClient;
-
             logger.Debug($"Order.sendDeliver name: {Name}, url: {Url}");
-
             if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
             {
-                localOrdererClient = new OrdererClient(this, new Endpoint(Url, properties), properties);
+                localOrdererClient = new OrdererClient(this, new Endpoint(Url, Properties), Properties);
                 ordererClient = localOrdererClient;
             }
-
             try
             {
                 return localOrdererClient.SendDeliver(transaction);
             }
-            catch (Exception t)
+            catch (Exception)
             {
                 ordererClient = null;
-                throw t;
+                throw;
             }
         }
 
@@ -191,13 +143,9 @@ namespace Hyperledger.Fabric.SDK
         public void Shutdown(bool force)
         {
             if (shutdown)
-            {
                 return;
-            }
-
             shutdown = true;
-            channel = null;
-
+            Channel = null;
             if (ordererClient != null)
             {
                 OrdererClient torderClientDeliver = ordererClient;
@@ -210,8 +158,6 @@ namespace Hyperledger.Fabric.SDK
         {
             Shutdown(true);
         }
-
-
         public override string ToString() => "Orderer: " + Name + "(" + Url + ")";
     } // end Orderer
 }

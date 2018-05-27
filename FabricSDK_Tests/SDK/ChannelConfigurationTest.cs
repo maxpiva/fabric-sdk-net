@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Hyperledger.Fabric.Tests.SDK
 {
     [TestClass]
+    [TestCategory("SDK")]
     public class ChannelConfigurationTest {
     private static readonly string TEST_BYTES_1 = "0A205E87B04D3B137E4F";
     private static readonly string TEST_BYTES_2 = "00112233445566778899";

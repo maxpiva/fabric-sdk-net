@@ -1,18 +1,4 @@
 /*
-package org.hyperledger.fabric.sdkintegration;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric_ca.sdk.HFCAClient;
-
-*/
-/*
  *  Copyright 2016, 2017 DTCC, Fujitsu Australia Software Technology, IBM - All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,11 +12,10 @@ import org.hyperledger.fabric_ca.sdk.HFCAClient;
  *  limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Linq;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.NetExtensions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
@@ -41,159 +26,179 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
      * Keeps track which resources are defined for the Organization it represents.
      *
      */
-    public class SampleOrg {
-    readonly string name;
-    readonly string mspid;
-    HFCAClient caClient;
+    public class SampleOrg
+    {
+        private readonly Dictionary<string, string> eventHubLocations = new Dictionary<string, string>();
+        private readonly string mspid;
+        private readonly string name;
+        private readonly Dictionary<string, string> ordererLocations = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> peerLocations = new Dictionary<string, string>();
 
-    Dictionary<string, IUser> userMap = new Dictionary<string, IUser>();
-    Dictionary<string, string> peerLocations = new Dictionary<string, string>();
-    Dictionary<string, string> ordererLocations = new Dictionary<string, string>();
-    Dictionary<string, string> eventHubLocations = new Dictionary<string, string>();
-    private SampleUser admin;
-    private string caLocation;
-    private Dictionary<string, string> caProperties = null;
+        private readonly Dictionary<string, IUser> userMap = new Dictionary<string, IUser>();
+        private SampleUser admin;
+        private HFCAClient caClient;
+        private string caLocation;
 
-    private SampleUser peerAdmin;
-
-
-    private string domainName;
-
-    public string getCAName() {
-        return caName;
-    }
-
-    private string caName;
-
-    public SampleOrg(String name, string mspid) {
-        this.name = name;
-        this.mspid = mspid;
-    }
-
-    public SampleUser getAdmin() {
-        return admin;
-    }
-
-    public void setAdmin(SampleUser admin) {
-        this.admin = admin;
-    }
-
-    public string getMSPID() {
-        return mspid;
-    }
-
-    public string getCALocation() {
-        return this.caLocation;
-    }
-
-    public void setCALocation(String caLocation) {
-        this.caLocation = caLocation;
-    }
-
-    public void addPeerLocation(String name, string location) {
-
-        peerLocations.put(name, location);
-    }
-
-    public void addOrdererLocation(String name, string location) {
-
-        ordererLocations.put(name, location);
-    }
-
-    public void addEventHubLocation(String name, string location) {
-
-        eventHubLocations.put(name, location);
-    }
-
-    public string getPeerLocation(String name) {
-        return peerLocations.get(name);
-
-    }
-
-    public string getOrdererLocation(String name) {
-        return ordererLocations.get(name);
-
-    }
-
-    public string getEventHubLocation(String name) {
-        return eventHubLocations.get(name);
-
-    }
-
-    public Set<String> getPeerNames() {
-
-        return Collections.unmodifiableSet(peerLocations.keySet());
-    }
+        private string caName;
+        private Properties caProperties = null;
 
 
-    public Set<String> getOrdererNames() {
+        private string domainName;
 
-        return Collections.unmodifiableSet(ordererLocations.keySet());
-    }
+        private SampleUser peerAdmin;
 
-    public Set<String> getEventHubNames() {
+        public SampleOrg(string name, string mspid)
+        {
+            this.name = name;
+            this.mspid = mspid;
+        }
 
-        return Collections.unmodifiableSet(eventHubLocations.keySet());
-    }
+        public string getCAName()
+        {
+            return caName;
+        }
 
-    public HFCAClient getCAClient() {
+        public SampleUser GetAdmin()
+        {
+            return admin;
+        }
 
-        return caClient;
-    }
+        public void SetAdmin(SampleUser admin)
+        {
+            this.admin = admin;
+        }
 
-    public void setCAClient(HFCAClient caClient) {
+        public string GetMSPID()
+        {
+            return mspid;
+        }
 
-        this.caClient = caClient;
-    }
+        public string GetCALocation()
+        {
+            return caLocation;
+        }
 
-    public string getName() {
-        return name;
-    }
+        public void SetCALocation(string caLocation)
+        {
+            this.caLocation = caLocation;
+        }
 
-    public void addUser(SampleUser user) {
-        userMap.put(user.getName(), user);
-    }
+        public void AddPeerLocation(string name, string location)
+        {
+            peerLocations.Add(name, location);
+        }
 
-    public User getUser(String name) {
-        return userMap.get(name);
-    }
+        public void AddOrdererLocation(string name, string location)
+        {
+            ordererLocations.Add(name, location);
+        }
 
-    public Collection<String> getOrdererLocations() {
-        return Collections.unmodifiableCollection(ordererLocations.values());
-    }
+        public void AddEventHubLocation(string name, string location)
+        {
+            eventHubLocations.Add(name, location);
+        }
 
-    public Collection<String> getEventHubLocations() {
-        return Collections.unmodifiableCollection(eventHubLocations.values());
-    }
+        public string GetPeerLocation(string name)
+        {
+            return peerLocations.GetOrNull(name);
+        }
+
+        public string GetOrdererLocation(string name)
+        {
+            return ordererLocations.GetOrNull(name);
+        }
+
+        public string GetEventHubLocation(string name)
+        {
+            return eventHubLocations.GetOrNull(name);
+        }
+
+        public IReadOnlyList<string> GetPeerNames()
+        {
+            return peerLocations.Keys.ToList();
+        }
 
 
-    public void setCAProperties(Properties caProperties) {
-        this.caProperties = caProperties;
-    }
+        public IReadOnlyList<string> GetOrdererNames()
+        {
+            return ordererLocations.Keys.ToList();
+        }
 
-    public Properties getCAProperties() {
-        return caProperties;
-    }
+        public IReadOnlyList<string> GetEventHubNames()
+        {
+            return eventHubLocations.Keys.ToList();
+        }
+
+        public HFCAClient GetCAClient()
+        {
+            return caClient;
+        }
+
+        public void SetCAClient(HFCAClient caClient)
+        {
+            this.caClient = caClient;
+        }
+
+        public string GetName()
+        {
+            return name;
+        }
+
+        public void AddUser(SampleUser user)
+        {
+            userMap.Add(user.Name, user);
+        }
+
+        public IUser GetUser(string name)
+        {
+            return userMap.GetOrNull(name);
+        }
+
+        public IReadOnlyList<string> getOrdererLocations()
+        {
+            return ordererLocations.Values.ToList();
+        }
+
+        public IReadOnlyList<string> getEventHubLocations()
+        {
+            return eventHubLocations.Values.ToList();
+        }
 
 
-    public SampleUser getPeerAdmin() {
-        return peerAdmin;
-    }
+        public void SetCAProperties(Properties caProperties)
+        {
+            this.caProperties = caProperties;
+        }
 
-    public void setPeerAdmin(SampleUser peerAdmin) {
-        this.peerAdmin = peerAdmin;
-    }
+        public Properties GetCAProperties()
+        {
+            return caProperties;
+        }
 
-    public void setDomainName(String domainName) {
-        this.domainName = domainName;
-    }
 
-    public string getDomainName() {
-        return domainName;
-    }
+        public SampleUser GetPeerAdmin()
+        {
+            return peerAdmin;
+        }
 
-    public void setCAName(String caName) {
-        this.caName = caName;
+        public void SetPeerAdmin(SampleUser peerAdmin)
+        {
+            this.peerAdmin = peerAdmin;
+        }
+
+        public void SetDomainName(string domainName)
+        {
+            this.domainName = domainName;
+        }
+
+        public string GetDomainName()
+        {
+            return domainName;
+        }
+
+        public void SetCAName(string caName)
+        {
+            this.caName = caName;
+        }
     }
 }
-    }

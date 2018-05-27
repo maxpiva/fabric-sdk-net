@@ -29,6 +29,18 @@ namespace Hyperledger.Fabric.SDK.Helper
             return Get(field) == null ? defValue : Get(field);
         }
 
+        public string Remove(string field)
+        {
+            if (list.ContainsKey(field))
+            {
+                string value = list[field];
+                list.Remove(field);
+                return value;
+            }
+
+            return null;
+        }
+
         public string Get(string field)
         {
             return list.ContainsKey(field) ? list[field] : null;

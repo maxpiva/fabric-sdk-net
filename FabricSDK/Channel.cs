@@ -19,12 +19,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Google.Protobuf;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
@@ -38,6 +38,7 @@ using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Transaction;
+using Newtonsoft.Json;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
@@ -64,40 +65,41 @@ namespace Hyperledger.Fabric.SDK
         // final Set<Peer> eventingPeers = Collections.synchronizedSet(new HashSet<>());
 
         private readonly LinkedHashMap<string, ChaincodeEventListenerEntry> chainCodeListeners = new LinkedHashMap<string, ChaincodeEventListenerEntry>();
+
+        private readonly long CHANNEL_CONFIG_WAIT_TIME = Config.Instance.GetChannelConfigWaitTime();
         /**
          * A queue each eventing hub will write events to.
          */
 
-        private readonly ChannelEventQue channelEventQue;
-
-        private readonly LinkedList<EventHub> eventHubs = new LinkedList<EventHub>();
-        private readonly LinkedList<Orderer> orderers = new LinkedList<Orderer>();
-
-        // Name of the channel is only meaningful to the client
-        private readonly ConcurrentDictionary<Peer, PeerOptions> peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>();
-
-        private readonly ConcurrentDictionary<PeerRole, List<Peer>> peerRoleSetMap = new ConcurrentDictionary<PeerRole, List<Peer>>();
-
-        // The peers on this channel to which the client can connect
-        private readonly List<Peer> peers = new List<Peer>();
-        private readonly bool systemChannel;
-        private readonly LinkedHashMap<string, LinkedList<TL>> txListeners = new LinkedHashMap<string, LinkedList<TL>>();
-        private string blh = null;
-
-        private HFClient client;
+        private readonly long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
 
 
         private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
+
+        private LinkedList<EventHub> eventHubs = new LinkedList<EventHub>();
+
+        private readonly long ORDERER_RETRY_WAIT_TIME = Config.Instance.GetOrdererRetryWaitTime();
+        internal LinkedList<Orderer> orderers = new LinkedList<Orderer>();
+
+        // Name of the channel is only meaningful to the client
+        private ConcurrentDictionary<Peer, PeerOptions> peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>();
+
+        private ConcurrentDictionary<PeerRole, List<Peer>> peerRoleSetMap = new ConcurrentDictionary<PeerRole, List<Peer>>();
+
+        // The peers on this channel to which the client can connect
+        internal List<Peer> peers = new List<Peer>();
+        private readonly LinkedHashMap<string, LinkedList<TL>> txListeners = new LinkedHashMap<string, LinkedList<TL>>();
+        private string blh = null;
+
+        internal HFClient client;
         /**
          * Runs processing events from event hubs.
          */
 
         private CancellationTokenSource eventQueueTokenSource = null;
         private Block genesisBlock;
-        private volatile bool initialized = false;
+        internal volatile bool initialized = false;
         private IReadOnlyDictionary<string, MSP> msps = new Dictionary<string, MSP>();
-
-        private bool shutdown = false;
 
         //Cleans up any transaction listeners that will probably never complete.
         private Timer sweeper = null;
@@ -186,9 +188,9 @@ namespace Hyperledger.Fabric.SDK
 
         private Channel(string name, HFClient client, bool systemChannel)
         {
-            channelEventQue = new ChannelEventQue(this);
+            ChannelEventQueue = new ChannelEventQue(this);
             FillRoles();
-            this.systemChannel = systemChannel;
+            IsSystemChannel = systemChannel;
 
             if (systemChannel)
             {
@@ -198,41 +200,109 @@ namespace Hyperledger.Fabric.SDK
             else
             {
                 if (string.IsNullOrEmpty(name))
-                {
                     throw new InvalidArgumentException("Channel name is invalid can not be null or empty.");
-                }
-            }
-
-            if (null == client)
-            {
-                throw new InvalidArgumentException("Channel client is invalid can not be null.");
             }
 
             Name = name;
-            this.client = client;
-            logger.Debug($"Creating channel: {(IsSystemChannel() ? "SYSTEM_CHANNEL" : name)}, client context {client.UserContext.Name}");
+            this.client = client ?? throw new InvalidArgumentException("Channel client is invalid can not be null.");
+            logger.Debug($"Creating channel: {(IsSystemChannel ? "SYSTEM_CHANNEL" : name)}, client context {client.UserContext.Name}");
         }
 
-        private long ORDERER_RETRY_WAIT_TIME = Config.Instance.GetOrdererRetryWaitTime();
-        private long CHANNEL_CONFIG_WAIT_TIME = Config.Instance.GetChannelConfigWaitTime();
-        private long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
+        public Channel()
+        {
+            initialized = false;
+            IsShutdown = false;
+            msps = new Dictionary<string, MSP>();
+            txListeners = new LinkedHashMap<string, LinkedList<TL>>();
+            ChannelEventQueue=new ChannelEventQue(this);
+            blockListeners = new LinkedHashMap<string, BL>();
+        }
 
+        public static Channel Deserialize(string json)
+        {
+            Channel ch = JsonConvert.DeserializeObject<Channel>(json);
+            foreach (EventHub eventHub in ch.eventHubs.ToList())
+            {
+                eventHub.SetEventQue(ch.ChannelEventQueue);
+            }
+            return ch;
+        }
 
+        public string Serialize()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
         /**
          * Get all Event Hubs on this channel.
          *
          * @return Event Hubs
          */
-        public IReadOnlyList<EventHub> EventHubs => eventHubs.ToList();
+        [DataMember]
+        public IReadOnlyList<EventHub> EventHubs
+        {
+            get => eventHubs.ToList();
+            private set => eventHubs = new LinkedList<EventHub>(value);
+        }
+
+        [DataMember]
+        public IReadOnlyList<Orderer> Orderers
+        {
+            get=> orderers.ToList();
+            private set => orderers = new LinkedList<Orderer>(value);
+        } 
 
         /**
          * Get the channel name
          *
          * @return The name of the channel
          */
-        public string Name { get; }
+        [DataMember]
+        public string Name { get; internal set; }
 
+        [IgnoreDataMember]
         public TaskScheduler ExecutorService => client.ExecutorService;
+
+        [DataMember]
+        public Dictionary<Peer, PeerOptions> PeerOptionsMap
+        {
+            get => peerOptionsMap.ToDictionary(a => a.Key, a => a.Value);
+            private set => peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>(value);
+        }
+
+        [DataMember]
+        public Dictionary<PeerRole, List<Peer>> PeerRoleMap
+        {
+            get => peerRoleSetMap.ToDictionary(a => a.Key, a => a.Value.ToList());
+            private set => peerRoleSetMap = new ConcurrentDictionary<PeerRole, List<Peer>>(value);
+        }
+
+
+        [DataMember]
+        public bool IsSystemChannel { get; private set; }
+
+        /**
+         * Get the peers for this channel.
+         *
+         * @return the peers.
+         */
+        [DataMember]
+        public IReadOnlyList<Peer> Peers
+        {
+            get => peers;
+            private set => peers = value.ToList();          
+        }
+
+
+        /**
+         * Is the channel shutdown.
+         *
+         * @return return true if the channel is shutdown.
+         */
+        [IgnoreDataMember]
+        public bool IsShutdown { get; internal set; } = false;
+
+        [IgnoreDataMember]
+        public ChannelEventQue ChannelEventQueue { get; }
 
 
         public void FillRoles()
@@ -471,11 +541,8 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return true if the channel has been initialized.
          */
-
-        public bool IsInitialized()
-        {
-            return initialized;
-        }
+        [IgnoreDataMember]
+        public bool IsInitialized => initialized;
 
         /**
          * Add a peer to the channel
@@ -499,7 +566,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public Channel AddPeer(Peer peer, PeerOptions peerOptions)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
@@ -514,9 +581,9 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("Peer is invalid can not be null.");
             }
 
-            if (peer.GetChannel() != null && peer.GetChannel() != this)
+            if (peer.Channel != null && peer.Channel != this)
             {
-                throw new InvalidArgumentException($"Peer already connected to channel {peer.GetChannel().Name}");
+                throw new InvalidArgumentException($"Peer already connected to channel {peer.Channel.Name}");
             }
 
             if (null == peerOptions)
@@ -524,13 +591,13 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("Peer is invalid can not be null.");
             }
 
-            peer.SetChannel(this);
+            peer.Channel = this;
 
             peers.Add(peer);
             peerOptionsMap[peer] = peerOptions.Clone();
             foreach (PeerRole peerRole in peerRoleSetMap.Keys)
             {
-                if (peerOptions.GetPeerRoles().Contains(peerRole))
+                if (peerOptions.PeerRoles.Contains(peerRole))
                     peerRoleSetMap[peerRole].Add(peer);
             }
 
@@ -563,11 +630,6 @@ namespace Hyperledger.Fabric.SDK
         private IReadOnlyList<Peer> GetChaincodePeers()
         {
             return GetPeers(new[] {PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER});
-        }
-
-        public IReadOnlyList<EventHub> GetEventHubs()
-        {
-            return eventHubs.ToList();
         }
 
         private IReadOnlyList<Peer> GetChaincodeQueryPeers()
@@ -617,12 +679,12 @@ namespace Hyperledger.Fabric.SDK
         {
             logger.Debug($"Channel {Name} joining peer {peer.Name}, url: {peer.Url}");
 
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new ProposalException($"Channel {Name} has been shutdown.");
             }
 
-            Channel peerChannel = peer.GetChannel();
+            Channel peerChannel = peer.Channel;
             if (null != peerChannel && peerChannel != this)
             {
                 throw new ProposalException($"Can not add peer {peer.Name} to channel {Name} because it already belongs to channel {peerChannel.Name}.");
@@ -684,7 +746,7 @@ namespace Hyperledger.Fabric.SDK
         {
             //   logger.debug(format("getConfigBlock for channel %s with peer %s, url: %s", name, peer.getName(), peer.getUrl()));
 
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new ProposalException($"Channel {Name} has been shutdown.");
             }
@@ -765,7 +827,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException($"Can not remove peer from channel {Name} already initialized.");
             }
 
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Can not remove peer from channel {Name} already shutdown.");
             }
@@ -797,7 +859,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel AddOrderer(Orderer orderer)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException("Channel {name} has been shutdown.");
             }
@@ -831,7 +893,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel AddEventHub(EventHub eventHub)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
@@ -841,21 +903,11 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("EventHub is invalid can not be null.");
             }
 
-            logger.Debug($"Channel {Name} adding event hub {eventHub.Name}, url: {eventHub.GetUrl()}");
-            eventHub.SetChannel(this);
-            eventHub.SetEventQue(channelEventQue);
+            logger.Debug($"Channel {Name} adding event hub {eventHub.Name}, url: {eventHub.Url}");
+            eventHub.Channel = this;
+            eventHub.SetEventQue(ChannelEventQueue);
             eventHubs.AddLast(eventHub);
             return this;
-        }
-
-        /**
-         * Get the peers for this channel.
-         *
-         * @return the peers.
-         */
-        public IReadOnlyList<Peer> GetPeers()
-        {
-            return peers;
         }
 
         /**
@@ -915,9 +967,9 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel Initialize()
         {
-            logger.Debug($"Channel {Name} initialize shutdown {shutdown}");
+            logger.Debug($"Channel {Name} initialize shutdown {IsShutdown}");
 
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException("Channel {name} has been shutdown.");
             }
@@ -1088,21 +1140,6 @@ namespace Hyperledger.Fabric.SDK
             return genesisBlock;
         }
 
-        private bool IsSystemChannel()
-        {
-            return systemChannel;
-        }
-
-        /**
-         * Is the channel shutdown.
-         *
-         * @return return true if the channel is shutdown.
-         */
-        public bool IsShutdown()
-        {
-            return shutdown;
-        }
-
         /**
          * Get signed byes of the update channel.
          *
@@ -1140,11 +1177,6 @@ namespace Hyperledger.Fabric.SDK
             {
                 logger.Debug("finally done");
             }
-        }
-
-        public ChannelEventQue GetChannelEventQue()
-        {
-            return channelEventQue;
         }
 
         protected void ParseConfigBlock()
@@ -1668,7 +1700,7 @@ namespace Hyperledger.Fabric.SDK
 
         private void CheckChannelState()
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException("Channel {name} has been shutdown.");
             }
@@ -1802,7 +1834,7 @@ namespace Hyperledger.Fabric.SDK
 
         private Peer GetRandomPeer()
         {
-            List<Peer> randPicks = GetPeers().ToList(); //copy to avoid unlikely changes
+            List<Peer> randPicks = Peers.ToList(); //copy to avoid unlikely changes
 
             if (randPicks.Count == 0)
             {
@@ -1814,7 +1846,7 @@ namespace Hyperledger.Fabric.SDK
 
         private List<Peer> GetShuffledPeers()
         {
-            return GetPeers().ToList().Shuffle().ToList();
+            return Peers.ToList().Shuffle().ToList();
         }
 
         private List<Peer> GetShuffledPeers(IEnumerable<PeerRole> roles)
@@ -1841,17 +1873,17 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("Peer value is null.");
             }
 
-            if (IsSystemChannel())
+            if (IsSystemChannel)
             {
                 return; // System owns no peers
             }
 
-            if (!GetPeers().Contains(peer))
+            if (!Peers.Contains(peer))
             {
                 throw new InvalidArgumentException("Channel " + Name + " does not have peer " + peer.Name);
             }
 
-            if (peer.GetChannel() != this)
+            if (peer.Channel != this)
             {
                 throw new InvalidArgumentException("Peer " + peer.Name + " not set for channel " + Name);
             }
@@ -1864,7 +1896,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new InvalidArgumentException("Orderer value is null.");
             }
 
-            if (IsSystemChannel())
+            if (IsSystemChannel)
             {
                 return; // System owns no Orderers
             }
@@ -2343,7 +2375,7 @@ namespace Hyperledger.Fabric.SDK
         {
             CheckPeer(peer);
 
-            if (!IsSystemChannel())
+            if (!IsSystemChannel)
             {
                 throw new InvalidArgumentException("queryChannels should only be invoked on system channel.");
             }
@@ -2413,7 +2445,7 @@ namespace Hyperledger.Fabric.SDK
         {
             CheckPeer(peer);
 
-            if (!IsSystemChannel())
+            if (!IsSystemChannel)
             {
                 throw new InvalidArgumentException("queryInstalledChaincodes should only be invoked on system channel.");
             }
@@ -2952,7 +2984,7 @@ namespace Hyperledger.Fabric.SDK
                         nOfEvents.AddPeers(eventingPeers);
                     }
 
-                    IReadOnlyList<EventHub> eventHubs = GetEventHubs();
+                    IReadOnlyList<EventHub> eventHubs = EventHubs;
                     if (eventHubs.Count > 0)
                     {
                         anyAdded = true;
@@ -2970,7 +3002,7 @@ namespace Hyperledger.Fabric.SDK
                     IReadOnlyList<Peer> eventingPeers = GetEventingPeers();
                     nOfEvents.UnSeenPeers().ForEach(peer =>
                     {
-                        if (peer.GetChannel() != this)
+                        if (peer.Channel != this)
                         {
                             issues.Append($"Peer {peer.Name} added to NOFEvents does not belong this channel. ");
                         }
@@ -2999,7 +3031,7 @@ namespace Hyperledger.Fabric.SDK
                     }
                 }
 
-                bool replyonly = nOfEvents == NOfEvents.NofNoEvents || GetEventHubs().Count == 0 && GetEventingPeers().Count == 0;
+                bool replyonly = nOfEvents == NOfEvents.NofNoEvents || EventHubs.Count == 0 && GetEventingPeers().Count == 0;
 
                 TaskCompletionSource<BlockEvent.TransactionEvent> sret;
                 if (replyonly)
@@ -3171,7 +3203,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public string RegisterBlockListener(IBlockListener listener)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
@@ -3188,7 +3220,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public bool UnregisterBlockListener(string handle)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
@@ -3219,7 +3251,7 @@ namespace Hyperledger.Fabric.SDK
             TaskScheduler scheduler = client.ExecutorService;
             Task.Factory.StartNew(() =>
             {
-                while (!shutdown)
+                while (!IsShutdown)
                 {
                     try
                     {
@@ -3248,11 +3280,11 @@ namespace Hyperledger.Fabric.SDK
                     BlockEvent blockEvent;
                     try
                     {
-                        blockEvent = channelEventQue.GetNextEvent();
+                        blockEvent = ChannelEventQueue.GetNextEvent();
                     }
                     catch (EventHubException e)
                     {
-                        if (!shutdown)
+                        if (!IsShutdown)
                         {
                             logger.ErrorException(e.Message, e);
                         }
@@ -3329,7 +3361,7 @@ namespace Hyperledger.Fabric.SDK
 
         private void RunSweeper()
         {
-            if (shutdown || DELTA_SWEEP < 1)
+            if (IsShutdown || DELTA_SWEEP < 1)
             {
                 return;
             }
@@ -3402,7 +3434,7 @@ namespace Hyperledger.Fabric.SDK
 
         public string RegisterChaincodeEventListener(Regex chaincodeId, Regex eventName, IChaincodeEventListener chaincodeEventListener)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             }
@@ -3446,7 +3478,7 @@ namespace Hyperledger.Fabric.SDK
         {
             bool ret;
 
-            if (shutdown)
+            if (IsShutdown)
             {
                 throw new InvalidArgumentException("Channel {name} has been shutdown.");
             }
@@ -3498,13 +3530,13 @@ namespace Hyperledger.Fabric.SDK
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown(bool force)
         {
-            if (shutdown)
+            if (IsShutdown)
             {
                 return;
             }
 
             initialized = false;
-            shutdown = true;
+            IsShutdown = true;
             if (chainCodeListeners != null)
             {
                 chainCodeListeners.Clear();
@@ -3535,7 +3567,7 @@ namespace Hyperledger.Fabric.SDK
             }
 
             eventHubs.Clear();
-            foreach (Peer peer in GetPeers().ToList())
+            foreach (Peer peer in Peers.ToList())
             {
                 try
                 {
@@ -3759,26 +3791,11 @@ namespace Hyperledger.Fabric.SDK
      * These options are channel based.
      */
 
-        [Serializable]
-        public class PeerOptions 
+        [DataContract]
+        public class PeerOptions
         {
             protected List<PeerRole> peerRoles;
 
-
-            protected bool registerEventsForFilteredBlocks = false;
-
-
-            public PeerOptions Clone()
-            {
-                PeerOptions p=new PeerOptions();
-                p.peerRoles = peerRoles.ToList();
-                p.registerEventsForFilteredBlocks = registerEventsForFilteredBlocks;
-                p.Newest = Newest;
-                p.StartEventsBlock = StartEventsBlock;
-                p.StopEventsBlock = StopEventsBlock;
-
-                return p;
-            }
             protected PeerOptions()
             {
             }
@@ -3788,6 +3805,7 @@ namespace Hyperledger.Fabric.SDK
              *
              * @return
              */
+            [DataMember]
             public bool? Newest { get; private set; } = true;
 
 
@@ -3796,7 +3814,7 @@ namespace Hyperledger.Fabric.SDK
              *
              * @return the start number
              */
-
+            [DataMember]
             public long? StartEventsBlock { get; private set; }
 
 
@@ -3806,6 +3824,7 @@ namespace Hyperledger.Fabric.SDK
              * @return the stop block number.
              */
 
+            [DataMember]
             public long StopEventsBlock { get; private set; } = long.MaxValue;
 
             /**
@@ -3815,16 +3834,40 @@ namespace Hyperledger.Fabric.SDK
              */
 
 
-
-
             /**
              * Is the peer eventing service registered for filtered blocks
              *
              * @return true if filtered blocks will be returned by the peer eventing service.
              */
-            public bool IsRegisterEventsForFilteredBlocks()
+            [DataMember]
+            public bool IsRegisterEventsForFilteredBlocks { get; protected set; } = false;
+
+            /**
+             * Return the roles the peer has.
+             *
+             * @return the roles {@link PeerRole}
+             */
+            [DataMember]
+            public List<PeerRole> PeerRoles
             {
-                return registerEventsForFilteredBlocks;
+                get
+                {
+                    if (peerRoles == null)
+                        return PeerRoleExtensions.All();
+                    return peerRoles;
+                }
+            }
+
+            public PeerOptions Clone()
+            {
+                PeerOptions p = new PeerOptions();
+                p.peerRoles = peerRoles?.ToList();
+                p.IsRegisterEventsForFilteredBlocks = IsRegisterEventsForFilteredBlocks;
+                p.Newest = Newest;
+                p.StartEventsBlock = StartEventsBlock;
+                p.StopEventsBlock = StopEventsBlock;
+
+                return p;
             }
 
             /**
@@ -3835,7 +3878,7 @@ namespace Hyperledger.Fabric.SDK
 
             public PeerOptions RegisterEventsForFilteredBlocks()
             {
-                registerEventsForFilteredBlocks = true;
+                IsRegisterEventsForFilteredBlocks = true;
                 return this;
             }
 
@@ -3847,7 +3890,7 @@ namespace Hyperledger.Fabric.SDK
 
             public PeerOptions RegisterEventsForBlocks()
             {
-                registerEventsForFilteredBlocks = false;
+                IsRegisterEventsForFilteredBlocks = false;
                 return this;
             }
 
@@ -3860,22 +3903,6 @@ namespace Hyperledger.Fabric.SDK
             public static PeerOptions CreatePeerOptions()
             {
                 return new PeerOptions();
-            }
-
-            /**
-             * Return the roles the peer has.
-             *
-             * @return the roles {@link PeerRole}
-             */
-
-            public List<PeerRole> GetPeerRoles()
-            {
-                if (peerRoles == null)
-                {
-                    return PeerRoleExtensions.All();
-                }
-
-                return peerRoles;
             }
 
             public bool HasPeerRoles()
@@ -4469,7 +4496,7 @@ namespace Hyperledger.Fabric.SDK
 
             public bool AddBEvent(BlockEvent evnt)
             {
-                if (channel.shutdown)
+                if (channel.IsShutdown)
                 {
                     return false;
                 }
@@ -4489,7 +4516,7 @@ namespace Hyperledger.Fabric.SDK
 
             public BlockEvent GetNextEvent()
             {
-                if (channel.shutdown)
+                if (channel.IsShutdown)
                 {
                     throw new EventHubException($"Channel {channel.Name} has been shutdown");
                 }
@@ -4506,7 +4533,7 @@ namespace Hyperledger.Fabric.SDK
                 }
                 catch (Exception e)
                 {
-                    if (channel.shutdown)
+                    if (channel.IsShutdown)
                     {
                         throw new EventHubException(eventException);
                     }
@@ -4527,7 +4554,7 @@ namespace Hyperledger.Fabric.SDK
                     throw new EventHubException(eventException);
                 }
 
-                if (channel.shutdown)
+                if (channel.IsShutdown)
                 {
                     throw new EventHubException($"Channel {channel.Name} has been shutdown.");
                 }
@@ -4570,6 +4597,8 @@ namespace Hyperledger.Fabric.SDK
             private static readonly ILog logger = LogProvider.GetLogger(typeof(TL));
             private readonly Channel channel;
             private readonly long createTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            private readonly long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
             private readonly HashSet<EventHub> eventHubs;
             private readonly bool failFast;
             private readonly TaskCompletionSource<BlockEvent.TransactionEvent> future;
@@ -4591,8 +4620,6 @@ namespace Hyperledger.Fabric.SDK
                 this.failFast = failFast;
                 AddListener();
             }
-
-            private long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
 
             /**
              * Record transactions event.

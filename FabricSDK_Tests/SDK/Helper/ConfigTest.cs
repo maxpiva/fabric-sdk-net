@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Hyperledger.Fabric.Tests.SDK.Helper
 {
     [TestClass]
+    [TestCategory("SDK")]
     public class ConfigTest
     {
         private readonly TestConfigHelper configHelper = new TestConfigHelper();

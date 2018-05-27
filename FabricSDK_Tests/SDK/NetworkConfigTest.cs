@@ -12,681 +12,631 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.util.Collection;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
-
-import io.grpc.ManagedChannelBuilder;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.NetworkConfigurationException;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestUtils;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.getField;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class NetworkConfigTest {
-
-    private static final String CHANNEL_NAME = "myChannel";
-    private static final String CLIENT_ORG_NAME = "Org1";
-
-    private static final String USER_NAME = "MockMe";
-    private static final String USER_MSP_ID = "MockMSPID";
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
-    @Test
-    public void testLoadFromConfigNullStream() throws Exception {
-
-        // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("configStream must be specified");
-
-        NetworkConfig.fromJsonStream((InputStream) null);
-    }
-
-    @Test
-    public void testLoadFromConfigNullYamlFile() throws Exception {
-        // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("configFile must be specified");
-
-        NetworkConfig.fromYamlFile((File) null);
-    }
-
-    @Test
-    public void testLoadFromConfigNullJsonFile() throws Exception {
-        // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("configFile must be specified");
-
-        NetworkConfig.fromJsonFile((File) null);
-    }
-
-    @Test
-    public void testLoadFromConfigYamlFileNotExists() throws Exception {
-
-        // Should not be able to instantiate a new instance of "Client" without an actual configuration file
-        thrown.expect(FileNotFoundException.class);
-        thrown.expectMessage("FileDoesNotExist.yaml");
-
-        File f = new File("FileDoesNotExist.yaml");
-        NetworkConfig.fromYamlFile(f);
-
-    }
-
-    @Test
-    public void testLoadFromConfigJsonFileNotExists() throws Exception {
-
-        // Should not be able to instantiate a new instance of "Client" without an actual configuration file
-        thrown.expect(FileNotFoundException.class);
-        thrown.expectMessage("FileDoesNotExist.json");
-
-        File f = new File("FileDoesNotExist.json");
-        NetworkConfig.fromJsonFile(f);
-
-    }
-
-    @Test
-    public void testLoadFromConfigFileYamlBasic() throws Exception {
-
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-        assertNotNull(config);
-        Set<String> channelNames = config.getChannelNames();
-        assertTrue(channelNames.contains("foo"));
-    }
-
-    @Test
-    public void testLoadFromConfigFileJsonBasic() throws Exception {
-
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.json");
-        NetworkConfig config = NetworkConfig.fromJsonFile(f);
-        assertNotNull(config);
-    }
-
-    @Test
-    public void testLoadFromConfigFileYaml() throws Exception {
-
-        // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-        //HFClient client = HFClient.loadFromConfig(f);
-        assertNotNull(config);
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-
-        Channel channel = client.loadChannelFromConfig("foo", config);
-        assertNotNull(channel);
-    }
-
-    @Test
-    public void testLoadFromConfigFileJson() throws Exception {
-
-        // Should be able to instantiate a new instance of "Client" with a valid path to the JSON configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.json");
-        NetworkConfig config = NetworkConfig.fromJsonFile(f);
-        assertNotNull(config);
-
-        //HFClient client = HFClient.loadFromConfig(f);
-        //Assert.assertNotNull(client);
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-
-        Channel channel = client.loadChannelFromConfig("mychannel", config);
-        assertNotNull(channel);
-    }
-
-    @Test
-    public void testLoadFromConfigNoOrganization() throws Exception {
-
-        // Should not be able to instantiate a new instance of "Channel" without specifying a valid client organization
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("client organization must be specified");
-
-        JsonObject jsonConfig = getJsonConfig1(0, 1, 0);
-
-        NetworkConfig.fromJsonObject(jsonConfig);
-    }
-
-    @Test
-    public void testGetClientOrg() throws Exception {
-
-        JsonObject jsonConfig = getJsonConfig1(1, 0, 0);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        Assert.assertEquals(CLIENT_ORG_NAME, config.getClientOrganization().getName());
-    }
-
-    // TODO: At least one orderer must be specified
-    @Ignore
-    @Test
-    public void testNewChannel() throws Exception {
-
-        // Should be able to instantiate a new instance of "Channel" with the definition in the network configuration'
-        JsonObject jsonConfig = getJsonConfig1(1, 0, 0);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        HFClient client = HFClient.createNewInstance();
-        TestHFClient.setupClient(client);
-
-        Channel channel = client.loadChannelFromConfig(CHANNEL_NAME, config);
-        assertNotNull(channel);
-        Assert.assertEquals(CHANNEL_NAME, channel.getName());
-    }
-
-    @Test
-    public void testGetChannelNotExists() throws Exception {
-
-        thrown.expect(NetworkConfigurationException.class);
-        thrown.expectMessage("Channel MissingChannel not found in configuration file. Found channel names: foo");
-
-        // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-        //HFClient client = HFClient.loadFromConfig(f);
-        assertNotNull(config);
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-
-        client.loadChannelFromConfig("MissingChannel", config);
-
-    }
-
-    @Test
-    public void testGetChannelNoOrderersOrPeers() throws Exception {
-
-        thrown.expect(NetworkConfigurationException.class);
-        thrown.expectMessage("Error constructing");
-
-        // Should not be able to instantiate a new instance of "Channel" with no orderers or peers configured
-        JsonObject jsonConfig = getJsonConfig1(1, 0, 0);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        HFClient client = HFClient.createNewInstance();
-        TestHFClient.setupClient(client);
-
-        client.loadChannelFromConfig(CHANNEL_NAME, config);
-
-        //HFClient client = HFClient.loadFromConfig(jsonConfig);
-        //TestHFClient.setupClient(client);
-
-        //client.getChannel(CHANNEL_NAME);
-    }
-
-    @Test
-    public void testGetChannelNoOrderers() throws Exception {
-
-        thrown.expect(NetworkConfigurationException.class);
-        thrown.expectMessage("Error constructing");
-
-        // Should not be able to instantiate a new instance of "Channel" with no orderers configured
-        JsonObject jsonConfig = getJsonConfig1(1, 0, 1);
-
-        //HFClient client = HFClient.loadFromConfig(jsonConfig);
-        //TestHFClient.setupClient(client);
-
-        //client.getChannel(CHANNEL_NAME);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        HFClient client = HFClient.createNewInstance();
-        TestHFClient.setupClient(client);
-
-        client.loadChannelFromConfig(CHANNEL_NAME, config);
-
-    }
-
-    @Test
-    public void testGetChannelNoPeers() throws Exception {
-
-        thrown.expect(NetworkConfigurationException.class);
-        thrown.expectMessage("Error constructing");
-
-        // Should not be able to instantiate a new instance of "Channel" with no peers configured
-        JsonObject jsonConfig = getJsonConfig1(1, 1, 0);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        HFClient client = HFClient.createNewInstance();
-        TestHFClient.setupClient(client);
-
-        client.loadChannelFromConfig(CHANNEL_NAME, config);
-
-        //HFClient client = HFClient.loadFromConfig(jsonConfig);
-        //TestHFClient.setupClient(client);
-
-        //client.getChannel(CHANNEL_NAME);
-
-    }
-
-    @Test
-    public void testLoadFromConfigFileYamlNOOverrides() throws Exception {
-
-        // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-
-        //HFClient client = HFClient.loadFromConfig(f);
-        assertNotNull(config);
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-
-        Channel channel = client.loadChannelFromConfig("foo", config);
-        assertNotNull(channel);
-
-        assertTrue(!channel.getPeers().isEmpty());
-
-        for (Peer peer : channel.getPeers()) {
-
-            Properties properties = peer.getProperties();
-
-            assertNotNull(properties);
-            assertNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveTime"));
-            assertNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveTimeout"));
-            assertNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
-
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Grpc.Core;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json.Linq;
+using Channel = Hyperledger.Fabric.SDK.Channel;
+
+namespace Hyperledger.Fabric.Tests.SDK
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class NetworkConfigTest
+    {
+        private static readonly string CHANNEL_NAME = "myChannel";
+        private static readonly string CLIENT_ORG_NAME = "Org1";
+
+        private static readonly string USER_NAME = "MockMe";
+        private static readonly string USER_MSP_ID = "MockMSPID";
+
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configStream must be specified")]
+        public void TestLoadFromConfigNullStream()
+        {
+            // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
+
+
+            NetworkConfig.FromJsonStream((Stream) null);
         }
 
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configFile must be specified")]
+        public void TestLoadFromConfigNullYamlFile()
+        {
+            // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
 
-    @Test
-    public void testLoadFromConfigFileYamlNOOverridesButSet() throws Exception {
 
-        // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-
-        //HFClient client = HFClient.loadFromConfig(f);
-        assertNotNull(config);
-
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-
-        Channel channel = client.loadChannelFromConfig("foo", config);
-        assertNotNull(channel);
-
-        assertTrue(!channel.getOrderers().isEmpty());
-
-        for (Orderer orderer : channel.getOrderers()) {
-
-            final Properties properties = orderer.getProperties();
-            Object[] o = (Object[]) properties.get("grpc.NettyChannelBuilderOption.keepAliveTime");
-            assertEquals(o[0], 360000L);
-
-            o = (Object[]) properties.get("grpc.NettyChannelBuilderOption.keepAliveTimeout");
-            assertEquals(o[0], 180000L);
-
+            NetworkConfig.FromYamlFile((FileInfo) null);
         }
 
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configFile must be specified")]
+        public void TestLoadFromConfigNullJsonFile()
+        {
+            // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
 
-
-    @Test
-    public void testLoadFromConfigFileYamlOverrides() throws Exception {
-
-        // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-        File f = new File("src/test/fixture/sdkintegration/network_configs/network-config.yaml");
-        NetworkConfig config = NetworkConfig.fromYamlFile(f);
-
-        for (String peerName : config.getPeerNames()) {
-            Properties peerProperties = config.getPeerProperties(peerName);
-
-            //example of setting keepAlive to avoid timeouts on inactive http2 connections.
-            // Under 5 minutes would require changes to server side to accept faster ping rates.
-            peerProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[] {5L, TimeUnit.MINUTES});
-            peerProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[] {8L, TimeUnit.SECONDS});
-            peerProperties.put("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", new Object[] {true});
-            config.setPeerProperties(peerName, peerProperties);
+            NetworkConfig.FromJsonFile((FileInfo) null);
         }
 
-        for (String orderName : config.getOrdererNames()) {
-            Properties ordererProperties = config.getOrdererProperties(orderName);
-            ordererProperties.put("grpc.NettyChannelBuilderOption.maxInboundMessageSize", 9000000);
-            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", new Object[] {false});
-            config.setOrdererProperties(orderName, ordererProperties);
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(FileNotFoundException), "FileDoesNotExist.yaml")]
+        public void TestLoadFromConfigYamlFileNotExists()
+        {
+            // Should not be able to instantiate a new instance of "Client" without an actual configuration file
+
+
+            FileInfo f = new FileInfo("FileDoesNotExist.yaml");
+            NetworkConfig.FromYamlFile(f);
         }
 
-        //HFClient client = HFClient.loadFromConfig(f);
-        assertNotNull(config);
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(FileNotFoundException), "FileDoesNotExist.json")]
+        public void TestLoadFromConfigJsonFileNotExists()
+        {
+            // Should not be able to instantiate a new instance of "Client" without an actual configuration file
 
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
 
-        Channel channel = client.loadChannelFromConfig("foo", config);
-        assertNotNull(channel);
-
-        assertTrue(!channel.getPeers().isEmpty());
-
-        for (Peer peer : channel.getPeers()) {
-
-            Properties properties = peer.getProperties();
-
-            assertNotNull(properties);
-            assertNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveTime"));
-            assertNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveTimeout"));
-            assertNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
-
-            Endpoint ep = new Endpoint(peer.getUrl(), properties);
-            ManagedChannelBuilder<?> channelBuilder = ep.getChannelBuilder();
-
-            assertEquals(5L * 60L * 1000000000L, getField(channelBuilder, "keepAliveTimeNanos"));
-            assertEquals(8L * 1000000000L, getField(channelBuilder, "keepAliveTimeoutNanos"));
-            assertEquals(true, getField(channelBuilder, "keepAliveWithoutCalls"));
+            FileInfo f = new FileInfo("FileDoesNotExist.json");
+            NetworkConfig.FromJsonFile(f);
         }
 
-        for (Orderer orderer : channel.getOrderers()) {
+        [TestMethod]
+        public void TestLoadFromConfigFileYamlBasic()
+        {
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
+            Assert.IsNotNull(config);
+            List<string> channelNames = config.GetChannelNames();
 
-            Properties properties = orderer.getProperties();
-
-            assertNotNull(properties);
-            assertNotNull(properties.get("grpc.NettyChannelBuilderOption.maxInboundMessageSize"));
-            assertNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
-
-            Endpoint ep = new Endpoint(orderer.getUrl(), properties);
-            ManagedChannelBuilder<?> channelBuilder = ep.getChannelBuilder();
-
-            assertEquals(9000000, getField(channelBuilder, "maxInboundMessageSize"));
-            assertEquals(false, getField(channelBuilder, "keepAliveWithoutCalls"));
+            Assert.IsTrue(channelNames.Contains("foo"));
         }
 
-    }
-
-    // TODO: ca-org1 not defined
-    @Ignore
-    @Test
-    public void testGetChannel() throws Exception {
-
-        // Should be able to instantiate a new instance of "Channel" with orderer, org and peer defined in the network configuration
-        JsonObject jsonConfig = getJsonConfig1(4, 1, 1);
-
-        NetworkConfig config = NetworkConfig.fromJsonObject(jsonConfig);
-
-        HFClient client = HFClient.createNewInstance();
-        TestHFClient.setupClient(client);
-
-        Channel channel = client.loadChannelFromConfig(CHANNEL_NAME, config);
-
-        //HFClient client = HFClient.loadFromConfig(jsonConfig);
-        //TestHFClient.setupClient(client);
-
-        //Channel channel = client.getChannel(CHANNEL_NAME);
-        assertNotNull(channel);
-        Assert.assertEquals(CHANNEL_NAME, channel.getName());
-
-        Collection<Orderer> orderers = channel.getOrderers();
-        assertNotNull(orderers);
-        Assert.assertEquals(1, orderers.size());
-
-        Orderer orderer = orderers.iterator().next();
-        Assert.assertEquals("orderer1.example.com", orderer.getName());
-
-        Collection<Peer> peers = channel.getPeers();
-        assertNotNull(peers);
-        Assert.assertEquals(1, peers.size());
-
-        Peer peer = peers.iterator().next();
-        Assert.assertEquals("peer0.org1.example.com", peer.getName());
-
-    }
-
-    private static JsonObject getJsonConfig1(int nOrganizations, int nOrderers, int nPeers) {
-
-        // Sanity check
-        if (nPeers > nOrganizations) {
-            // To keep things simple we require a maximum of 1 peer per organization
-            throw new RuntimeException("Number of peers cannot exceed number of organizations!");
+        [TestMethod]
+        public void TestLoadFromConfigFileJsonBasic()
+        {
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json"));
+            NetworkConfig config = NetworkConfig.FromJsonFile(f);
+            Assert.IsNotNull(config);
         }
 
-        JsonObjectBuilder mainConfig = Json.createObjectBuilder();
-        mainConfig.add("name", "myNetwork");
-        mainConfig.add("description", "My Test Network");
-        mainConfig.add("x-type", "hlf@^1.0.0");
-        mainConfig.add("version", "1.0.0");
+        [TestMethod]
+        public void TestLoadFromConfigFileYaml()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
+            Assert.IsNotNull(config);
 
-        JsonObjectBuilder client = Json.createObjectBuilder();
-        if (nOrganizations > 0) {
-            client.add("organization", CLIENT_ORG_NAME);
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            Channel channel = client.LoadChannelFromConfig("foo", config);
+            Assert.IsNotNull(channel);
         }
-        mainConfig.add("client", client);
 
-        JsonArray orderers = nOrderers > 0 ? createJsonArray("orderer1.example.com") : null;
-        JsonArray chaincodes = (nOrderers > 0 && nPeers > 0) ? createJsonArray("example02:v1", "marbles:1.0") : null;
+        [TestMethod]
+        public void TestLoadFromConfigFileJson()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the JSON configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json"));
+            NetworkConfig config = NetworkConfig.FromJsonFile(f);
+            Assert.IsNotNull(config);
 
-        JsonObject peers = null;
-        if (nPeers > 0) {
-            JsonObjectBuilder builder = Json.createObjectBuilder();
-            builder.add("peer0.org1.example.com", createJsonChannelPeer("Org1", true, true, true, true));
-            if (nPeers > 1) {
-                builder.add("peer0.org2.example.com", createJsonChannelPeer("Org2", true, false, true, false));
+            //HFClient client = HFClient.loadFromConfig(f);
+            //Assert.Assert.IsNotNull(client);
+
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            Channel channel = client.LoadChannelFromConfig("mychannel", config);
+            Assert.IsNotNull(channel);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "client organization must be specified")]
+        public void TestLoadFromConfigNoOrganization()
+        {
+            // Should not be able to instantiate a new instance of "Channel" without specifying a valid client organization
+
+
+            JObject jsonConfig = GetJsonConfig(0, 1, 0);
+
+            NetworkConfig.FromJsonObject(jsonConfig);
+        }
+
+        [TestMethod]
+        public void TestGetClientOrg()
+        {
+            JObject jsonConfig = GetJsonConfig(1, 0, 0);
+
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
+
+            Assert.AreEqual(CLIENT_ORG_NAME, config.GetClientOrganization().Name);
+        }
+
+        // TODO: At least one orderer must be specified
+        [TestMethod]
+        [Ignore]
+        public void TestNewChannel()
+        {
+            // Should be able to instantiate a new instance of "Channel" with the definition in the network configuration'
+            JObject jsonConfig = GetJsonConfig(1, 0, 0);
+
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
+
+            HFClient client = HFClient.Create();
+            TestHFClient.SetupClient(client);
+
+            Channel channel = client.LoadChannelFromConfig(CHANNEL_NAME, config);
+            Assert.IsNotNull(channel);
+            Assert.AreEqual(CHANNEL_NAME, channel.Name);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Channel MissingChannel not found in configuration file. Found channel names: foo")]
+        public void TestGetChannelNotExists()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
+            //HFClient client = HFClient.loadFromConfig(f);
+            Assert.IsNotNull(config);
+
+
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            client.LoadChannelFromConfig("MissingChannel", config);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Error constructing")]
+        public void TestGetChannelNoOrderersOrPeers()
+        {
+            // Should not be able to instantiate a new instance of "Channel" with no orderers or peers configured
+            JObject jsonConfig = GetJsonConfig(1, 0, 0);
+
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
+
+            HFClient client = HFClient.Create();
+            TestHFClient.SetupClient(client);
+
+            client.LoadChannelFromConfig(CHANNEL_NAME, config);
+
+            //HFClient client = HFClient.loadFromConfig(jsonConfig);
+            //TestHFClient.setupClient(client);
+
+            //client.getChannel(CHANNEL_NAME);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Error constructing")]
+        public void TestGetChannelNoOrderers()
+        {
+            // Should not be able to instantiate a new instance of "Channel" with no orderers configured
+            JObject jsonConfig = GetJsonConfig(1, 0, 1);
+
+            //HFClient client = HFClient.loadFromConfig(jsonConfig);
+            //TestHFClient.setupClient(client);
+
+            //client.getChannel(CHANNEL_NAME);
+
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
+
+            HFClient client = HFClient.Create();
+            TestHFClient.SetupClient(client);
+
+            client.LoadChannelFromConfig(CHANNEL_NAME, config);
+        }
+
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Error constructing")]
+        public void TestGetChannelNoPeers()
+        {
+            // Should not be able to instantiate a new instance of "Channel" with no peers configured
+            JObject jsonConfig = GetJsonConfig(1, 1, 0);
+
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
+
+            HFClient client = HFClient.Create();
+            TestHFClient.SetupClient(client);
+
+            client.LoadChannelFromConfig(CHANNEL_NAME, config);
+
+            //HFClient client = HFClient.loadFromConfig(jsonConfig);
+            //TestHFClient.setupClient(client);
+
+            //client.getChannel(CHANNEL_NAME);
+        }
+
+        [TestMethod]
+        public void TestLoadFromConfigFileYamlNOOverrides()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
+
+            //HFClient client = HFClient.loadFromConfig(f);
+            Assert.IsNotNull(config);
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            Channel channel = client.LoadChannelFromConfig("foo", config);
+            Assert.IsNotNull(channel);
+
+            Assert.IsTrue(channel.Peers.Count != 0);
+
+            foreach (Peer peer in channel.Peers)
+            {
+                Properties properties = peer.Properties;
+
+                Assert.IsNotNull(properties);
+                Assert.IsNull(properties.Get("grpc.keepalive_time_ms"));
+                Assert.IsNull(properties.Get("grpc.keepalive_timeout_ms"));
+                //Assert.IsNull(properties.Get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
             }
-            peers = builder.build();
         }
 
-        JsonObject channel1 = createJsonChannel(
-                orderers,
-                peers,
-                chaincodes
-        );
+        [TestMethod]
+        public void TestLoadFromConfigFileYamlNOOverridesButSet()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
-        String channelName = CHANNEL_NAME;
+            //HFClient client = HFClient.loadFromConfig(f);
+            Assert.IsNotNull(config);
 
-        JsonObject channels = Json.createObjectBuilder()
-                .add(channelName, channel1)
-                .build();
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
-        mainConfig.add("channels", channels);
 
-        if (nOrganizations > 0) {
+            Channel channel = client.LoadChannelFromConfig("foo", config);
+            Assert.IsNotNull(channel);
 
-            // Add some organizations to the config
-            JsonObjectBuilder builder = Json.createObjectBuilder();
+            Assert.IsTrue(channel.Orderers.Count != 0);
 
-            for (int i = 1; i <= nOrganizations; i++) {
-                String orgName = "Org" + i;
-                JsonObject org = createJsonOrg(
-                        orgName + "MSP",
-                        createJsonArray("peer0.org" + i + ".example.com"),
-                        createJsonArray("ca-org" + i),
-                        createJsonArray(createJsonUser("admin" + i, "adminpw" + i)),
-                        "-----BEGIN PRIVATE KEY----- <etc>",
-                        "-----BEGIN CERTIFICATE----- <etc>"
-                );
-                builder.add(orgName, org);
+            foreach (Orderer orderer in channel.Orderers)
+            {
+                Properties properties = orderer.Properties;
+                string str = properties.Get("grpc.keepalive_time_ms");
+                Assert.AreEqual(long.Parse(str), 360000L);
+
+                str = properties.Get("grpc.keepalive_timeout_ms");
+                Assert.AreEqual(long.Parse(str), 180000L);
+            }
+        }
+
+
+        [TestMethod]
+        public void TestLoadFromConfigFileYamlOverrides()
+        {
+            // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
+            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            NetworkConfig config = NetworkConfig.FromYamlFile(f);
+
+            foreach (string peerName in config.PeerNames)
+            {
+                Properties peerProperties = config.GetPeerProperties(peerName);
+
+                //example of setting keepAlive to avoid timeouts on inactive http2 connections.
+                // Under 5 minutes would require changes to server side to accept faster ping rates.
+                peerProperties.Set("grpc.keepalive_time_ms", 5 * 60 * 1000);
+                peerProperties.Set("grpc.keepalive_timeout_ms", 8 * 1000);
+//            peerProperties.Set("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", "true");
+                config.SetPeerProperties(peerName, peerProperties);
             }
 
-            mainConfig.add("organizations", builder.build());
-        }
-
-        if (nOrderers > 0) {
-            // Add some orderers to the config
-            JsonObjectBuilder builder = Json.createObjectBuilder();
-
-            for (int i = 1; i <= nOrderers; i++) {
-                String ordererName = "orderer" + i + ".example.com";
-                int port = (6 + i) * 1000 + 50;         // 7050, 8050, etc
-                JsonObject orderer = createJsonOrderer(
-                        "grpcs://localhost:" + port,
-                        Json.createObjectBuilder()
-                                .add("ssl-target-name-override", "orderer" + i + ".example.com")
-                                .build(),
-                        Json.createObjectBuilder()
-                                .add("pem", "-----BEGIN CERTIFICATE----- <etc>")
-                                .build()
-                );
-                builder.add(ordererName, orderer);
+            foreach (string orderName in config.OrdererNames)
+            {
+                Properties ordererProperties = config.GetOrdererProperties(orderName);
+                ordererProperties.Set("grpc.max_receive_message_length", 9000000);
+                //ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", new Object[] {false});
+                config.SetOrdererProperties(orderName, ordererProperties);
             }
-            mainConfig.add("orderers", builder.build());
-        }
 
-        if (nPeers > 0) {
-            // Add some peers to the config
-            JsonObjectBuilder builder = Json.createObjectBuilder();
+            //HFClient client = HFClient.loadFromConfig(f);
+            Assert.IsNotNull(config);
 
-            for (int i = 1; i <= nPeers; i++) {
-                String peerName = "peer0.org" + i + ".example.com";
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
-                int port1 = (6 + i) * 1000 + 51;         // 7051, 8051, etc
-                int port2 = (6 + i) * 1000 + 53;         // 7053, 8053, etc
+            Channel channel = client.LoadChannelFromConfig("foo", config);
+            Assert.IsNotNull(channel);
 
-                int orgNo = i;
-                int peerNo = 0;
+            Assert.IsTrue(channel.Peers.Count > 0);
 
-                JsonObject peer = createJsonPeer(
-                        "grpcs://localhost:" + port1,
-                        "grpcs://localhost:" + port2,
-                        Json.createObjectBuilder()
-                                .add("ssl-target-name-override", "peer" + peerNo + ".org" + orgNo + ".example.com")
-                                .build(),
-                        Json.createObjectBuilder()
-                                .add("path", "test/fixtures/channel/crypto-config/peerOrganizations/org" + orgNo + ".example.com/peers/peer" + peerNo + ".org" + orgNo + ".example.com/tlscacerts/org" + orgNo + ".example.com-cert.pem")
-                                .build(),
-                        createJsonArray(channelName)
-                );
-                builder.add(peerName, peer);
+            foreach (Peer peer in channel.Peers)
+            {
+                Properties properties = peer.Properties;
+
+                Assert.IsNotNull(properties);
+                Assert.IsNotNull(properties.Get("grpc.keepalive_time_ms"));
+                Assert.IsNotNull(properties.Get("grpc.keepalive_timeout_ms"));
+                //Assert.IsNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
+
+                Endpoint ep = new Endpoint(peer.Url, properties);
+                ChannelOption keepalive = ep.ChannelOptions.FirstOrDefault(a => a.Name == "grpc.keepalive_time_ms");
+                ChannelOption keepalivetimeout = ep.ChannelOptions.FirstOrDefault(a => a.Name == "grpc.keepalive_timeout_ms");
+                Assert.IsNotNull(keepalive);
+                Assert.IsNotNull(keepalivetimeout);
+                Assert.AreEqual(5 * 60 * 1000, keepalive.IntValue);
+                Assert.AreEqual(8 * 1000, keepalivetimeout.IntValue);
             }
-            mainConfig.add("peers", builder.build());
+
+            foreach (Orderer orderer in channel.Orderers)
+            {
+                Properties properties = orderer.Properties;
+
+                Assert.IsNotNull(properties);
+                Assert.IsNotNull(properties.Get("grpc.max_receive_message_length"));
+                //Assert.IsNotNull(properties.get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
+
+                Endpoint ep = new Endpoint(orderer.Url, properties);
+                ChannelOption msize = ep.ChannelOptions.FirstOrDefault(a => a.Name == "grpc.max_receive_message_length");
+                Assert.IsNotNull(msize);
+                Assert.AreEqual(9000000, msize.IntValue);
+            }
         }
 
-        // CAs
-        JsonObjectBuilder builder = Json.createObjectBuilder();
+        // TODO: ca-org1 not defined
+        [TestMethod]
+        [Ignore]
+        public void TestGetChannel()
+        {
+            // Should be able to instantiate a new instance of "Channel" with orderer, org and peer defined in the network configuration
+            JObject jsonConfig = GetJsonConfig(4, 1, 1);
 
-        String caName = "ca-org1";
-        JsonObject ca = Json.createObjectBuilder()
-                .add("url", "https://localhost:7054")
-                .build();
-        builder.add(caName, ca);
+            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
 
-        mainConfig.add("certificateAuthorities", builder.build());
+            HFClient client = HFClient.Create();
+            TestHFClient.SetupClient(client);
 
-        return mainConfig.build();
-    }
+            Channel channel = client.LoadChannelFromConfig(CHANNEL_NAME, config);
 
-    private static JsonObject createJsonChannelPeer(String name, Boolean endorsingPeer, Boolean chaincodeQuery, Boolean ledgerQuery, Boolean eventSource) {
+            //HFClient client = HFClient.loadFromConfig(jsonConfig);
+            //TestHFClient.setupClient(client);
 
-        return Json.createObjectBuilder()
-                .add("name", name)
-                .add("endorsingPeer", endorsingPeer)
-                .add("chaincodeQuery", chaincodeQuery)
-                .add("ledgerQuery", ledgerQuery)
-                .add("eventSource", eventSource)
-                .build();
-    }
+            //Channel channel = client.getChannel(CHANNEL_NAME);
+            Assert.IsNotNull(channel);
+            Assert.AreEqual(CHANNEL_NAME, channel.Name);
 
-    private static JsonObject createJsonChannel(JsonArray orderers, JsonObject peers, JsonArray chaincodes) {
+            IReadOnlyList<Orderer> orderers = channel.Orderers;
+            Assert.IsNotNull(orderers);
+            Assert.AreEqual(1, orderers.Count);
 
-        JsonObjectBuilder builder = Json.createObjectBuilder();
+            Orderer orderer = orderers.First();
+            Assert.AreEqual("orderer1.example.com", orderer.Name);
 
-        if (orderers != null) {
-            builder.add("orderers", orderers);
+            IReadOnlyList<Peer> peers = channel.Peers;
+            Assert.IsNotNull(peers);
+            Assert.AreEqual(1, peers.Count);
+
+            Peer peer = peers.First();
+            Assert.AreEqual("peer0.org1.example.com", peer.Name);
         }
 
-        if (peers != null) {
-            builder.add("peers", peers);
+        private static JObject GetJsonConfig(int nOrganizations, int nOrderers, int nPeers)
+        {
+            // Sanity check
+            if (nPeers > nOrganizations)
+            {
+                // To keep things simple we require a maximum of 1 peer per organization
+                throw new System.Exception("Number of peers cannot exceed number of organizations!");
+            }
+
+            JObject mainConfig = new JObject();
+            mainConfig.Add("name", "myNetwork");
+            mainConfig.Add("description", "My Test Network");
+            mainConfig.Add("x-type", "hlf@^1.0.0");
+            mainConfig.Add("version", "1.0.0");
+
+            JObject client = new JObject();
+            if (nOrganizations > 0)
+            {
+                client.Add("organization", CLIENT_ORG_NAME);
+            }
+
+            mainConfig.Add("client", client);
+
+            JArray orderers = nOrderers > 0 ? CreateJsonArray("orderer1.example.com") : null;
+            JArray chaincodes = nOrderers > 0 && nPeers > 0 ? CreateJsonArray("example02:v1", "marbles:1.0") : null;
+
+            JObject peers = null;
+            if (nPeers > 0)
+            {
+                JObject builder = new JObject();
+                builder.Add("peer0.org1.example.com", CreateJsonChannelPeer("Org1", true, true, true, true));
+                if (nPeers > 1)
+                {
+                    builder.Add("peer0.org2.example.com", CreateJsonChannelPeer("Org2", true, false, true, false));
+                }
+
+                peers = builder;
+            }
+
+            JObject channel1 = CreateJsonChannel(orderers, peers, chaincodes);
+
+            string channelName = CHANNEL_NAME;
+
+            JObject channels = new JObject();
+            channels.Add(channelName, channel1);
+
+            mainConfig.Add("channels", channels);
+
+            if (nOrganizations > 0)
+            {
+                // Add some organizations to the config
+                JObject builder = new JObject();
+
+                for (int i = 1; i <= nOrganizations; i++)
+                {
+                    string orgName = "Org" + i;
+                    JObject org = CreateJsonOrg(orgName + "MSP", CreateJsonArray("peer0.org" + i + ".example.com"), CreateJsonArray("ca-org" + i), CreateJsonArray(CreateJsonUser("admin" + i, "adminpw" + i)), "-----BEGIN PRIVATE KEY----- <etc>", "-----BEGIN CERTIFICATE----- <etc>");
+                    builder.Add(orgName, org);
+                }
+
+                mainConfig.Add("organizations", builder);
+            }
+
+            if (nOrderers > 0)
+            {
+                // Add some orderers to the config
+                JObject builder = new JObject();
+
+                for (int i = 1; i <= nOrderers; i++)
+                {
+                    string ordererName = "orderer" + i + ".example.com";
+                    int port = (6 + i) * 1000 + 50; // 7050, 8050, etc
+                    JObject opts = new JObject();
+                    JObject certs = new JObject();
+                    opts.Add("ssl-target-name-override", "orderer" + i + ".example.com");
+                    certs.Add("pem", "-----BEGIN CERTIFICATE----- <etc>");
+                    JObject orderer = CreateJsonOrderer("grpcs://localhost:" + port, opts, certs);
+                    builder.Add(ordererName, orderer);
+                }
+
+                mainConfig.Add("orderers", builder);
+            }
+
+            if (nPeers > 0)
+            {
+                // Add some peers to the config
+                JObject builder = new JObject();
+
+                for (int i = 1; i <= nPeers; i++)
+                {
+                    string peerName = "peer0.org" + i + ".example.com";
+
+                    int port1 = (6 + i) * 1000 + 51; // 7051, 8051, etc
+                    int port2 = (6 + i) * 1000 + 53; // 7053, 8053, etc
+
+                    int orgNo = i;
+                    int peerNo = 0;
+                    JObject opts = new JObject();
+                    JObject certs = new JObject();
+                    opts.Add("ssl-target-name-override", "peer" + peerNo + ".org" + orgNo + ".example.com");
+                    certs.Add("path", "fixtures/channel/crypto-config/peerOrganizations/org" + orgNo + ".example.com/peers/peer" + peerNo + ".org" + orgNo + ".example.com/tlscacerts/org" + orgNo + ".example.com-cert.pem");
+                    JObject peer = CreateJsonPeer("grpcs://localhost:" + port1, "grpcs://localhost:" + port2, opts, certs, CreateJsonArray(channelName));
+                    builder.Add(peerName, peer);
+                }
+
+                mainConfig.Add("peers", builder);
+            }
+
+            // CAs
+            JObject builde = new JObject();
+
+            string caName = "ca-org1";
+            JObject ca = new JObject();
+            ca.Add("url", "https://localhost:7054");
+            builde.Add(caName, ca);
+
+            mainConfig.Add("certificateAuthorities", builde);
+
+            return mainConfig;
         }
 
-        if (chaincodes != null) {
-            builder.add("chaincodes", chaincodes);
+        private static JObject CreateJsonChannelPeer(string name, bool endorsingPeer, bool chaincodeQuery, bool ledgerQuery, bool eventSource)
+        {
+            JObject obj = new JObject();
+            obj.Add("name", name);
+            obj.Add("endorsingPeer", endorsingPeer);
+            obj.Add("chaincodeQuery", chaincodeQuery);
+            obj.Add("ledgerQuery", ledgerQuery);
+            obj.Add("eventSource", eventSource);
+            return obj;
         }
 
-        return builder.build();
-    }
+        private static JObject CreateJsonChannel(JArray orderers, JObject peers, JArray chaincodes)
+        {
+            JObject builder = new JObject();
 
-    private static JsonObject createJsonOrg(String mspid, JsonArray peers, JsonArray certificateAuthorities, JsonArray users, String adminPrivateKeyPem, String signedCertPem) {
 
-        return Json.createObjectBuilder()
-                .add("mspid", mspid)
-                .add("peers", peers)
-                .add("certificateAuthorities", certificateAuthorities)
-                .add("users", users)
-                .add("adminPrivateKeyPEM", adminPrivateKeyPem)
-                .add("signedCertPEM", signedCertPem)
-                .build();
-    }
+            if (orderers != null)
+            {
+                builder.Add("orderers", orderers);
+            }
 
-    private static JsonObject createJsonUser(String enrollId, String enrollSecret) {
+            if (peers != null)
+            {
+                builder.Add("peers", peers);
+            }
 
-        return Json.createObjectBuilder()
-                .add("enrollId", enrollId)
-                .add("enrollSecret", enrollSecret)
-                .build();
-    }
+            if (chaincodes != null)
+            {
+                builder.Add("chaincodes", chaincodes);
+            }
 
-    private static JsonObject createJsonOrderer(String url, JsonObject grpcOptions, JsonObject tlsCaCerts) {
-
-        return Json.createObjectBuilder()
-                .add("url", url)
-                .add("grpcOptions", grpcOptions)
-                .add("tlsCaCerts", tlsCaCerts)
-                .build();
-    }
-
-    private static JsonObject createJsonPeer(String url, String eventUrl, JsonObject grpcOptions, JsonObject tlsCaCerts, JsonArray channels) {
-
-        return Json.createObjectBuilder()
-                .add("url", url)
-                .add("eventUrl", eventUrl)
-                .add("grpcOptions", grpcOptions)
-                .add("tlsCaCerts", tlsCaCerts)
-                .add("channels", channels)
-                .build();
-    }
-
-    private static JsonArray createJsonArray(String... elements) {
-
-        JsonArrayBuilder builder = Json.createArrayBuilder();
-
-        for (String ele : elements) {
-            builder.add(ele);
+            return builder;
         }
 
-        return builder.build();
-    }
-
-    private static JsonArray createJsonArray(JsonValue... elements) {
-
-        JsonArrayBuilder builder = Json.createArrayBuilder();
-
-        for (JsonValue ele : elements) {
-            builder.add(ele);
+        private static JObject CreateJsonOrg(string mspid, JArray peers, JArray certificateAuthorities, JArray users, string adminPrivateKeyPem, string signedCertPem)
+        {
+            JObject obj = new JObject();
+            obj.Add("mspid", mspid);
+            obj.Add("peers", peers);
+            obj.Add("certificateAuthorities", certificateAuthorities);
+            obj.Add("users", users);
+            obj.Add("adminPrivateKeyPEM", adminPrivateKeyPem);
+            obj.Add("signedCertPEM", signedCertPem);
+            return obj;
         }
 
-        return builder.build();
-    }
+        private static JObject CreateJsonUser(string enrollId, string enrollSecret)
+        {
+            JObject obj = new JObject();
+            obj.Add("enrollId", enrollId);
+            obj.Add("enrollSecret", enrollSecret);
+            return obj;
+        }
 
+        private static JObject CreateJsonOrderer(string url, JObject grpcOptions, JObject tlsCaCerts)
+        {
+            JObject obj = new JObject();
+
+            obj.Add("url", url);
+            obj.Add("grpcOptions", grpcOptions);
+            obj.Add("tlsCaCerts", tlsCaCerts);
+            return obj;
+        }
+
+        private static JObject CreateJsonPeer(string url, string eventUrl, JObject grpcOptions, JObject tlsCaCerts, JArray channels)
+        {
+            JObject obj = new JObject();
+
+            obj.Add("url", url);
+            obj.Add("eventUrl", eventUrl);
+            obj.Add("grpcOptions", grpcOptions);
+            obj.Add("tlsCaCerts", tlsCaCerts);
+            obj.Add("channels", channels);
+            return obj;
+        }
+
+
+        private static JArray CreateJsonArray(params object[] elements)
+        {
+            JArray j = new JArray();
+            foreach (string s in elements)
+                j.Add(s);
+            return j;
+        }
+    }
 }

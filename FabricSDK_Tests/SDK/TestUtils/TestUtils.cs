@@ -64,26 +64,15 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
     public class TestUtils
     {
 
-    private TestUtils() {
-    }
+        private TestUtils()
+        {
+        }
 
         //Reflection methods deleted, there is no need, stuff marked as internal
-        private static readonly string MOCK_CERT = "-----BEGIN CERTIFICATE-----" +
-        "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" +
-        "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" +
-        "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" +
-        "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" +
-        "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" +
-        "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" +
-        "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" +
-        "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" +
-        "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" +
-        "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" +
-        "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" +
-        "NHvr441QC85U+V4UQWY=" +
-        "-----END CERTIFICATE-----";
+        private static readonly string MOCK_CERT = "-----BEGIN CERTIFICATE-----" + "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" + "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" + "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" + "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" + "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" + "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" + "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" + "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" + "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" + "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" + "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" + "NHvr441QC85U+V4UQWY=" + "-----END CERTIFICATE-----";
+
         public class MockEnrollment : IEnrollment
-        {         
+        {
             public AsymmetricAlgorithm Key { get; }
             public string Cert { get; }
 
@@ -107,71 +96,91 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             public HashSet<string> Roles { get; }
             public string Account { get; }
             public string Affiliation { get; }
-            public IEnrollment Enrollment { get; }
+            public IEnrollment Enrollment { get; set; }
             public string MspId { get; }
         }
 
-
-    public static MockUser GetMockUser(string name, string mspId) {
-        return new MockUser(name, mspId);
-    }
-
-    public static MockEnrollment GetMockEnrollment(string cert) {
-        return new MockEnrollment(new RSACng(), cert);
-    }
-
-    public static MockEnrollment GetMockEnrollment(AsymmetricAlgorithm key, string cert) {
-        return new MockEnrollment(key, cert);
-    }
-
-    public static List<string> TarBytesToEntryArrayList(byte[] bytes)
-    {
-
-        List<string> ret = new List<string>();
-        using (MemoryStream bos = new MemoryStream(bytes))            
-        using (var reader = ReaderFactory.Open(bos))
+        /**
+ * Reset config.
+ */
+        public static void ResetConfig()
         {
-            bool end = false;
-            do
+
+            try
             {
-                IEntry ta = reader.Entry;
-                Assert.IsTrue(!ta.IsDirectory,$"Tar entry {ta.Key} is not a file.");
-                ret.Add(ta.Key);
-                end = !reader.MoveToNextEntry();
-            } while (!end);
-
-
-        return ret;
-
-    }
-        /*
-    public static void AssertArrayListEquals(string failmsg, List<string> expect, List<string> actual) {
-        ArrayList expectSort = new ArrayList(expect);
-        Collections.sort(expectSort);
-        ArrayList actualSort = new ArrayList(actual);
-        Collections.sort(actualSort);
-        Assert.assertArrayEquals(failmsg, expectSort.toArray(), actualSort.toArray());
-    }
-
-    public static Matcher<String> matchesRegex(final String regex) {
-        return new TypeSafeMatcher<String>() {
-            @Override
-            public void describeTo(Description description) {
-
+                Config.config = null;
+                Config _ = Config.Instance;
+            }
+            catch (System.Exception e)
+            {
+                throw new System.Exception("Cannot reset config", e);
             }
 
-            @Override
-            protected boolean matchesSafely(final String item) {
-                return item.matches(regex);
+        }
+
+        public static MockUser GetMockUser(string name, string mspId)
+        {
+            return new MockUser(name, mspId);
+        }
+
+        public static MockEnrollment GetMockEnrollment(string cert)
+        {
+            return new MockEnrollment(new RSACng(), cert);
+        }
+
+        public static MockEnrollment GetMockEnrollment(AsymmetricAlgorithm key, string cert)
+        {
+            return new MockEnrollment(key, cert);
+        }
+
+        public static List<string> TarBytesToEntryArrayList(byte[] bytes)
+        {
+
+            List<string> ret = new List<string>();
+            using (MemoryStream bos = new MemoryStream(bytes))
+            using (var reader = ReaderFactory.Open(bos))
+            {
+                bool end = false;
+                do
+                {
+                    IEntry ta = reader.Entry;
+                    Assert.IsTrue(!ta.IsDirectory, $"Tar entry {ta.Key} is not a file.");
+                    ret.Add(ta.Key);
+                    end = !reader.MoveToNextEntry();
+                } while (!end);
+
+
+                return ret;
+
             }
-        };
-    }
-    */
-   
+            /*
+        public static void AssertArrayListEquals(string failmsg, List<string> expect, List<string> actual) {
+            ArrayList expectSort = new ArrayList(expect);
+            Collections.sort(expectSort);
+            ArrayList actualSort = new ArrayList(actual);
+            Collections.sort(actualSort);
+            Assert.assertArrayEquals(failmsg, expectSort.toArray(), actualSort.toArray());
+        }
+    
+        public static Matcher<String> matchesRegex(final String regex) {
+            return new TypeSafeMatcher<String>() {
+                @Override
+                public void describeTo(Description description) {
+    
+                }
+    
+                @Override
+                protected boolean matchesSafely(final String item) {
+                    return item.matches(regex);
+                }
+            };
+        }
+        */
 
-   
 
-    //  This is the private key for the above cert. Right now we don't need this and there's some class loader issues doing this here.
+
+
+            //  This is the private key for the above cert. Right now we don't need this and there's some class loader issues doing this here.
 
 //    private static final String MOCK_NOT_SO_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n" +
 //            "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQghnA7rdgbZi/wndus\n" +
@@ -198,5 +207,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
 
 
-}
+        }
+    }
 }

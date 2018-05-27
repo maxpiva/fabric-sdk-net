@@ -26,6 +26,11 @@ namespace Hyperledger.Fabric.SDK
             FabricChaincodeID = chaincodeID;
         }
 
+        public ChaincodeID()
+        {
+            FabricChaincodeID=new Protos.Peer.ChaincodeID();
+        }
+
         public Protos.Peer.ChaincodeID FabricChaincodeID { get; }
 
         public string Name

@@ -12,198 +12,199 @@
  *  limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Runtime.Serialization;
 using Hyperledger.Fabric.SDK;
-using Org.BouncyCastle.Utilities.Encoders;
+using Hyperledger.Fabric.SDK.Helper;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
-
-    [Serializable]
-    public class SampleUser: IUser
+    [DataContract]
+    public class SampleUser : IUser
     {
-    
-    private string name;
-    private HashSet<string> roles;
-    private string account;
-    private string affiliation;
-    private string organization;
-    private string enrollmentSecret;
-    Enrollment enrollment = null; //need access in test env.
+        private string account;
 
-    private transient SampleStore keyValStore;
-    private string keyValStoreName;
+        private string affiliation;
 
-    public SampleUser(string name, string org, SampleStore fs) {
-        this.name = name;
+        private IEnrollment enrollment;
 
-        this.keyValStore = fs;
-        this.organization = org;
-        this.keyValStoreName = toKeyValStoreName(this.name, org);
-        string memberStr = keyValStore.getValue(keyValStoreName);
-        if (null == memberStr) {
-            saveState();
-        } else {
-            restoreState();
-        }
+        private string enrollmentSecret;
 
-    }
 
-    static boolean isStored(String name, string org, SampleStore fs) {
+        private readonly SampleStore keyValStore;
 
-        return fs.hasValue(toKeyValStoreName(name, org));
-    }
+        /**
+         * Save the state of this user to the key value store.
+         */
+        private bool loading = false;
 
-    @Override
-    public string getName() {
-        return this.name;
-    }
+        private string mspId;
+        private HashSet<string> roles;
 
-    @Override
-    public Set<String> getRoles() {
-        return this.roles;
-    }
+        public SampleUser(string name, string org, SampleStore fs)
+        {
+            Name = name;
 
-    public void setRoles(Set<String> roles) {
-
-        this.roles = roles;
-        saveState();
-    }
-
-    @Override
-    public string getAccount() {
-        return this.account;
-    }
-
-    /**
-     * Set the account.
-     *
-     * @param account The account.
-     */
-    public void setAccount(String account) {
-
-        this.account = account;
-        saveState();
-    }
-
-    @Override
-    public string getAffiliation() {
-        return this.affiliation;
-    }
-
-    /**
-     * Set the affiliation.
-     *
-     * @param affiliation the affiliation.
-     */
-    public void setAffiliation(String affiliation) {
-        this.affiliation = affiliation;
-        saveState();
-    }
-
-    @Override
-    public Enrollment getEnrollment() {
-        return this.enrollment;
-    }
-
-    /**
-     * Determine if this name has been registered.
-     *
-     * @return {@code true} if registered; otherwise {@code false}.
-     */
-    public boolean isRegistered() {
-        return !StringUtil.isNullOrEmpty(enrollmentSecret);
-    }
-
-    /**
-     * Determine if this name has been enrolled.
-     *
-     * @return {@code true} if enrolled; otherwise {@code false}.
-     */
-    public boolean isEnrolled() {
-        return this.enrollment != null;
-    }
-
-    /**
-     * Save the state of this user to the key value store.
-     */
-    void saveState() {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try {
-            ObjectOutputStream oos = new ObjectOutputStream(bos);
-            oos.writeObject(this);
-            oos.flush();
-            keyValStore.setValue(keyValStoreName, Hex.toHexString(bos.toByteArray()));
-            bos.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Restore the state of this user from the key value store (if found).  If not found, do nothing.
-     */
-    SampleUser restoreState() {
-        string memberStr = keyValStore.getValue(keyValStoreName);
-        if (null != memberStr) {
-            // The user was found in the key value store, so restore the
-            // state.
-            byte[] serialized = Hex.decode(memberStr);
-            ByteArrayInputStream bis = new ByteArrayInputStream(serialized);
-            try {
-                ObjectInputStream ois = new ObjectInputStream(bis);
-                SampleUser state = (SampleUser) ois.readObject();
-                if (state != null) {
-                    this.name = state.name;
-                    this.roles = state.roles;
-                    this.account = state.account;
-                    this.affiliation = state.affiliation;
-                    this.organization = state.organization;
-                    this.enrollmentSecret = state.enrollmentSecret;
-                    this.enrollment = state.enrollment;
-                    this.mspId = state.mspId;
-                    return this;
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(String.format("Could not restore state of member %s", this.name), e);
+            keyValStore = fs;
+            Organization = org;
+            KeyValStoreName = toKeyValStoreName(Name, org);
+            string memberStr = keyValStore.GetValue(KeyValStoreName);
+            if (null == memberStr)
+            {
+                SaveState();
+            }
+            else
+            {
+                RestoreState();
             }
         }
-        return null;
+
+        [DataMember]
+        public string Organization { get; set; }
+
+        [DataMember]
+        public string EnrollmentSecret
+        {
+            get => enrollmentSecret;
+            set
+            {
+                enrollmentSecret = value;
+                SaveState();
+            }
+        }
+
+        [DataMember]
+        public string KeyValStoreName { get; set; }
+
+        [DataMember]
+        public string Name { get; }
+
+        [DataMember]
+        public HashSet<string> Roles
+        {
+            get => roles;
+            set
+            {
+                roles = value;
+                SaveState();
+            }
+        }
+
+        [DataMember]
+        public string Account
+        {
+            get => account;
+            set
+            {
+                account = value;
+                SaveState();
+            }
+        }
+
+        [DataMember]
+        public string Affiliation
+        {
+            get => affiliation;
+            set
+            {
+                affiliation = value;
+                SaveState();
+            }
+        }
+
+        [DataMember]
+        public IEnrollment Enrollment
+        {
+            get => enrollment;
+            set
+            {
+                enrollment = value;
+                SaveState();
+            }
+        }
+
+        [DataMember]
+        public string MspId
+        {
+            get => mspId;
+            set
+            {
+                mspId = value;
+                SaveState();
+            }
+        }
+
+        public static bool IsStored(string name, string org, SampleStore fs)
+        {
+            return fs.HasValue(toKeyValStoreName(name, org));
+        }
+
+
+        /* Determine if this name has been registered.
+        * * @return {
+            @code true
+        } if registered;
+
+        otherwise {
+            @code false
+        }.*/
+
+        public bool IsRegistered()
+        {
+            return !string.IsNullOrEmpty(EnrollmentSecret);
+        }
+
+        /**
+         * Determine if this name has been enrolled.
+         *
+         * @return {@code true} if enrolled; otherwise {@code false}.
+         */
+        public bool IsEnrolled()
+        {
+            return enrollment != null;
+        }
+
+        public void SaveState()
+        {
+            if (!loading)
+            {
+                string str = JsonConvert.SerializeObject(this);
+                keyValStore.SetValue(KeyValStoreName, str.ToBytes().ToHexString());
+            }
+        }
+
+        /**
+         * Restore the state of this user from the key value store (if found).  If not found, do nothing.
+         */
+        public SampleUser RestoreState()
+        {
+            loading = true;
+            try
+            {
+                string memberStr = keyValStore.GetValue(KeyValStoreName);
+                if (null != memberStr)
+                {
+                    JsonConvert.PopulateObject(memberStr.FromHexString().ToUTF8String(), this);
+                    return this;
+                }
+            }
+            catch (System.Exception e)
+            {
+                throw new System.Exception($"Could not restore state of member {Name}", e);
+            }
+            finally
+            {
+                loading = false;
+            }
+
+            return null;
+        }
+
+
+        public static string toKeyValStoreName(string name, string org)
+        {
+            return "user." + name + org;
+        }
     }
-
-    public string getEnrollmentSecret() {
-        return enrollmentSecret;
-    }
-
-    public void setEnrollmentSecret(String enrollmentSecret) {
-        this.enrollmentSecret = enrollmentSecret;
-        saveState();
-    }
-
-    public void setEnrollment(Enrollment enrollment) {
-
-        this.enrollment = enrollment;
-        saveState();
-
-    }
-
-    public static string toKeyValStoreName(String name, string org) {
-        return "user." + name + org;
-    }
-
-    @Override
-    public string getMspId() {
-        return mspId;
-    }
-
-    string mspId;
-
-    public void setMspId(String mspID) {
-        this.mspId = mspID;
-        saveState();
-
-    }
-
 }

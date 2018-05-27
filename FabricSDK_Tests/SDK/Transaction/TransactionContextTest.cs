@@ -12,99 +12,103 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk.transaction;
+using System;
+using System.IO;
+using Google.Protobuf;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.SDK.Transaction;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-import java.lang.reflect.Constructor;
+namespace Hyperledger.Fabric.Tests.SDK.Transaction
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class TransactionContextTest
+    {
 
-import com.google.protobuf.ByteString;
-import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.TestHFClient;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+        
+        static HFClient hfclient = null;
 
-public class TransactionContextTest {
+        [ClassInitialize]
+        public static void SetupClient()
+        {
 
-    public final TemporaryFolder tempFolder = new TemporaryFolder();
-    static HFClient hfclient = null;
+            try
+            {
+                hfclient = TestHFClient.Create();
 
-    @BeforeClass
-    public static void setupClient() {
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
 
-        try {
-            hfclient = TestHFClient.newInstance();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
-
-        }
-    }
-
-    @Test
-    public void testGetters() throws Exception {
-
-        Channel channel = createTestChannel("channel1");
-
-        User user = hfclient.getUserContext();
-        CryptoSuite cryptoSuite = hfclient.getCryptoSuite();
-
-        TransactionContext context = new TransactionContext(channel, user, cryptoSuite);
-
-        // ensure getCryptoPrimitives returns what we passed in to the constructor
-        CryptoSuite cryptoPrimitives = context.getCryptoPrimitives();
-        Assert.assertEquals(cryptoSuite, cryptoPrimitives);
-
-    }
-
-    @Test
-    public void testSignByteStrings() throws Exception {
-
-        TransactionContext context = createTestContext();
-
-        Assert.assertNull(context.signByteStrings((ByteString) null));
-        Assert.assertNull(context.signByteStrings((ByteString[]) null));
-        Assert.assertNull(context.signByteStrings(new ByteString[0]));
-
-        User[] users = new User[0];
-        Assert.assertNull(context.signByteStrings(users, (ByteString) null));
-        Assert.assertNull(context.signByteStrings(users, (ByteString[]) null));
-        Assert.assertNull(context.signByteStrings(users, new ByteString[0]));
-
-    }
-
-    // ==========================================================================================
-    // Helper methods
-    // ==========================================================================================
-
-    private TransactionContext createTestContext() {
-        Channel channel = createTestChannel("channel1");
-
-        User user = hfclient.getUserContext();
-        CryptoSuite cryptoSuite = hfclient.getCryptoSuite();
-
-        return new TransactionContext(channel, user, cryptoSuite);
-    }
-
-    private Channel createTestChannel(String channelName) {
-
-        Channel channel = null;
-
-        try {
-            Constructor<?> constructor = Channel.class.getDeclaredConstructor(String.class, HFClient.class);
-            constructor.setAccessible(true);
-
-            channel = (Channel) constructor.newInstance(channelName, hfclient);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
+            }
         }
 
-        return channel;
-    }
+        [TestMethod]
+        public void TestGetters()
+        {
 
+            Channel channel = CreateTestChannel("channel1");
+
+            IUser user = hfclient.UserContext;
+            ICryptoSuite cryptoSuite = hfclient.CryptoSuite;
+
+            TransactionContext context = new TransactionContext(channel, user, cryptoSuite);
+
+            // ensure getCryptoPrimitives returns what we passed in to the constructor
+            ICryptoSuite cryptoPrimitives = context.CryptoPrimitives;
+            Assert.AreEqual(cryptoSuite, cryptoPrimitives);
+
+        }
+
+        [TestMethod]
+        public void TestSignByteStrings()
+        {
+
+            TransactionContext context = CreateTestContext();
+
+            Assert.IsNull(context.SignByteStrings((ByteString) null));
+            Assert.IsNull(context.SignByteStrings((ByteString[]) null));
+            Assert.IsNull(context.SignByteStrings(new ByteString[0]));
+
+            IUser[] users = new IUser[0];
+            Assert.IsNull(context.SignByteStrings(users, (ByteString) null));
+            Assert.IsNull(context.SignByteStrings(users, (ByteString[]) null));
+            Assert.IsNull(context.SignByteStrings(users, new ByteString[0]));
+
+        }
+
+        // ==========================================================================================
+        // Helper methods
+        // ==========================================================================================
+
+        private TransactionContext CreateTestContext()
+        {
+            Channel channel = CreateTestChannel("channel1");
+
+            IUser user = hfclient.UserContext;
+            ICryptoSuite cryptoSuite = hfclient.CryptoSuite;
+
+            return new TransactionContext(channel, user, cryptoSuite);
+        }
+
+        private Channel CreateTestChannel(string channelName)
+        {
+
+            Channel channel = null;
+
+            try
+            {
+                channel = Channel.Create(channelName, hfclient);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
+
+            return channel;
+        }
+    }
 }

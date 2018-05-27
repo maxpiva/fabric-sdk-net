@@ -12,55 +12,47 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk.transaction;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Hyperledger.Fabric.Tests.SDK.Transaction
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class InstantiateProposalBuilderTest
+    {
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Transient map may not be null")]
+        public void TestSetTransientMapNull()
+        {
+            InstantiateProposalBuilder builder = InstantiateProposalBuilder.Create();
+            builder.SetTransientMap(null);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "IO Error")]
+        public void TestBuild()
+        {
+            InstantiateProposalBuilder builder = InstantiateProposalBuilder.Create();
+            builder.Build();
+        }
+
+        /*
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode type is required")]
+
+        public void testInvalidType()
+        {
 
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+            InstantiateProposalBuilder builder = InstantiateProposalBuilder.Create();
+            builder.ChaincodeType(null);
 
-
-public class InstantiateProposalBuilderTest {
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
-
-    @Test
-    public void testSetTransientMapNull() throws Exception {
-
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Transient map may not be null");
-
-        InstantiateProposalBuilder builder = InstantiateProposalBuilder.newBuilder();
-        builder.setTransientMap(null);
-
+        builder.Build();
     }
 
-    @Test
-    public void testBuild() throws Exception {
-
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage("IO Error");
-
-        InstantiateProposalBuilder builder = InstantiateProposalBuilder.newBuilder();
-        builder.build();
-
+    */
     }
-
-    @Test
-    public void testInvalidType() throws Exception {
-
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Chaincode type is required");
-
-        InstantiateProposalBuilder builder = InstantiateProposalBuilder.newBuilder();
-        builder.chaincodeType(null);
-
-        builder.build();
-    }
-
-
 }

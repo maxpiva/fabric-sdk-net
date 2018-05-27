@@ -12,84 +12,97 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
 
-import java.io.File;
+using System;
+using System.IO;
+using System.Linq;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.SDK.Integration;
+using Hyperledger.Fabric.Tests.SDK.TestUtils;
 
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestConfig;
-import org.hyperledger.fabric.sdkintegration.SampleStore;
-import org.hyperledger.fabric.sdkintegration.SampleUser;
+namespace Hyperledger.Fabric.Tests.SDK
+{
+    public class TestHFClient
+    {
 
-import static java.lang.String.format;
+        internal FileInfo tempFile;
+        HFClient hfClient;
 
-public class TestHFClient {
-
-    final File tempFile;
-    final HFClient hfClient;
-
-    public TestHFClient(File tempFile, HFClient hfClient) {
-        this.tempFile = tempFile;
-        this.hfClient = hfClient;
-    }
-
-    public static HFClient newInstance() throws Exception {
-
-        HFClient hfclient = HFClient.createNewInstance();
-        setupClient(hfclient);
-
-        return hfclient;
-    }
-
-    public static void setupClient(HFClient hfclient) throws Exception {
-
-        File tempFile = File.createTempFile("teststore", "properties");
-        tempFile.deleteOnExit();
-
-        File sampleStoreFile = new File(System.getProperty("user.home") + "/test.properties");
-        if (sampleStoreFile.exists()) { //For testing start fresh
-            sampleStoreFile.delete();
-        }
-        final SampleStore sampleStore = new SampleStore(sampleStoreFile);
-
-        //src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
-
-        //SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG");
-        SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG", "mspid",
-                findFileSk("src/test/fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"),
-                new File("src/test/fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem"));
-        someTestUSER.setMspId("testMSPID?");
-
-        hfclient.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        hfclient.setUserContext(someTestUSER);
-    }
-
-    static File findFileSk(String directorys) {
-
-        File directory = new File(directorys);
-
-        File[] matches = directory.listFiles((dir, name) -> name.endsWith("_sk"));
-
-        if (null == matches) {
-            throw new RuntimeException(format("Matches returned null does %s directory exist?", directory.getAbsoluteFile().getName()));
+        public TestHFClient(FileInfo tempFile, HFClient hfClient)
+        {
+            this.tempFile = tempFile;
+            this.hfClient = hfClient;
         }
 
-        if (matches.length != 1) {
-            throw new RuntimeException(format("Expected in %s only 1 sk file but found %d", directory.getAbsoluteFile().getName(), matches.length));
+        public static HFClient Create()
+        {
+
+            HFClient hfclient = HFClient.Create();
+            SetupClient(hfclient);
+            return hfclient;
         }
 
-        return matches[0];
+        public static string GetHomePath()
+        {
+            return (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+        }
 
-    }
+        public static void SetupClient(HFClient hfclient)
+        {
+            string tempdir = Path.GetTempPath();
+            string filename = "teststore_" + Path.GetTempFileName() + ".properties";
+            string fulltempname = Path.Combine(tempdir, filename);
 
-    @Override
-    protected void finalize() throws Throwable {
-        super.finalize();
-        if (tempFile != null) {
-            try {
-                tempFile.delete();
-            } catch (Exception e) {
-                // // now harm done.
+            FileInfo tempFile = new FileInfo(fulltempname);
+            string props = Path.Combine(GetHomePath(), "test.properties");
+            if (File.Exists(props))
+                File.Delete(props);
+            FileInfo sampleStoreFile = new FileInfo(props);
+            SampleStore sampleStore = new SampleStore(sampleStoreFile);
+
+            //src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
+
+            //SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG");
+            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), new FileInfo(Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem")));
+            someTestUSER.MspId = "testMSPID?";
+
+            hfclient.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            hfclient.UserContext = someTestUSER;
+        }
+
+        static FileInfo FindFileSk(string directorys)
+        {
+
+            DirectoryInfo directory = new DirectoryInfo(Path.GetFullPath(directorys));
+            FileInfo[] matches = directory.EnumerateFiles().Where(a => a.Name.EndsWith("_sk")).ToArray();
+
+            if (null == matches)
+            {
+                throw new System.Exception($"Matches returned null does {directory.FullName} directory exist?");
+            }
+
+            if (matches.Length != 1)
+            {
+                throw new SystemException($"Expected in {directory.FullName} only 1 sk file but found {matches.Length}");
+            }
+
+            return matches[0];
+
+        }
+
+        ~TestHFClient()
+        {
+            if (tempFile != null)
+            {
+                try
+                {
+                    tempFile.Delete();
+                }
+                catch (System.Exception e)
+                {
+                    // // now harm done.
+                }
             }
         }
     }

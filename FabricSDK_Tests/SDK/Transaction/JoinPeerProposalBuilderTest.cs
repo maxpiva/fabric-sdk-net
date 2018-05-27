@@ -12,31 +12,28 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk.transaction;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Hyperledger.Fabric.Tests.SDK.Transaction
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class JoinPeerProposalBuilderTest
+    {
 
 
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "No genesis block")]
+        public void TestBuildNoChaincode()
+        {
 
+            JoinPeerProposalBuilder builder = JoinPeerProposalBuilder.Create();
+            builder.GenesisBlock(null);
 
-public class JoinPeerProposalBuilderTest {
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
-
-    @Test
-    public void testBuildNoChaincode() throws Exception {
-
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage("No genesis block");
-
-        JoinPeerProposalBuilder builder = JoinPeerProposalBuilder.newBuilder();
-        builder.genesisBlock(null);
-
+        }
     }
-
 
 }

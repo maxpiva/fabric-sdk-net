@@ -12,117 +12,131 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
+using System;
+using System.IO;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-import java.io.File;
+namespace Hyperledger.Fabric.Tests.SDK
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class OrdererTest
+    {
+        private static HFClient hfclient = null;
+        private static Orderer orderer = null;
+        private static FileInfo tempFile;
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+        private static readonly string DEFAULT_CHANNEL_NAME = "channel";
+        private static readonly string ORDERER_NAME = "testorderer";
 
 
-public class OrdererTest {
-    static HFClient hfclient = null;
-    static Orderer orderer = null;
-    static File tempFile;
+        [ClassInitialize]
+        public static void SetupClient()
+        {
+            hfclient = TestHFClient.Create();
+            orderer = hfclient.NewOrderer(ORDERER_NAME, "grpc://localhost:5151");
+        }
 
-    static final String DEFAULT_CHANNEL_NAME = "channel";
-    static final String ORDERER_NAME = "testorderer";
+        [ClassCleanup]
+        public static void CleanUp()
+        {
+            if (tempFile != null)
+            {
+                tempFile.Delete();
+                tempFile = null;
+            }
+        }
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not add orderer testorderer to channel channel2 because it already belongs to channel channel.")]
+        public void TestSetDuplicateChannnel()
+        {
+            Channel channel2 = hfclient.NewChannel("channel2");
+            orderer.Channel = channel2;
+            orderer.Channel = channel2;
+        }
 
-    @BeforeClass
-    public static void setupClient() throws Exception {
-        hfclient = TestHFClient.newInstance();
-        orderer = hfclient.newOrderer(ORDERER_NAME, "grpc://localhost:5151");
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "setChannel Channel can not be null")]
+        public void TestSetNullChannel()
+        {
+            orderer.Channel = null;
+        }
 
-    @AfterClass
-    public static void cleanUp() {
-        if (tempFile != null) {
-            tempFile.delete();
-            tempFile = null;
+        [TestMethod]
+        public void TestSetChannel()
+        {
+            try
+            {
+                Channel channel = hfclient.NewChannel(DEFAULT_CHANNEL_NAME);
+                orderer.Channel = channel;
+                Assert.IsTrue(channel == orderer.Channel);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception " + e.Message);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Invalid name for orderer")]
+        public void TestNullOrdererName()
+        {
+            new Orderer(null, "url", null);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadAddress()
+        {
+            orderer = hfclient.NewOrderer("badorderer", "xxxxxx");
+            Assert.Fail("Orderer did not allow setting bad URL.");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestMissingAddress()
+        {
+            orderer = hfclient.NewOrderer("badaddress", "");
+            Assert.Fail("Orderer did not allow setting a missing address.");
+        }
+
+        [Ignore]
+        [TestMethod]
+        public void TestGetChannel()
+        {
+            try
+            {
+                Channel channel = hfclient.NewChannel(DEFAULT_CHANNEL_NAME);
+                orderer = hfclient.NewOrderer("ordererName", "grpc://localhost:5151");
+                channel.AddOrderer(orderer);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
+
+            Assert.IsTrue(orderer.Channel.Name.Equals(DEFAULT_CHANNEL_NAME, StringComparison.InvariantCultureIgnoreCase), "Test passed - ");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(System.Exception))]
+        public void TestSendNullTransactionThrowsException()
+        {
+            try
+            {
+                orderer = hfclient.NewOrderer(ORDERER_NAME, "grpc://localhost:5151");
+            }
+            catch (InvalidArgumentException e)
+            {
+                Assert.Fail("Failed to create new orderer: " + e);
+            }
+
+            orderer.SendTransaction(null);
+            Assert.Fail("Transaction should not be null.");
         }
     }
-
-    @Test
-    public void testSetDuplicateChannnel() throws InvalidArgumentException {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Can not add orderer " + ORDERER_NAME + " to channel channel2 because it already belongs to channel " + DEFAULT_CHANNEL_NAME + ".");
-
-        Channel channel2 = hfclient.newChannel("channel2");
-        orderer.setChannel(channel2);
-        orderer.setChannel(channel2);
-    }
-
-    @Test
-    public void testSetNullChannel() throws InvalidArgumentException {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("setChannel Channel can not be null");
-
-        orderer.setChannel(null);
-    }
-
-    @Test
-    public void testSetChannel() {
-
-        try {
-            Channel channel = hfclient.newChannel(DEFAULT_CHANNEL_NAME);
-            orderer.setChannel(channel);
-            Assert.assertTrue(channel == orderer.getChannel());
-
-        } catch (Exception e) {
-            Assert.fail("Unexpected Exception " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void testNullOrdererName() throws InvalidArgumentException {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Invalid name for orderer");
-
-        new Orderer(null, "url", null);
-    }
-
-    @Test(expected = InvalidArgumentException.class)
-    public void testBadAddress() throws InvalidArgumentException {
-        orderer = hfclient.newOrderer("badorderer", "xxxxxx");
-        Assert.fail("Orderer did not allow setting bad URL.");
-    }
-
-    @Test(expected = InvalidArgumentException.class)
-    public void testMissingAddress() throws InvalidArgumentException {
-        orderer = hfclient.newOrderer("badaddress", "");
-        Assert.fail("Orderer did not allow setting a missing address.");
-    }
-
-    @Ignore
-    public void testGetChannel() {
-        try {
-            Channel channel = hfclient.newChannel(DEFAULT_CHANNEL_NAME);
-            orderer = hfclient.newOrderer("ordererName", "grpc://localhost:5151");
-            channel.addOrderer(orderer);
-        } catch (Exception e) {
-            Assert.fail("Unexpected Exception " + e.getMessage());
-        }
-        Assert.assertTrue("Test passed - ", orderer.getChannel().getName().equalsIgnoreCase(DEFAULT_CHANNEL_NAME));
-    }
-
-    @Test(expected = Exception.class)
-    public void testSendNullTransactionThrowsException() throws Exception {
-        try {
-            orderer = hfclient.newOrderer(ORDERER_NAME, "grpc://localhost:5151");
-        } catch (InvalidArgumentException e) {
-            Assert.fail("Failed to create new orderer: " + e);
-        }
-        orderer.sendTransaction(null);
-        Assert.fail("Transaction should not be null.");
-    }
-
 }

@@ -12,228 +12,256 @@
  *  limitations under the License.
  */
 
-package org.hyperledger.fabric.sdk;
+using System;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Hyperledger.Fabric.Tests.SDK
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class ClientTest
+    {
+        private static readonly string CHANNEL_NAME = "channel1";
+        private static HFClient hfclient = null;
+
+        private static readonly string USER_NAME = "MockMe";
+        private static readonly string USER_MSP_ID = "MockMSPID";
 
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric.sdk.testutils.TestUtils;
-import org.hyperledger.fabric.sdk.testutils.TestUtils.MockEnrollment;
-import org.hyperledger.fabric.sdk.testutils.TestUtils.MockUser;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import static org.hyperledger.fabric.sdk.testutils.TestUtils.resetConfig;
-
-public class ClientTest {
-    private static final String CHANNEL_NAME = "channel1";
-    static HFClient hfclient = null;
-
-    private static final String USER_NAME = "MockMe";
-    private static final String USER_MSP_ID = "MockMSPID";
-
-
-    @BeforeClass
-    public static void setupClient() throws Exception {
-        try {
-            resetConfig();
-            hfclient = TestHFClient.newInstance();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
-
+        [ClassInitialize]
+        public static void SetupClient()
+        {
+            try
+            {
+                TestUtils.TestUtils.ResetConfig();
+                hfclient = TestHFClient.Create();
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
         }
 
-    }
-
-    @Test
-    public void testNewChannel() {
-        try {
-            Channel testChannel = hfclient.newChannel(CHANNEL_NAME);
-            Assert.assertTrue(testChannel != null && CHANNEL_NAME.equalsIgnoreCase(testChannel.getName()));
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
-        }
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testSetNullChannel() throws InvalidArgumentException {
-        hfclient.newChannel(null);
-        Assert.fail("Expected null channel to throw exception.");
-    }
-
-    @Test
-    public void testNewPeer() {
-        try {
-            Peer peer = hfclient.newPeer("peer_", "grpc://localhost:7051");
-            Assert.assertTrue(peer != null);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
-        }
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadURL() throws InvalidArgumentException {
-        hfclient.newPeer("peer_", " ");
-        Assert.fail("Expected peer with no channel throw exception");
-    }
-
-    @Test
-    public void testNewOrderer() {
-        try {
-            Orderer orderer = hfclient.newOrderer("xx", "grpc://localhost:5005");
-            Assert.assertTrue(orderer != null);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Assert.fail("Unexpected Exception " + e.getMessage());
-        }
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadAddress() throws InvalidArgumentException {
-        hfclient.newOrderer("xx", "xxxxxx");
-        Assert.fail("Orderer allowed setting bad URL.");
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadCryptoSuite() throws InvalidArgumentException {
-        HFClient.createNewInstance()
-                .newOrderer("xx", "xxxxxx");
-        Assert.fail("Orderer allowed setting no cryptoSuite");
-    }
-
-    @Test
-    public void testGoodMockUser() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-        client.setUserContext(TestUtils.getMockUser(USER_NAME, USER_MSP_ID));
-        Orderer orderer = hfclient.newOrderer("justMockme", "grpc://localhost:99"); // test mock should work.
-        Assert.assertNotNull(orderer);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadUserContextNull() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        client.setUserContext(null);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadUserNameNull() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser(null, USER_MSP_ID);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadUserNameEmpty() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser("", USER_MSP_ID);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadUserMSPIDNull() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser(USER_NAME, null);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadUserMSPIDEmpty() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser(USER_NAME, "");
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadEnrollmentNull() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser(USER_NAME, USER_MSP_ID);
-        mockUser.setEnrollment(null);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadEnrollmentBadCert() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-        MockUser mockUser = TestUtils.getMockUser(USER_NAME, USER_MSP_ID);
-
-        MockEnrollment mockEnrollment = TestUtils.getMockEnrollment(null);
-        mockUser.setEnrollment(mockEnrollment);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test (expected = InvalidArgumentException.class)
-    public void testBadEnrollmentBadKey() throws Exception {
-        HFClient client = HFClient.createNewInstance();
-        client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-
-        MockUser mockUser = TestUtils.getMockUser(USER_NAME, USER_MSP_ID);
-
-        MockEnrollment mockEnrollment = TestUtils.getMockEnrollment(null, "mockCert");
-        mockUser.setEnrollment(mockEnrollment);
-
-        client.setUserContext(mockUser);
-
-    }
-
-    @Test //(expected = InvalidArgumentException.class)
-    @Ignore
-    public void testCryptoFactory() throws Exception {
-        try {
-            resetConfig();
-            Assert.assertNotNull(Config.getConfig().getDefaultCryptoSuiteFactory());
-
-            HFClient client = HFClient.createNewInstance();
-
-            client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
-
-            MockUser mockUser = TestUtils.getMockUser(USER_NAME, USER_MSP_ID);
-
-            MockEnrollment mockEnrollment = TestUtils.getMockEnrollment(null, "mockCert");
-            mockUser.setEnrollment(mockEnrollment);
-
-            client.setUserContext(mockUser);
-        } finally {
-            System.getProperties().remove("org.hyperledger.fabric.sdk.crypto.default_crypto_suite_factory");
-
+        [TestMethod]
+        public void TestNewChannel()
+        {
+            try
+            {
+                Channel testChannel = hfclient.NewChannel(CHANNEL_NAME);
+                Assert.IsTrue(testChannel != null && CHANNEL_NAME.Equals(testChannel.Name, StringComparison.InvariantCultureIgnoreCase));
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
         }
 
-    }
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestSetNullChannel()
+        {
+            hfclient.NewChannel(null);
+            Assert.Fail("Expected null channel to throw exception.");
+        }
 
+        [TestMethod]
+        public void TestNewPeer()
+        {
+            try
+            {
+                Peer peer = hfclient.NewPeer("peer_", "grpc://localhost:7051");
+                Assert.IsTrue(peer != null);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadURL()
+        {
+            hfclient.NewPeer("peer_", " ");
+            Assert.Fail("Expected peer with no channel throw exception");
+        }
+
+        [TestMethod]
+        public void TestNewOrderer()
+        {
+            try
+            {
+                Orderer orderer = hfclient.NewOrderer("xx", "grpc://localhost:5005");
+                Assert.IsTrue(orderer != null);
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Unexpected Exception {e.Message}");
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadAddress()
+        {
+            hfclient.NewOrderer("xx", "xxxxxx");
+            Assert.Fail("Orderer allowed setting bad URL.");
+        }
+
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadCryptoSuite()
+        {
+            HFClient.Create().NewOrderer("xx", "xxxxxx");
+            Assert.Fail("Orderer allowed setting no cryptoSuite");
+        }
+
+        [TestMethod]
+        public void TestGoodMockUser()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+            Orderer orderer = hfclient.NewOrderer("justMockme", "grpc://localhost:99"); // test mock should work.
+            Assert.IsNotNull(orderer);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadUserContextNull()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+
+            client.UserContext = null;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadUserNameNull()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(null, USER_MSP_ID);
+
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadUserNameEmpty()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser("", USER_MSP_ID);
+
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadUserMSPIDNull()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, null);
+
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadUserMSPIDEmpty()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, "");
+
+
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadEnrollmentNull()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+            mockUser.Enrollment = null;
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadEnrollmentBadCert()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null);
+            mockUser.Enrollment = mockEnrollment;
+            client.UserContext = mockUser;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestBadEnrollmentBadKey()
+        {
+            HFClient client = HFClient.Create();
+            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ;
+
+
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
+            mockUser.Enrollment = mockEnrollment;
+            client.UserContext = mockUser;
+        }
+
+        [Ignore]
+        [TestMethod]
+        [ExpectedException(typeof(InvalidArgumentException))]
+        public void TestCryptoFactory()
+        {
+            try
+            {
+                TestUtils.TestUtils.ResetConfig();
+                Assert.IsNotNull(Config.Instance.GetDefaultCryptoSuiteFactory());
+
+                HFClient client = HFClient.Create();
+
+                client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+                ;
+
+                TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+                TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
+                mockUser.Enrollment = mockEnrollment;
+                client.UserContext = mockUser;
+            }
+            finally
+            {
+                // System.getProperties().remove("org.hyperledger.fabric.sdk.crypto.default_crypto_suite_factory");
+            }
+        }
+    }
 }

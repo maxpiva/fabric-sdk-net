@@ -91,12 +91,15 @@ namespace Hyperledger.Fabric.SDK
 
         private static readonly ConcurrentDictionary<string, string> CN_CACHE = new ConcurrentDictionary<string, string>();
         private readonly byte[] tlsClientCertificatePEMBytes;
+        internal SslCredentials creds;
 
 
         private byte[] clientTLSCertificateDigest;
 
         public Endpoint(string url, Properties properties)
         {
+            NetworkConfig.ReplaceNettyOptions(properties);
+
             logger.Trace($"Creating endpoint for url {url}");
             Url = url;
             string cn = null;
@@ -314,7 +317,6 @@ namespace Hyperledger.Fabric.SDK
                     {
                         try
                         {
-                            ChannelCredentials creds;
                             if (ckb != null && ccb != null)
                                 creds = new SslCredentials(pemBytes.ToUTF8String(), new KeyCertificatePair(ccb.ToUTF8String(), ckb.ToUTF8String()));
                             else

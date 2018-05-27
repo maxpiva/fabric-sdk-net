@@ -12,31 +12,6 @@
  *  limitations under the License.
  */
 
-/*
-package org.hyperledger.fabric.sdk.testutils;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.sdk.helper.Utils;
-import org.hyperledger.fabric.sdkintegration.SampleOrg;
-*/
-
 /**
  * Config allows for a global config of the toolkit. Central location for all
  * toolkit configuration defaults. Has a local config file that can override any
@@ -53,20 +28,21 @@ import org.hyperledger.fabric.sdkintegration.SampleOrg;
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-
-
-
+using Hyperledger.Fabric.Tests.SDK.Integration;
 
 namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 {
+    
     public class TestConfig
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(TestConfig));
-        
+
         private static readonly string DEFAULT_CONFIG = "src/test/java/org/hyperledger/fabric/sdk/testutils.properties";
         private static readonly string ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = "org.hyperledger.fabric.sdktest.configuration";
         private static readonly string ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST = "ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST";
@@ -82,26 +58,22 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         private static readonly string PROPOSALWAITTIME = PROPBASE + "ProposalWaitTime";
 
         private static readonly string INTEGRATIONTESTS_ORG = PROPBASE + "integrationTests.org.";
-        private static readonly Regex orgPat = new Regex("^\"" + INTEGRATIONTESTS_ORG + "\"([^\\.]+)\\.mspid$",RegexOptions.Compiled);
+        private static readonly Regex orgPat = new Regex("^\"" + INTEGRATIONTESTS_ORG + "\"([^\\.]+)\\.mspid$", RegexOptions.Compiled);
 
         private static readonly string INTEGRATIONTESTSTLS = PROPBASE + "integrationtests.tls";
 
         // location switching between fabric cryptogen and configtxgen artifacts for v1.0 and v1.1 in src/test/fixture/sdkintegration/e2e-2Orgs
-        public static readonly string FAB_CONFIG_GEN_VERS =
-        (Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION") ?? "").Equals("1.0.0") ? "v1.0" : "v1.1";
+        public static readonly string FAB_CONFIG_GEN_VERS = (Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION") ?? "").Equals("1.0.0") ? "v1.0" : "v1.1";
 
-        private static TestConfig config;
-        private static Dictionary<string, string> sdkProperties = new Dictionary<string, string>();
-        private readonly bool runningTLS;
+
+        internal static TestConfig config;
+
+        private static Properties sdkProperties = new Properties();
+        private static readonly Dictionary<string, SampleOrg> sampleOrgs = new Dictionary<string, SampleOrg>();
         private readonly bool runningFabricCATLS;
 
-        public bool IsRunningFabricTLS()
-        {
-            return runningFabricTLS;
-        }
-
         private readonly bool runningFabricTLS;
-        private static readonly Dictionary<string, SampleOrg> sampleOrgs = new Dictionary<string, SampleOrg>();
+        private readonly bool runningTLS;
 
         private TestConfig()
         {
@@ -111,17 +83,9 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             bool exists = File.Exists(fullpath);
             try
             {
-
-                var parser = new FileIniDataParser();
-                sdkProperties = new Dictionary<string, string>();
+                sdkProperties = new Properties();
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
-                IniData data = parser.ReadFile(DEFAULT_CONFIG);
-                KeyDataCollection sect = data.Global;
-                foreach (KeyData kd in sect)
-                {
-                    sdkProperties.Add(kd.KeyName, kd.Value);
-                }
-
+                sdkProperties.Load(fullpath);
             }
             catch (System.Exception e)
             {
@@ -129,7 +93,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             }
             finally
             {
-
                 // Default values
 
                 DefaultProperty(INVOKEWAITTIME, "120");
@@ -152,14 +115,14 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg2.eventhub_locations", "peer0.org2.example.com@grpc://" + LOCALHOST + ":8053, peer1.org2.example.com@grpc://" + LOCALHOST + ":8058");
 
                 DefaultProperty(INTEGRATIONTESTSTLS, null);
-                runningTLS = sdkProperties.ContainsKey(INTEGRATIONTESTSTLS);
+                runningTLS = sdkProperties.Contains(INTEGRATIONTESTSTLS);
                 runningFabricCATLS = runningTLS;
                 runningFabricTLS = runningTLS;
 
-                foreach (string key in sdkProperties.Keys)
+                foreach (string key in sdkProperties)
                 {
                     string val = sdkProperties[key] + string.Empty;
-                    
+
                     if (key.StartsWith(INTEGRATIONTESTS_ORG))
                     {
                         Match match = orgPat.Match(key);
@@ -167,106 +130,95 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                         if (match.Success && match.Groups.Count == 1)
                         {
                             string orgName = match.Groups[1].Value.Trim();
-                            sampleOrgs[orgName]=new SampleOrg(orgName, val.Trim()));
-
+                            sampleOrgs[orgName] = new SampleOrg(orgName, val.Trim());
                         }
                     }
                 }
 
-                for (Map.Entry < String, SampleOrg > org : sampleOrgs.entrySet())
+                foreach (string orgName in sampleOrgs.Keys)
                 {
-                    final SampleOrg sampleOrg = org.getValue();
-                    final string orgName = org.getKey();
+                    SampleOrg sampleOrg = sampleOrgs[orgName];
 
-                    string peerNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".peer_locations");
-                    String[] ps = peerNames.split("[ \t]*,[ \t]*");
-                    for (string peer :
-                    ps) {
-                        String[] nl = peer.split("[ \t]*@[ \t]*");
-                        sampleOrg.addPeerLocation(nl[0], grpcTLSify(nl[1]));
+
+                    string peerNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".peer_locations");
+                    string[] ps = new Regex("[ \t]*,[ \t]*").Split(peerNames);
+                    foreach (string peer in ps)
+                    {
+                        string[] nl = new Regex("[ \t]*@[ \t]*").Split(peer);
+                        sampleOrg.AddPeerLocation(nl[0], GrpcTLSify(nl[1]));
                     }
 
-                    final string domainName = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".domname");
+                    string domainName = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".domname");
 
-                    sampleOrg.setDomainName(domainName);
+                    sampleOrg.SetDomainName(domainName);
 
-                    string ordererNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".orderer_locations");
-                    ps = ordererNames.split("[ \t]*,[ \t]*");
-                    for (string peer :
-                    ps) {
-                        String[] nl = peer.split("[ \t]*@[ \t]*");
-                        sampleOrg.addOrdererLocation(nl[0], grpcTLSify(nl[1]));
+                    string ordererNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".orderer_locations");
+                    ps = new Regex("[ \t]*,[ \t]*").Split(ordererNames);
+                    foreach (string peer in ps)
+                    {
+                        string[] nl = new Regex("[ \t]*@[ \t]*").Split(peer);
+                        sampleOrg.AddOrdererLocation(nl[0], GrpcTLSify(nl[1]));
                     }
 
-                    string eventHubNames = sdkProperties.getProperty(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
-                    ps = eventHubNames.split("[ \t]*,[ \t]*");
-                    for (string peer :
-                    ps) {
-                        String[] nl = peer.split("[ \t]*@[ \t]*");
-                        sampleOrg.addEventHubLocation(nl[0], grpcTLSify(nl[1]));
+                    string eventHubNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
+                    ps = new Regex("[ \t]*,[ \t]*").Split(eventHubNames);
+                    foreach (string peer in ps)
+                    {
+                        string[] nl = new Regex("[ \t]*@[ \t]*").Split(peer);
+                        sampleOrg.AddEventHubLocation(nl[0], GrpcTLSify(nl[1]));
                     }
 
-                    sampleOrg.setCALocation(httpTLSify(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".ca_location"))));
+                    sampleOrg.SetCALocation(HttpTLSify(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".ca_location")));
 
-                    sampleOrg.setCAName(sdkProperties.getProperty((INTEGRATIONTESTS_ORG + org.getKey() + ".caName")));
+                    sampleOrg.SetCAName(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".caName"));
 
                     if (runningFabricCATLS)
                     {
-                        string cert = "src/test/fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".replaceAll("DNAME", domainName).replaceAll("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
-                        File cf = new File(cert);
-                        if (!cf.exists() || !cf.isFile())
+                        string cert = "fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".Replace("DNAME", domainName).Replace("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
+                        cert = Path.GetFullPath(cert);
+                        FileInfo cf = new FileInfo(cert);
+                        if (!cf.Exists)
                         {
-                            throw new RuntimeException("TEST is missing cert file " + cf.getAbsolutePath());
+                            throw new System.Exception($"TEST is missing cert file {cf.FullName}");
                         }
 
                         Properties properties = new Properties();
-                        properties.setProperty("pemFile", cf.getAbsolutePath());
+                        properties.Set("pemFile", cf.FullName);
 
-                        properties.setProperty("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
+                        properties.Set("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
 
-                        sampleOrg.setCAProperties(properties);
+                        sampleOrg.SetCAProperties(properties);
                     }
                 }
-
             }
-
         }
 
-        private string grpcTLSify(string location)
+        public static TestConfig Instance => config ?? (config = new TestConfig());
+
+        public bool IsRunningFabricTLS()
         {
-            location = location.trim();
-            Exception e = Utils.checkGrpcUrl(location);
+            return runningFabricTLS;
+        }
+
+        private string GrpcTLSify(string location)
+        {
+            location = location.Trim();
+            System.Exception e = Utils.CheckGrpcUrl(location);
             if (e != null)
             {
-                throw new RuntimeException(String.format("Bad TEST parameters for grpc url %s", location), e);
+                throw new System.Exception("Bad TEST parameters for grpc url {location}");
             }
 
-            return runningFabricTLS ? location.replaceFirst("^grpc://", "grpcs://") : location;
-
+            return runningFabricTLS ? Regex.Replace(location, "^grpc://", "grpcs://") : location;
         }
 
-        private string httpTLSify(string location)
+        private string HttpTLSify(string location)
         {
-            location = location.trim();
+            location = location.Trim();
 
-            return runningFabricCATLS ? location.replaceFirst("^http://", "https://") : location;
+            return runningFabricCATLS ? Regex.Replace(location, "^http://", "https://") : location;
         }
 
-        /**
-         * getConfig return back singleton for SDK configuration.
-         *
-         * @return Global configuration
-         */
-        public static TestConfig getConfig()
-        {
-            if (null == config)
-            {
-                config = new TestConfig();
-            }
-
-            return config;
-
-        }
 
         /**
          * getProperty return back property for the given value.
@@ -276,8 +228,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
          */
         private string GetProperty(string property)
         {
-
-            string ret = sdkProperties.GetOrNull(property);
+            string ret = sdkProperties[property];
 
             if (null == ret)
             {
@@ -290,11 +241,10 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         private static void DefaultProperty(string key, string value)
         {
-
             string ret = Environment.GetEnvironmentVariable(key);
             if (ret != null)
             {
-                sdkProperties[key]=ret;
+                sdkProperties[key] = ret;
             }
             else
             {
@@ -306,125 +256,114 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 }
                 else
                 {
-                    if (!sdkProperties.ContainsKey(key) && value != null)
+                    if (!sdkProperties.Contains(key) && value != null)
                     {
                         sdkProperties[key] = value;
                     }
-
                 }
-
             }
         }
 
-        public int getTransactionWaitTime()
+        public int GetTransactionWaitTime()
         {
-            return Integer.parseInt(getProperty(INVOKEWAITTIME));
+            return int.Parse(GetProperty(INVOKEWAITTIME));
         }
 
-        public int getDeployWaitTime()
+        public int GetDeployWaitTime()
         {
-            return Integer.parseInt(getProperty(DEPLOYWAITTIME));
+            return int.Parse(GetProperty(DEPLOYWAITTIME));
         }
 
-        public long getProposalWaitTime()
+        public long GetProposalWaitTime()
         {
-            return Integer.parseInt(getProperty(PROPOSALWAITTIME));
+            return int.Parse(GetProperty(PROPOSALWAITTIME));
         }
 
-        public Collection<SampleOrg> getIntegrationTestsSampleOrgs()
+        public IReadOnlyList<SampleOrg> GetIntegrationTestsSampleOrgs()
         {
-            return Collections.unmodifiableCollection(sampleOrgs.values());
+            return sampleOrgs.Values.ToList();
         }
 
-        public SampleOrg getIntegrationTestsSampleOrg(string name)
+        public SampleOrg GetIntegrationTestsSampleOrg(string name)
         {
-            return sampleOrgs.get(name);
-
+            return sampleOrgs.GetOrNull(name);
         }
 
-        public Properties getPeerProperties(string name)
+        public Properties GetPeerProperties(string name)
         {
-
-            return getEndPointProperties("peer", name);
-
+            return GetEndPointProperties("peer", name);
         }
 
-        public Properties getOrdererProperties(string name)
+        public Properties GetOrdererProperties(string name)
         {
-
-            return getEndPointProperties("orderer", name);
-
+            return GetEndPointProperties("orderer", name);
         }
 
-        public Properties getEndPointProperties(final string type, final string name) {
+        public Properties GetEndPointProperties(string type, string name)
+        {
             Properties ret = new Properties();
 
-            final string domainName = getDomainName(name);
+            string domainName = GetDomainName(name);
 
-            File cert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations".replace("orderer", type), domainName, type + "s", name, "tls/server.crt").toFile();
-            if (!cert.exists())
+            FileInfo cert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations".Replace("orderer", type), domainName, type + "s", name, "tls/server.crt"));
+            if (!cert.Exists)
             {
-                throw new RuntimeException(String.format("Missing cert file for: %s. Could not find at location: %s", name, cert.getAbsolutePath()));
+                throw new System.Exception($"Missing cert file for: {name}. Could not find at location: {cert.FullName}");
             }
 
-            if (!isRunningAgainstFabric10())
+            if (!IsRunningAgainstFabric10())
             {
-                File clientCert;
-                File clientKey;
-                if ("orderer".equals(type))
+                FileInfo clientCert;
+                FileInfo clientKey;
+                if ("orderer".Equals(type))
                 {
-                    clientCert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt").toFile();
-
-                    clientKey = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key").toFile();
+                    clientCert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt"));
+                    clientKey = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key"));
                 }
                 else
                 {
-                    clientCert = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt").toFile();
-                    clientKey = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key").toFile();
+                    clientCert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt"));
+                    clientKey = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key"));
                 }
 
-                if (!clientCert.exists())
+                if (!clientCert.Exists)
                 {
-                    throw new RuntimeException(String.format("Missing  client cert file for: %s. Could not find at location: %s", name, clientCert.getAbsolutePath()));
+                    throw new System.Exception($"Missing  client cert file for: {name}. Could not find at location: {clientCert.FullName}");
                 }
 
-                if (!clientKey.exists())
+                if (!clientKey.Exists)
                 {
-                    throw new RuntimeException(String.format("Missing  client key file for: %s. Could not find at location: %s", name, clientKey.getAbsolutePath()));
+                    throw new System.Exception($"Missing  client key file for: {name}. Could not find at location: {clientKey.FullName}");
                 }
 
-                ret.setProperty("clientCertFile", clientCert.getAbsolutePath());
-                ret.setProperty("clientKeyFile", clientKey.getAbsolutePath());
+                ret.Set("clientCertFile", clientCert.FullName);
+                ret.Set("clientKeyFile", clientKey.FullName);
             }
 
-            ret.setProperty("pemFile", cert.getAbsolutePath());
-
-            ret.setProperty("hostnameOverride", name);
-            ret.setProperty("sslProvider", "openSSL");
-            ret.setProperty("negotiationType", "TLS");
+            ret.Set("pemFile", cert.FullName);
+            ret.Set("hostnameOverride", name);
+            ret.Set("sslProvider", "openSSL");
+            ret.Set("negotiationType", "TLS");
 
             return ret;
         }
 
-        public Properties getEventHubProperties(string name)
+        public Properties GetEventHubProperties(string name)
         {
-
-            return getEndPointProperties("peer", name); //uses same as named peer
-
+            return GetEndPointProperties("peer", name); //uses same as named peer
         }
 
-        public string getTestChannelPath()
+        public string GetTestChannelPath()
         {
-
-            return "src/test/fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS;
-
+            return Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS);
         }
 
-        public boolean isRunningAgainstFabric10()
+        public bool IsRunningAgainstFabric10()
         {
-
-            return "IntegrationSuiteV1.java".equals(System.getProperty("org.hyperledger.fabric.sdktest.ITSuite"));
-
+            string suite = Environment.GetEnvironmentVariable("org.hyperledger.fabric.sdktest.ITSuite");
+            if (suite == null)
+                return false;
+            return suite.Equals("IntegrationSuiteV1.java");
         }
 
         /**
@@ -433,7 +372,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
          * @return
          */
 
-        public string getFabricConfigTxLaterLocation()
+        public string GetFabricConfigTxLaterLocation()
         {
             return "http://" + LOCALHOST + ":7059";
         }
@@ -444,52 +383,43 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
          *
          * @return The appropriate Network Config YAML file
          */
-        public File getTestNetworkConfigFileYAML()
+        public FileInfo GetTestNetworkConfigFileYAML()
         {
             string fname = runningTLS ? "network-config-tls.yaml" : "network-config.yaml";
-            string pname = "src/test/fixture/sdkintegration/network_configs/";
-            File ret = new File(pname, fname);
+            string pname = "fixture/sdkintegration/network_configs/";
 
-            if (!"localhost".equals(LOCALHOST))
+            FileInfo ret = new FileInfo(Path.Combine(Path.GetFullPath(pname), fname));
+
+            if (!"localhost".Equals(LOCALHOST))
             {
                 // change on the fly ...
-                File temp = null;
+                FileInfo temp = null;
 
                 try
                 {
                     //create a temp file
-                    temp = File.createTempFile(fname, "-FixedUp.yaml");
-
-                    if (temp.exists())
+                    string dir = Path.GetTempPath();
+                    Directory.CreateDirectory(dir);
+                    string tempname = Path.Combine(dir, fname + "-FixedUp.yaml");
+                    temp = new FileInfo(tempname);
+                    if (temp.Exists)
                     {
                         //For testing start fresh
-                        temp.delete();
+                        File.Delete(tempname);
                     }
 
-                    byte[] data = Files.readAllBytes(Paths.get(ret.getAbsolutePath()));
+                    string sourceText = File.ReadAllText(ret.FullName, Encoding.UTF8);
 
-                    string sourceText = new String(data, StandardCharsets.UTF_8);
-
-                    sourceText = sourceText.replaceAll("https://localhost", "https://" + LOCALHOST);
-                    sourceText = sourceText.replaceAll("http://localhost", "http://" + LOCALHOST);
-                    sourceText = sourceText.replaceAll("grpcs://localhost", "grpcs://" + LOCALHOST);
-                    sourceText = sourceText.replaceAll("grpc://localhost", "grpc://" + LOCALHOST);
-
-                    Files.write(Paths.get(temp.getAbsolutePath()), sourceText.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-
-                    if (!Objects.equals("true", System.getenv(ORG_HYPERLEDGER_FABRIC_SDK_TEST_FABRIC_HOST + "_KEEP")))
-                    {
-                        temp.deleteOnExit();
-                    }
-                    else
-                    {
-                        System.err.println("produced new network-config.yaml file at:" + temp.getAbsolutePath());
-                    }
-
+                    sourceText = sourceText.Replace("https://localhost", "https://" + LOCALHOST);
+                    sourceText = sourceText.Replace("http://localhost", "http://" + LOCALHOST);
+                    sourceText = sourceText.Replace("grpcs://localhost", "grpcs://" + LOCALHOST);
+                    sourceText = sourceText.Replace("grpc://localhost", "grpc://" + LOCALHOST);
+                    File.WriteAllText(tempname, sourceText);
+                    logger.Info($"produced new network-config.yaml file at: {tempname}");
                 }
-                catch (Exception e)
+                catch (System.Exception e)
                 {
-                    throw new RuntimeException(e);
+                    throw;
                 }
 
                 ret = temp;
@@ -498,19 +428,15 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             return ret;
         }
 
-        private string getDomainName(final string name)
+        private string GetDomainName(string name)
         {
-            int dot = name.indexOf(".");
+            int dot = name.IndexOf(".");
             if (-1 == dot)
             {
                 return null;
             }
-            else
-            {
-                return name.substring(dot + 1);
-            }
 
+            return name.Substring(dot + 1);
         }
-
     }
 }

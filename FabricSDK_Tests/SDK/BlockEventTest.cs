@@ -26,6 +26,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 {
 
     [TestClass]
+    [TestCategory("SDK")]
     public class BlockEventTest
     {
         private static Block block, badBlock;

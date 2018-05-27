@@ -14,62 +14,53 @@
  *
  */
 
-package org.hyperledger.fabric.sdk.transaction;
+using System;
+using Google.Protobuf.WellKnownTypes;
+using Hyperledger.Fabric.SDK.Transaction;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-import java.util.Calendar;
-import java.util.Date;
+namespace Hyperledger.Fabric.Tests.SDK.Transaction
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class ProtoUtilsTest
+    {
+        [TestMethod]
+        public void TimeStampDrill()
+        {
+            long millis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-import com.google.protobuf.Timestamp;
-import org.junit.Assert;
-import org.junit.Test;
+            //Test values over 2seconds
+            for (long start = millis; start < millis + 2010; ++start)
+            {
+                Timestamp ts = new Timestamp {Seconds = start / 1000, Nanos = (int) (start % 1000 * 1000000)};
 
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getCurrentFabricTimestamp;
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getDateFromTimestamp;
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getTimestampFromDate;
-
-public class ProtoUtilsTest {
-
-    @Test
-    public void timeStampDrill() throws Exception {
-
-        final long millis = System.currentTimeMillis();
-
-        //Test values over 2seconds
-        for (long start = millis; start < millis + 2010; ++start) {
-            Timestamp ts = Timestamp.newBuilder().setSeconds(start / 1000)
-                    .setNanos((int) ((start % 1000) * 1000000)).build();
-
-            Date dateFromTimestamp = getDateFromTimestamp(ts);
-            //    System.out.println(dateFromTimestamp);
-            Date expectedDate = new Date(start);
-            //Test various formats to make sure...
-            Assert.assertEquals(expectedDate, dateFromTimestamp);
-            Assert.assertEquals(expectedDate.getTime(), dateFromTimestamp.getTime());
-            Assert.assertEquals(expectedDate.toString(), dateFromTimestamp.toString());
-            //Now reverse it
-            Timestamp timestampFromDate = getTimestampFromDate(expectedDate);
-            Assert.assertEquals(ts, timestampFromDate);
-            Assert.assertEquals(ts.getNanos(), timestampFromDate.getNanos());
-            Assert.assertEquals(ts.getSeconds(), timestampFromDate.getSeconds());
-            Assert.assertEquals(ts.toString(), timestampFromDate.toString());
-
+                DateTime dateFromTimestamp = ts.ToDateTime();
+                //    System.out.println(dateFromTimestamp);
+                DateTime expectedDate = new DateTime(start);
+                //Test various formats to make sure...
+                Assert.AreEqual(expectedDate, dateFromTimestamp);
+                Assert.AreEqual(expectedDate.TimeOfDay, dateFromTimestamp.TimeOfDay);
+                Assert.AreEqual(expectedDate.ToString(), dateFromTimestamp.ToString());
+                //Now reverse it
+                Timestamp timestampFromDate = expectedDate.ToTimestamp();
+                Assert.AreEqual(ts, timestampFromDate);
+                Assert.AreEqual(ts.Nanos, timestampFromDate.Nanos);
+                Assert.AreEqual(ts.Seconds, timestampFromDate.Seconds);
+                Assert.AreEqual(ts.ToString(), timestampFromDate.ToString());
+            }
         }
 
+        [TestMethod]
+        public void TimeStampCurrent()
+        {
+            int skew = 200; // need some skew here as we are not getting the times at same instance.
+            DateTime original = DateTime.UtcNow;
+            DateTime currentDateTimestamp = ProtoUtils.GetCurrentFabricTimestamp().ToDateTime();
+            DateTime before = original.AddMilliseconds(-skew);
+            DateTime after = original.AddMilliseconds(skew);
+            Assert.IsTrue(before < currentDateTimestamp);
+            Assert.IsTrue(after > currentDateTimestamp);
+        }
     }
-
-    @Test
-    public void timeStampCurrent() throws Exception {
-        final int skew = 200;  // need some skew here as we are not getting the times at same instance.
-
-        Calendar before = Calendar.getInstance(); // current time.
-
-        final Date currentDateTimestamp = getDateFromTimestamp(getCurrentFabricTimestamp());
-        Calendar after = (Calendar) before.clone(); // another copy.
-
-        before.add(Calendar.MILLISECOND, -skew);
-        after.add(Calendar.MILLISECOND, skew);
-        Assert.assertTrue(before.getTime().before(currentDateTimestamp));
-        Assert.assertTrue(after.getTime().after(currentDateTimestamp));
-    }
-
 }

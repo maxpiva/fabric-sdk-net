@@ -11,229 +11,230 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+using System.IO;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Transaction;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-package org.hyperledger.fabric.sdk.transaction;
+namespace Hyperledger.Fabric.Tests.SDK.Transaction
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class InstallProposalBuilderTest
+    {
+        // Create a temp folder to hold temp files for various file I/O operations
+        // These are automatically deleted when each test completes
+        public readonly string tempFolder = Path.GetTempPath();
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodeSource or chaincodeInputStream")]
+        public void TestBuildNoChaincode()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
+            builder.Build();
+        }
 
-import org.hyperledger.fabric.sdk.TransactionRequest;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
 
-public class InstallProposalBuilderTest {
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
-    // Create a temp folder to hold temp files for various file I/O operations
-    // These are automatically deleted when each test completes
-    @Rule
-    public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-    @Test
-    public void testBuildNoChaincode() throws Exception {
+        // Tests that both chaincodeSource and chaincodeInputStream are not specified together
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Both chaincodeSource and chaincodeInputStream")]
+        public void TestBuildBothChaincodeSources()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("Missing chaincodeSource or chaincodeInputStream");
+            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.SetChaincodeInputStream(new MemoryStream("test string".ToBytes()));
+            builder.Build();
+        }
 
-        InstallProposalBuilder builder = createTestBuilder();
+        // Tests that a chaincode path has been specified for GO_LANG code using a File
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodePath")]
+        public void TestBuildChaincodePathGolangFile()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        builder.build();
+            builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
+            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodePath(null);
 
-    }
+            builder.Build();
+        }
 
-    // Tests that both chaincodeSource and chaincodeInputStream are not specified together
-    @Test
-    public void testBuildBothChaincodeSources() throws Exception {
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodePath")]
+        public void TestBuildChaincodePathGolangStream()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("Both chaincodeSource and chaincodeInputStream");
+            builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
+            builder.SetChaincodeInputStream(new MemoryStream("test string".ToBytes()));
+            builder.ChaincodePath(null);
 
-        InstallProposalBuilder builder = createTestBuilder();
+            builder.Build();
+        }
 
-        builder.setChaincodeSource(new File("some/dir"));
-        builder.setChaincodeInputStream(new ByteArrayInputStream("test string".getBytes()));
+        // Tests that a chaincode path is null for JAVA code using a File
 
-        builder.build();
-    }
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Java chaincode")]
+        public void TestBuildChaincodePathJavaFile()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-    // Tests that a chaincode path has been specified for GO_LANG code using a File
-    @Test
-    public void testBuildChaincodePathGolangFile() throws Exception {
+            builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
+            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodePath("null or empty string");
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("Missing chaincodePath");
+            builder.Build();
+        }
 
-        InstallProposalBuilder builder = createTestBuilder();
+        // Tests that a chaincode path is null for JAVA code using a File
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Java chaincode")]
+        public void TestBuildChaincodePathJavaStream()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        builder.setChaincodeLanguage(TransactionRequest.Type.GO_LANG);
-        builder.setChaincodeSource(new File("some/dir"));
-        builder.chaincodePath(null);
+            builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
+            builder.SetChaincodeInputStream(new MemoryStream("test string".ToBytes()));
+            builder.ChaincodePath("null or empty string");
 
-        builder.build();
-    }
+            builder.Build();
+        }
 
-    // Tests that a chaincode path has been specified for GO_LANG code using an InputStream
-    @Test
-    public void testBuildChaincodePathGolangStream() throws Exception {
+        // Tests for non existent chaincode source path
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory does not exist")]
+        public void TestBuildSourceNotExistGolang()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("Missing chaincodePath");
+            builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
+            builder.ChaincodePath(null);
+            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
 
-        InstallProposalBuilder builder = createTestBuilder();
+            builder.Build();
+        }
 
-        builder.setChaincodeLanguage(TransactionRequest.Type.GO_LANG);
-        builder.setChaincodeInputStream(new ByteArrayInputStream("test string".getBytes()));
-        builder.chaincodePath(null);
+        // Tests for a chaincode source path which is a file and not a directory
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory is not a directory")]
+        public void TestBuildSourceNotDirectory()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
+            string folderpath = Path.Combine(tempFolder, "src");
+            // create an empty src directory
+            Directory.CreateDirectory(folderpath);
+            // Create a dummy file in the chaincode directory
+            string dummyFileName = "myapp";
+            string filepath = Path.Combine(folderpath, dummyFileName);
+            File.WriteAllText(filepath, string.Empty);
 
-        builder.build();
-    }
+            builder.ChaincodePath(folderpath);
+            builder.ChaincodeSource(new DirectoryInfo(filepath));
 
-    // Tests that a chaincode path is null for JAVA code using a File
-    @Test
-    public void testBuildChaincodePathJavaFile() throws Exception {
+            builder.Build();
+        }
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("chaincodePath must be null for Java chaincode");
+        // Tests for an IOException on the stream
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "IO Error")]
+        public void TestBuildInvalidSource()
+        {
+            // A mock InputStream that throws an IOException
 
-        InstallProposalBuilder builder = createTestBuilder();
 
-        builder.setChaincodeLanguage(TransactionRequest.Type.JAVA);
-        builder.setChaincodeSource(new File("some/dir"));
-        builder.chaincodePath("null or empty string");
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        builder.build();
-    }
+            builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
+            builder.SetChaincodeInputStream(new MockInputStream());
 
-    // Tests that a chaincode path is null for JAVA code using a File
-    @Test
-    public void testBuildChaincodePathJavaStream() throws Exception {
+            builder.Build();
+        }
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("chaincodePath must be null for Java chaincode");
+        // Tests that no chaincode path is specified for Node code using a File
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Node chaincode")]
+        public void TestBuildChaincodePathNodeFile()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-        InstallProposalBuilder builder = createTestBuilder();
+            builder.ChaincodeLanguage(TransactionRequest.Type.NODE);
+            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodePath("src");
 
-        builder.setChaincodeLanguage(TransactionRequest.Type.JAVA);
-        builder.setChaincodeInputStream(new ByteArrayInputStream("test string".getBytes()));
-        builder.chaincodePath("null or empty string");
+            builder.Build();
+        }
 
-        builder.build();
-    }
+        // Tests that no chaincode path is specified for Node code using input stream
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Node chaincode")]
+        public void TestBuildChaincodePathNodeStream()
+        {
+            InstallProposalBuilder builder = CreateTestBuilder();
 
-    // Tests for non existent chaincode source path
-    @Test
-    public void testBuildSourceNotExistGolang() throws Exception {
+            builder.ChaincodeLanguage(TransactionRequest.Type.NODE);
+            builder.SetChaincodeInputStream(new MemoryStream("test string".ToBytes()));
+            builder.ChaincodePath("src");
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("The project source directory does not exist");
+            builder.Build();
+        }
 
-        InstallProposalBuilder builder = createTestBuilder();
+        public  class MockInputStream : MemoryStream
+        {
+            public MockInputStream()
+            {
+            }
 
-        builder.setChaincodeLanguage(TransactionRequest.Type.JAVA);
-        builder.chaincodePath(null);
-        builder.setChaincodeSource(new File("some/dir"));
+            public MockInputStream(int capacity) : base(capacity)
+            {
+            }
 
-        builder.build();
-    }
+            public MockInputStream(byte[] buffer) : base(buffer)
+            {
+            }
 
-    // Tests for a chaincode source path which is a file and not a directory
-    @Test
-    public void testBuildSourceNotDirectory() throws Exception {
+            public MockInputStream(byte[] buffer, bool writable) : base(buffer, writable)
+            {
+            }
 
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("The project source directory is not a directory");
+            public MockInputStream(byte[] buffer, int index, int count) : base(buffer, index, count)
+            {
+            }
 
-        InstallProposalBuilder builder = createTestBuilder();
+            public MockInputStream(byte[] buffer, int index, int count, bool writable) : base(buffer, index, count, writable)
+            {
+            }
 
-        // create an empty src directory
-        File sourceDir = tempFolder.newFolder("src");
+            public MockInputStream(byte[] buffer, int index, int count, bool writable, bool publiclyVisible) : base(buffer, index, count, writable, publiclyVisible)
+            {
+            }
 
-        // Create a dummy file in the chaincode directory
-        String dummyFileName = "myapp";
-        File dummyFile = new File(sourceDir, dummyFileName);
-        dummyFile.createNewFile();
-
-        builder.chaincodePath(dummyFileName);
-        builder.setChaincodeSource(tempFolder.getRoot().getAbsoluteFile());
-
-        builder.build();
-    }
-
-    // Tests for an IOException on the stream
-    @Test
-    public void testBuildInvalidSource() throws Exception {
-
-        // A mock InputStream that throws an IOException
-        class MockInputStream extends InputStream {
-            @Override
-            public int read() throws IOException {
+            public override int Read(byte[] buffer, int offset, int count)
+            {
                 throw new IOException("Cannot read!");
             }
         }
+        // ==========================================================================================
+        // Helper methods
+        // ==========================================================================================
 
-        thrown.expect(ProposalException.class);
-        thrown.expectMessage("IO Error");
+        // Instantiates a basic InstallProposalBuilder with no chaincode source specified
+        private InstallProposalBuilder CreateTestBuilder()
+        {
+            InstallProposalBuilder builder = InstallProposalBuilder.Create();
+            builder.ChaincodeName("mycc");
+            builder.ChaincodeVersion("1.0");
+            builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
 
-        InstallProposalBuilder builder = createTestBuilder();
-
-        builder.setChaincodeLanguage(TransactionRequest.Type.JAVA);
-        builder.setChaincodeInputStream(new MockInputStream());
-
-        builder.build();
+            return builder;
+        }
     }
-
-    // Tests that no chaincode path is specified for Node code using a File
-    @Test
-    public void testBuildChaincodePathNodeFile() throws Exception {
-
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("chaincodePath must be null for Node chaincode");
-
-        InstallProposalBuilder builder = createTestBuilder();
-
-        builder.setChaincodeLanguage(TransactionRequest.Type.NODE);
-        builder.setChaincodeSource(new File("some/dir"));
-        builder.chaincodePath("src");
-
-        builder.build();
-    }
-
-    // Tests that no chaincode path is specified for Node code using input stream
-    @Test
-    public void testBuildChaincodePathNodeStream() throws Exception {
-
-        thrown.expect(IllegalArgumentException.class);
-        thrown.expectMessage("chaincodePath must be null for Node chaincode");
-
-        InstallProposalBuilder builder = createTestBuilder();
-
-        builder.setChaincodeLanguage(TransactionRequest.Type.NODE);
-        builder.setChaincodeInputStream(new ByteArrayInputStream("test string".getBytes()));
-        builder.chaincodePath("src");
-
-        builder.build();
-    }
-    // ==========================================================================================
-    // Helper methods
-    // ==========================================================================================
-
-    // Instantiates a basic InstallProposalBuilder with no chaincode source specified
-    private InstallProposalBuilder createTestBuilder() {
-
-        InstallProposalBuilder builder = InstallProposalBuilder.newBuilder();
-
-        builder.chaincodeName("mycc");
-        builder.chaincodeVersion("1.0");
-        builder.setChaincodeLanguage(TransactionRequest.Type.GO_LANG);
-
-        return builder;
-    }
-
 }

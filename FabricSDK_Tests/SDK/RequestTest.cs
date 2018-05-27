@@ -14,126 +14,107 @@
  *
  */
 
-package org.hyperledger.fabric.sdk;
+using System.IO;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.Tests.Helper;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.InputStream;
+namespace Hyperledger.Fabric.Tests.SDK
+{
+    [TestClass]
+    [TestCategory("SDK")]
+    public class RequestTest
+    {
+        private HFClient hfclient;
+        private Stream mockstream;
+        private readonly DirectoryInfo someFileLocation = new DirectoryInfo("");
+        private readonly DirectoryInfo someFileLocation2 = new DirectoryInfo("");
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+        [TestInitialize]
+        public void SetupClient()
+        {
+            hfclient = HFClient.Create();
+            mockstream = new MemoryStream();
+        }
 
-import static org.junit.Assert.assertEquals;
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode META-INF location may not be set with chaincode input stream set.")]
+        public void TestinstallProposalRequestStreamWithMeta()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
 
-public class RequestTest {
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+            installProposalRequest.ChaincodeInputStream = mockstream;
+            installProposalRequest.ChaincodeMetaInfLocation = someFileLocation;
+        }
 
-    HFClient hfclient;
-    InputStream mockstream;
-    File someFileLocation = new File("");
-    File someFileLocation2 = new File("");
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.")]
+        public void TestinstallProposalRequestStreamWithSourceLocation()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
 
-    @Before
-    public void setupClient() throws Exception {
-        hfclient = HFClient.createNewInstance();
-        mockstream = new ByteArrayInputStream(new byte[0]);
+            installProposalRequest.ChaincodeInputStream = mockstream;
+            Assert.AreEqual(installProposalRequest.ChaincodeInputStream, mockstream);
+            installProposalRequest.ChaincodeSourceLocation = someFileLocation;
+        }
 
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.")]
+        public void TestinstallProposalRequestWithLocationSetStream()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+
+            installProposalRequest.ChaincodeSourceLocation = someFileLocation;
+            installProposalRequest.ChaincodeInputStream = mockstream;
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.")]
+        public void TestinstallProposalRequestWithMetaInfSetStream()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+
+            installProposalRequest.ChaincodeMetaInfLocation = someFileLocation;
+            installProposalRequest.ChaincodeInputStream = mockstream;
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode META-INF location may not be null.")]
+        public void TestinstallProposalRequestWithMetaInfSetStreamNULL()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+            installProposalRequest.ChaincodeMetaInfLocation = null;
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode source location may not be null")]
+        public void TestinstallProposalRequestWithSourceNull()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+
+            installProposalRequest.ChaincodeSourceLocation = null;
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode input stream may not be null.")]
+        public void TestinstallProposalRequestWithInputStreamNULL()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+
+            installProposalRequest.ChaincodeInputStream = null;
+        }
+
+        [TestMethod]
+        public void TestinstallProposalRequestLocationAndMeta()
+        {
+            InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
+
+            installProposalRequest.ChaincodeSourceLocation = someFileLocation;
+            installProposalRequest.ChaincodeMetaInfLocation = someFileLocation2;
+
+            Assert.AreEqual(installProposalRequest.ChaincodeSourceLocation, someFileLocation);
+            Assert.AreEqual(installProposalRequest.ChaincodeMetaInfLocation, someFileLocation2);
+        }
     }
-
-    @Test
-    public void testinstallProposalRequestStreamWithMeta() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Chaincode META-INF location may not be set with chaincode input stream set.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeInputStream(mockstream);
-        installProposalRequest.setChaincodeMetaInfLocation(someFileLocation);
-
-    }
-
-    @Test
-    public void testinstallProposalRequestStreamWithSourceLocation() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeInputStream(mockstream);
-        assertEquals(installProposalRequest.getChaincodeInputStream(), mockstream);
-        installProposalRequest.setChaincodeSourceLocation(someFileLocation);
-
-    }
-
-    @Test
-    public void testinstallProposalRequestWithLocationSetStream() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeSourceLocation(someFileLocation);
-        installProposalRequest.setChaincodeInputStream(mockstream);
-
-    }
-
-    @Test
-    public void testinstallProposalRequestWithMetaInfSetStream() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeMetaInfLocation(someFileLocation);
-        installProposalRequest.setChaincodeInputStream(mockstream);
-
-    }
-
-    @Test
-    public void testinstallProposalRequestWithMetaInfSetStreamNULL() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Chaincode META-INF location may not be null.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeMetaInfLocation(null);
-    }
-
-    @Test
-    public void testinstallProposalRequestWithSourceNull() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Chaincode source location may not be null");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeSourceLocation(null);
-    }
-
-    @Test
-    public void testinstallProposalRequestWithInputStreamNULL() throws Exception {
-        thrown.expect(InvalidArgumentException.class);
-        thrown.expectMessage("Chaincode input stream may not be null.");
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeInputStream(null);
-    }
-
-    @Test
-    public void testinstallProposalRequestLocationAndMeta() throws Exception {
-
-        InstallProposalRequest installProposalRequest = hfclient.newInstallProposalRequest();
-
-        installProposalRequest.setChaincodeSourceLocation(someFileLocation);
-        installProposalRequest.setChaincodeMetaInfLocation(someFileLocation2);
-
-        assertEquals(installProposalRequest.getChaincodeSourceLocation(), someFileLocation);
-        assertEquals(installProposalRequest.getChaincodeMetaInfLocation(), someFileLocation2);
-
-    }
-
 }

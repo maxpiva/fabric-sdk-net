@@ -22,9 +22,6 @@ Rename bugs as features.
 
 Upgrade to C# Naming conventions.
 
-Do a .NET CORE SHIM. (Fabric contracts .NET support)
+Do a .NET CORE SHIM. (chain code contracts .NET support)
 
 
-```STAGE 3 (Not really planned)```
-
-Add Async

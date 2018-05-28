@@ -33,7 +33,7 @@ import java.util.Collection;
 import java.util.Properties;
 
 import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 */
 
 
@@ -117,7 +117,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @param user
          * @param keypair
          * @return String in PEM format for certificate request.
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
         string GenerateCertificationRequest(string user, AsymmetricAlgorithm publickey, AsymmetricAlgorithm privatekey);
         string GenerateCertificationRequest(string user, AsymmetricAlgorithm keypair);
@@ -151,7 +151,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @throws InstantiationException
          * @throws ClassNotFoundException
          * @throws CryptoException
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          * @throws NoSuchMethodException
          * @throws InvocationTargetException
          */
@@ -172,7 +172,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
          * @throws InstantiationException
          * @throws ClassNotFoundException
          * @throws CryptoException
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          * @throws NoSuchMethodException
          * @throws InvocationTargetException
          */

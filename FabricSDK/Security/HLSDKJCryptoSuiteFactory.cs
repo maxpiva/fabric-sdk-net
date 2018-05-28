@@ -21,7 +21,7 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.helper.Config;
 */
 /**

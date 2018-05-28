@@ -17,12 +17,21 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             get
             {
+                T ret;
                 S obj = keyF();
-                reference.TryGetTarget(out T ret);
-                if (ret == null)
+                if (reference == null)
                 {
                     ret = createF(obj);
                     reference = new WeakReference<T>(ret);
+                }
+                else
+                {
+                    reference.TryGetTarget(out ret);
+                    if (ret == null)
+                    {
+                        ret = createF(obj);
+                        reference = new WeakReference<T>(ret);
+                    }
                 }
                 return ret;
             }

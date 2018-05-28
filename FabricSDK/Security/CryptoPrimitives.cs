@@ -30,9 +30,11 @@ using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Agreement.JPake;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Operators;
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Prng;
 using Org.BouncyCastle.Crypto.Signers;
 using Org.BouncyCastle.Crypto.Tls;
 using Org.BouncyCastle.Math;
@@ -40,6 +42,7 @@ using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
 using Org.BouncyCastle.Utilities.IO.Pem;
+using Org.BouncyCastle.X509;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
 using HashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
@@ -114,26 +117,37 @@ namespace Hyperledger.Fabric.SDK.Security
         }
         */
 
-//    /**
-//     * sets the signature algorithm used for signing/verifying.
-//     *
-//     * @param sigAlg the name of the signature algorithm. See the list of valid names in the JCA Standard Algorithm Name documentation
-//     */
-//    public void setSignatureAlgorithm(String sigAlg) {
-//        this.DEFAULT_SIGNATURE_ALGORITHM = sigAlg;
-//    }
+        //    /**
+        //     * sets the signature algorithm used for signing/verifying.
+        //     *
+        //     * @param sigAlg the name of the signature algorithm. See the list of valid names in the JCA Standard Algorithm Name documentation
+        //     */
+        //    public void setSignatureAlgorithm(String sigAlg) {
+        //        this.DEFAULT_SIGNATURE_ALGORITHM = sigAlg;
+        //    }
 
-//    /**
-//     * returns the signature algorithm used by this instance of CryptoPrimitives.
-//     * Note that fabric and fabric-ca have not yet standardized on which algorithms are supported.
-//     * While that plays out, CryptoPrimitives will try the algorithm specified in the certificate and
-//     * the default SHA256withECDSA that's currently hardcoded for fabric and fabric-ca
-//     *
-//     * @return the name of the signature algorithm
-//     */
-//    public String getSignatureAlgorithm() {
-//        return this.DEFAULT_SIGNATURE_ALGORITHM;
-//    }
+        //    /**
+        //     * returns the signature algorithm used by this instance of CryptoPrimitives.
+        //     * Note that fabric and fabric-ca have not yet standardized on which algorithms are supported.
+        //     * While that plays out, CryptoPrimitives will try the algorithm specified in the certificate and
+        //     * the default SHA256withECDSA that's currently hardcoded for fabric and fabric-ca
+        //     *
+        //     * @return the name of the signature algorithm
+        //     */
+        //    public String getSignatureAlgorithm() {
+        //        return this.DEFAULT_SIGNATURE_ALGORITHM;
+        //    }
+
+        public List<X509Certificate2> BytesToCertificates(byte[] certBytes)
+        {
+            if (certBytes == null || certBytes.Length == 0)
+            {
+                throw new CryptoException("BytesToCertificates: input null or zero length");
+            }
+
+            return GetX509Certificates(certBytes);
+        }
+
 
         public X509Certificate2 BytesToCertificate(byte[] certBytes)
         {
@@ -172,9 +186,8 @@ namespace Hyperledger.Fabric.SDK.Security
         private X509Certificate2 GetX509Certificate(byte[] pemCertificate)
         {
             X509Certificate2 ret = null;
-            CryptoException rete = null;
             Pkcs12Store store = new Pkcs12StoreBuilder().Build();
-            X509CertificateEntry chain = null;
+            Org.BouncyCastle.X509.X509Certificate cert=null;
             AsymmetricCipherKeyPair privKey = null;
             using (MemoryStream ms = new MemoryStream(pemCertificate))
             {
@@ -184,7 +197,7 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     if (o is Org.BouncyCastle.X509.X509Certificate)
                     {
-                        chain = new X509CertificateEntry((Org.BouncyCastle.X509.X509Certificate) o);
+                        cert = (Org.BouncyCastle.X509.X509Certificate) o;
                     }
                     else if (o is AsymmetricCipherKeyPair)
                     {
@@ -193,15 +206,19 @@ namespace Hyperledger.Fabric.SDK.Security
                 }
             }
 
-            if (chain == null || privKey == null)
-                return null;
-            store.SetKeyEntry("Hyperledger.Fabric", new AsymmetricKeyEntry(privKey.Private), new[] {chain});
+            if (cert == null && privKey == null)
+            {
+                throw new CryptoException("BytesToCertificate: Invalid Certificate");
+            }
+            if (cert!=null && privKey==null)
+                return new X509Certificate2(DotNetUtilities.ToX509Certificate(cert));
+            store.SetKeyEntry("Hyperledger.Fabric", new AsymmetricKeyEntry(privKey.Private), new[] {new X509CertificateEntry(cert)});
             using (MemoryStream ms = new MemoryStream())
             {
                 store.Save(ms, "test".ToCharArray(), new SecureRandom());
                 ms.Flush();
                 ms.Position = 0;
-                return new X509Certificate2(ms.ToArray(), "test");
+                return new X509Certificate2(ms.ToArray(), "test",X509KeyStorageFlags.Exportable|X509KeyStorageFlags.DefaultKeySet);
             }
 
         }
@@ -209,9 +226,9 @@ namespace Hyperledger.Fabric.SDK.Security
         internal List<X509Certificate2> GetX509Certificates(byte[] pemCertificates)
         {
             List<X509Certificate2> certs = new List<X509Certificate2>();
-            List<(X509CertificateEntry, AsymmetricCipherKeyPair)> ls = new List<(X509CertificateEntry, AsymmetricCipherKeyPair)>();
+            List<(Org.BouncyCastle.X509.X509Certificate, AsymmetricCipherKeyPair)> ls = new List<(Org.BouncyCastle.X509.X509Certificate, AsymmetricCipherKeyPair)>();
             AsymmetricCipherKeyPair privKey = null;
-            X509CertificateEntry entry = null;
+            Org.BouncyCastle.X509.X509Certificate entry = null;
             using (MemoryStream ms = new MemoryStream(pemCertificates))
             {
                 PemReader pemReader = new PemReader(new StreamReader(ms));
@@ -220,29 +237,42 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     if (o is Org.BouncyCastle.X509.X509Certificate)
                     {
-                        entry = new X509CertificateEntry((Org.BouncyCastle.X509.X509Certificate) o);
+                        if (entry!=null)
+                            ls.Add((entry, privKey));
+                        entry = (Org.BouncyCastle.X509.X509Certificate) o;
                         privKey = null;
                     }
                     else if (o is AsymmetricCipherKeyPair)
                     {
                         privKey = (AsymmetricCipherKeyPair) o;
-                    }
-
-                    if (entry != null && privKey != null)
                         ls.Add((entry, privKey));
+                        entry = null;
+                        privKey = null;
+                    }
                 }
+                if(entry!=null)
+                    ls.Add((entry, privKey));
             }
 
-            foreach ((X509CertificateEntry c, AsymmetricCipherKeyPair p) in ls)
+            foreach ((Org.BouncyCastle.X509.X509Certificate c, AsymmetricCipherKeyPair p) in ls)
             {
-                Pkcs12Store store = new Pkcs12StoreBuilder().Build();
-                store.SetKeyEntry("Hyperledger.Fabric", new AsymmetricKeyEntry(p.Private), new[] {c});
-                using (MemoryStream ms = new MemoryStream())
+                if (c== null && p == null)
+                    continue;
+                if (c != null && p == null)
                 {
-                    store.Save(ms, "test".ToCharArray(), new SecureRandom());
-                    ms.Flush();
-                    ms.Position = 0;
-                    certs.Add(new X509Certificate2(ms.ToArray(), "test"));
+                    certs.Add(new X509Certificate2(DotNetUtilities.ToX509Certificate(c)));
+                }
+                else
+                {
+                    Pkcs12Store store = new Pkcs12StoreBuilder().Build();
+                    store.SetKeyEntry("Hyperledger.Fabric", new AsymmetricKeyEntry(p.Private), new[] { new X509CertificateEntry(c) });
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        store.Save(ms, "test".ToCharArray(), new SecureRandom());
+                        ms.Flush();
+                        ms.Position = 0;
+                        certs.Add(new X509Certificate2(ms.ToArray(), "test", X509KeyStorageFlags.Exportable | X509KeyStorageFlags.DefaultKeySet));
+                    }
                 }
             }
 
@@ -278,7 +308,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
 
             if (privKey?.Private == null)
-                return null;
+                throw new CryptoException("Invalid Private Key");
             if (privKey.Private is RsaKeyParameters)
             {
                 RSACryptoServiceProvider sv = new RSACryptoServiceProvider();
@@ -434,22 +464,16 @@ namespace Hyperledger.Fabric.SDK.Security
          */
 
 
-        public void AddCACertificateToTrustStore(FileInfo caCertPem, string alias)
+        public void AddCACertificateToTrustStoreFromFile(string caCertPemFile, string alias)
         {
 
-            if (caCertPem == null)
-            {
+            if (string.IsNullOrEmpty(caCertPemFile))
                 throw new InvalidArgumentException("The certificate cannot be null");
-            }
-
             if (string.IsNullOrEmpty(alias))
-            {
                 throw new InvalidArgumentException("You must assign an alias to a certificate when adding to the trust store");
-            }
-
             try
             {
-                byte[] data = File.ReadAllBytes(caCertPem.FullName);
+                byte[] data = File.ReadAllBytes(caCertPemFile);
                 X509Certificate2 caCert = BytesToCertificate(data);
                 AddCACertificateToTrustStore(caCert, alias);
 
@@ -468,26 +492,19 @@ namespace Hyperledger.Fabric.SDK.Security
          * @throws CryptoException
          * @throws InvalidArgumentException
          */
-        public void AddCACertificatesToTrustStore(FileInfo caCertPem)
+        public void AddCACertificatesToTrustStoreFromFile(string caCertPemFile)
         {
 
-            if (caCertPem == null)
-            {
+            if (string.IsNullOrEmpty(caCertPemFile))
                 throw new InvalidArgumentException("The certificate stream bis cannot be null");
-            }
-
             try
             {
-                byte[] data = File.ReadAllBytes(caCertPem.FullName);
+                byte[] data = File.ReadAllBytes(caCertPemFile);
                 if (data.Length == 0)
-                {
                     throw new CryptoException("AddCACertificatesToTrustStore: input zero length");
-                }
-
                 List<X509Certificate2> caCerts = GetX509Certificates(data);
                 foreach (X509Certificate2 caCert in caCerts)
                     AddCACertificateToTrustStore(caCert);
-
             }
             catch (CertificateException e)
             {

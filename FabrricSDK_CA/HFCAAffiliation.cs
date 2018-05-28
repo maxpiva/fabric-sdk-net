@@ -68,6 +68,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public HFCAAffiliation(string name, HFCAClient client)
         {
+            ValidateAffiliationNames(name);
             if (client.CryptoSuite == null)
             {
                 throw new InvalidArgumentException("Crypto primitives not set.");

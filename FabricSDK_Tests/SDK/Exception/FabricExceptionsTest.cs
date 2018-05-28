@@ -108,42 +108,42 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException1()
+        public void TestInvalidIllegalArgumentException1()
         {
             throw new InvalidArgumentException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException2()
+        public void TestInvalidIllegalArgumentException2()
         {
             throw new InvalidArgumentException(new InvalidArgumentException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException3()
+        public void TestInvalidIllegalArgumentException3()
         {
             throw new InvalidArgumentException(MESSAGE, new InvalidArgumentException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
-        public void TestIllegalArgumentException1()
+        public void TestIllegalIllegalArgumentException1()
         {
             throw new IllegalArgumentException(MESSAGE);
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
-        public void TestIllegalArgumentException2()
+        public void TestIllegalIllegalArgumentException2()
         {
             throw new IllegalArgumentException(new IllegalArgumentException(MESSAGE));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
-        public void TestIllegalArgumentException3()
+        public void TestIllegalIllegalArgumentException3()
         {
             throw new IllegalArgumentException(MESSAGE, new IllegalArgumentException(MESSAGE));
         }
@@ -253,7 +253,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(TransactionException), "test")]
+        [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
         public void TestTransactionEventException1()
         {
             throw new TransactionEventException(MESSAGE, null);
@@ -261,7 +261,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(TransactionEventException), "test")]
         public void TestTransactionEventException2()
         {
             TransactionEventException e = new TransactionEventException(MESSAGE, null);
@@ -279,7 +278,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
         [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
         public void TestInvalidProtocolBufferRuntimeException1()
         {
-            throw new InvalidProtocolBufferRuntimeException(default(InvalidProtocolBufferException));
+            throw new InvalidProtocolBufferRuntimeException(MESSAGE, default(InvalidProtocolBufferException));
         }
 
         [TestMethod]
@@ -290,7 +289,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidProtocolBufferRuntimeException), "test")]
         public void TestInvalidProtocolBufferRuntimeException3()
         {
             InvalidProtocolBufferException e1 = default(InvalidProtocolBufferException);

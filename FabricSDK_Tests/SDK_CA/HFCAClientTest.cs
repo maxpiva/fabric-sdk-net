@@ -46,7 +46,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         private SampleStore sampleStore;
 
         [ClassInitialize]
-        public static void setupBeforeClass()
+        public static void SetupBeforeClass(TestContext context)
         {
             try
             {
@@ -62,11 +62,11 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         [TestInitialize]
         public void Setup()
         {
-            FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
-            if (sampleStoreFile.Exists)
+            string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
+            if (File.Exists(sampleStoreFile))
             {
                 // For testing start fresh
-                sampleStoreFile.Delete();
+                File.Delete(sampleStoreFile);
             }
 
             sampleStore = new SampleStore(sampleStoreFile);
@@ -105,7 +105,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedException(typeof(UriFormatException))]
+        [ExpectedException(typeof(ArgumentNullException))]
         public void TestNewInstanceNullUrl()
         {
             HFCAClient.Create(null, (Properties) null);
@@ -400,10 +400,10 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
             client.SetUpSSL();
             int count = 0;
             X509Store trustStore = ((CryptoPrimitives) client.CryptoSuite).GetTrustStore();
-            HashSet<BigInteger> expected = new HashSet<BigInteger> {new BigInteger("4804555946196630157804911090140692961"), new BigInteger("127556113420528788056877188419421545986539833585"), new BigInteger("704500179517916368023344392810322275871763581896"), new BigInteger("70307443136265237483967001545015671922421894552"), new BigInteger("276393268186007733552859577416965113792")};
+            List<BigInteger> expected = new List<BigInteger> {new BigInteger("4804555946196630157804911090140692961"), new BigInteger("127556113420528788056877188419421545986539833585"), new BigInteger("704500179517916368023344392810322275871763581896"), new BigInteger("70307443136265237483967001545015671922421894552"), new BigInteger("276393268186007733552859577416965113792")};
             foreach (X509Certificate2 cert in trustStore.Certificates)
             {
-                BigInteger serialNumber = new BigInteger(cert.GetSerialNumber());
+                BigInteger serialNumber = new BigInteger(cert.SerialNumber.FromHexString());
                 Assert.IsTrue(expected.Contains(serialNumber), $"Missing certifiate with serial no. {serialNumber.ToString()}");
                 ++count;
             }

@@ -31,7 +31,7 @@ namespace Hyperledger.Fabric.Tests.SDK
          * @throws SecurityException
          * @throws NoSuchFieldException
          * @throws IllegalAccessException
-         * @throws IllegalArgumentException
+         * @throws IllegalIllegalArgumentException
          *
          */
         public void ClearConfig()
@@ -47,7 +47,7 @@ namespace Hyperledger.Fabric.Tests.SDK
          * @throws SecurityException
          * @throws NoSuchFieldException
          * @throws IllegalAccessException
-         * @throws IllegalArgumentException
+         * @throws IllegalIllegalArgumentException
          *
          * @see #clearConfig()
          */
@@ -64,7 +64,7 @@ namespace Hyperledger.Fabric.Tests.SDK
          *
          * @throws NoSuchFieldException
          * @throws SecurityException
-         * @throws IllegalArgumentException
+         * @throws IllegalIllegalArgumentException
          * @throws IllegalAccessException
          */
         public void CustomizeConfig()

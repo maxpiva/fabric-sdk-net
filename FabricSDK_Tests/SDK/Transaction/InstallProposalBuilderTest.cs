@@ -49,7 +49,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         {
             InstallProposalBuilder builder = CreateTestBuilder();
 
-            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodeSource("some/dir");
             builder.SetChaincodeInputStream(new MemoryStream("test string".ToBytes()));
             builder.Build();
         }
@@ -62,7 +62,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             InstallProposalBuilder builder = CreateTestBuilder();
 
             builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
-            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodeSource("some/dir");
             builder.ChaincodePath(null);
 
             builder.Build();
@@ -90,7 +90,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             InstallProposalBuilder builder = CreateTestBuilder();
 
             builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
-            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodeSource("some/dir");
             builder.ChaincodePath("null or empty string");
 
             builder.Build();
@@ -119,7 +119,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
             builder.ChaincodeLanguage(TransactionRequest.Type.JAVA);
             builder.ChaincodePath(null);
-            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodeSource("some/dir");
 
             builder.Build();
         }
@@ -139,7 +139,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             File.WriteAllText(filepath, string.Empty);
 
             builder.ChaincodePath(folderpath);
-            builder.ChaincodeSource(new DirectoryInfo(filepath));
+            builder.ChaincodeSource(filepath);
 
             builder.Build();
         }
@@ -168,7 +168,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             InstallProposalBuilder builder = CreateTestBuilder();
 
             builder.ChaincodeLanguage(TransactionRequest.Type.NODE);
-            builder.ChaincodeSource(new DirectoryInfo("some/dir"));
+            builder.ChaincodeSource("some/dir");
             builder.ChaincodePath("src");
 
             builder.Build();

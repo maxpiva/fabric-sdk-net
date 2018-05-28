@@ -239,7 +239,7 @@ namespace Hyperledger.Fabric.SDK
          * @throws InvalidArgumentException
          * @throws IOException
          */
-        public static NetworkConfig FromYamlFile(FileInfo configFile)
+        public static NetworkConfig FromYamlFile(string configFile)
         {
             return FromFile(configFile, false);
         }
@@ -252,7 +252,7 @@ namespace Hyperledger.Fabric.SDK
          * @throws InvalidArgumentException
          * @throws IOException
          */
-        public static NetworkConfig FromJsonFile(FileInfo configFile)
+        public static NetworkConfig FromJsonFile(string configFile)
         {
             return FromFile(configFile, true);
         }
@@ -327,23 +327,23 @@ namespace Hyperledger.Fabric.SDK
         }
 
         // Loads a NetworkConfig object from a Json or Yaml file
-        private static NetworkConfig FromFile(FileInfo configFile, bool isJson)
+        private static NetworkConfig FromFile(string configFile, bool isJson)
         {
             // Sanity check
-            if (configFile == null)
+            if (string.IsNullOrEmpty(configFile))
             {
                 throw new InvalidArgumentException("configFile must be specified");
             }
 
             if (logger.IsTraceEnabled())
             {
-                logger.Trace($"NetworkConfig.fromFile: {configFile.FullName}  isJson = {isJson}");
+                logger.Trace($"NetworkConfig.fromFile: {configFile}  isJson = {isJson}");
             }
 
             NetworkConfig config;
 
             // Json file
-            using (Stream stream = configFile.OpenRead())
+            using (Stream stream = File.OpenRead(configFile))
             {
                 return isJson ? FromJsonStream(stream) : FromYamlStream(stream);
             }
@@ -915,19 +915,18 @@ namespace Hyperledger.Fabric.SDK
                 throw new NetworkConfigurationException($"{msgPrefix} should not specify both {fieldName} path and pem");
             }
 
-            if (path != null)
+            if (!string.IsNullOrEmpty(path))
             {
                 // Determine full pathname and ensure the file exists
-                FileInfo pemFile = new FileInfo(path);
-                string fullPathname = pemFile.FullName;
-                if (!pemFile.Exists)
+                string fullPathname = Path.GetFullPath(path);
+                if (!File.Exists(fullPathname))
                 {
                     throw new NetworkConfigurationException($"{msgPrefix}: {fieldName} file {fullPathname} does not exist");
                 }
 
                 try
                 {
-                    pemString = File.ReadAllText(pemFile.FullName, Encoding.UTF8);
+                    pemString = File.ReadAllText(fullPathname, Encoding.UTF8);
                 }
                 catch (Exception ioe)
                 {

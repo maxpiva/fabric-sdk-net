@@ -14,15 +14,17 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
-using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using NeoSmart.AsyncLock;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -30,11 +32,21 @@ namespace Hyperledger.Fabric.SDK
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(HFClient));
 
+        /**
+     * Create a new channel
+     *
+     * @param name                           The channel's name
+     * @param orderer                        Orderer to create the channel with.
+     * @param channelConfiguration           Channel configuration data.
+     * @param channelConfigurationSignatures byte arrays containing ConfigSignature's proto serialized.
+     *                                       See {@link Channel#getChannelConfigurationSignature} on how to create
+     * @return a new channel.
+     * @throws TransactionException
+     * @throws InvalidArgumentException
+     */
+        private static readonly AsyncLock _channelLock = new AsyncLock();
         private readonly Dictionary<string, Channel> channels = new Dictionary<string, Channel>();
         private ICryptoSuite cryptoSuite;
-
-
-
         private IUser userContext;
 
         private HFClient()
@@ -47,22 +59,9 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (null == value)
-                {
                     throw new InvalidArgumentException("CryptoSuite paramter is null.");
-                }
-
                 if (cryptoSuite != null && value != cryptoSuite)
-                {
                     throw new InvalidArgumentException("CryptoSuite may only be set once.");
-                }
-                //        if (cryptoSuiteFactory == null) {
-                //            cryptoSuiteFactory = cryptoSuite.getCryptoSuiteFactory();
-                //        } else {
-                //            if (cryptoSuiteFactory != cryptoSuite.getCryptoSuiteFactory()) {
-                //                throw new InvalidArgumentException("CryptoSuite is not derivied from cryptosuite factory");
-                //            }
-                //        }
-
                 cryptoSuite = value;
             }
         }
@@ -76,10 +75,7 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (null == cryptoSuite)
-                {
                     throw new InvalidArgumentException("No cryptoSuite has been set.");
-                }
-
                 value.UserContextCheck();
                 userContext = value;
                 logger.Debug($"Setting user context to MSPID: {userContext.MspId} user: {userContext.Name}");
@@ -109,44 +105,33 @@ namespace Hyperledger.Fabric.SDK
         public Channel LoadChannelFromConfig(string channelName, NetworkConfig networkConfig)
         {
             ClientCheck();
-
             // Sanity checks
             if (string.IsNullOrEmpty(channelName))
-            {
                 throw new InvalidArgumentException("channelName must be specified");
-            }
-
             if (networkConfig == null)
-            {
                 throw new InvalidArgumentException("networkConfig must be specified");
-            }
-
-            lock (channels)
+            using (_channelLock.Lock())
             {
                 if (channels.ContainsKey(channelName))
-                {
                     throw new InvalidArgumentException($"Channel with name {channelName} already exists");
-                }
             }
-
             return networkConfig.LoadChannel(this, channelName);
         }
 
 
         /**
-     * newChannel - already configured channel.
-     *
-     * @param name
-     * @return a new channel.
-     * @throws InvalidArgumentException
-     */
-
+        * newChannel - already configured channel.
+        *
+        * @param name
+        * @return a new channel.
+        * @throws InvalidArgumentException
+        */
         public Channel NewChannel(string name)
         {
             ClientCheck();
             if (string.IsNullOrEmpty(name))
                 throw new InvalidArgumentException("Channel name can not be null or empty string.");
-            lock (channels)
+            using (_channelLock.Lock())
             {
                 if (channels.ContainsKey(name))
                     throw new InvalidArgumentException($"Channel by the name {name} already exists");
@@ -156,42 +141,25 @@ namespace Hyperledger.Fabric.SDK
                 return newChannel;
             }
         }
-
-        /**
-     * Create a new channel
-     *
-     * @param name                           The channel's name
-     * @param orderer                        Orderer to create the channel with.
-     * @param channelConfiguration           Channel configuration data.
-     * @param channelConfigurationSignatures byte arrays containing ConfigSignature's proto serialized.
-     *                                       See {@link Channel#getChannelConfigurationSignature} on how to create
-     * @return a new channel.
-     * @throws TransactionException
-     * @throws InvalidArgumentException
-     */
-
-        public Channel NewChannel(string name, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] channelConfigurationSignatures)
+        public Channel NewChannel(string name, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] channelConfigurationSignatures) => NewChannelAsync(name, orderer, channelConfiguration, new CancellationToken(), channelConfigurationSignatures).RunAndUnwarp();
+        public async Task<Channel> NewChannelAsync(string name, Orderer orderer, ChannelConfiguration channelConfiguration, CancellationToken token = default(CancellationToken), params byte[][] channelConfigurationSignatures)
         {
             ClientCheck();
             if (string.IsNullOrEmpty(name))
                 throw new InvalidArgumentException("Channel name can not be null or empty string.");
 
-            lock (channels)
+            using (_channelLock.LockAsync(token))
             {
                 if (channels.ContainsKey(name))
-                {
                     throw new InvalidArgumentException($"Channel by the name {name} already exits");
-                }
-
                 logger.Trace("Creating channel :" + name);
-
-                Channel newChannel = Channel.Create(name, this, orderer, channelConfiguration, channelConfigurationSignatures);
+                Channel newChannel = await Channel.CreateAsync(name, this, orderer, channelConfiguration, token, channelConfigurationSignatures);
                 channels.Add(name, newChannel);
                 return newChannel;
             }
         }
 
-        /**
+     /**
      * Deserialize a channel serialized by {@link Channel#serializeChannel()}
      *
      * @param file a file which contains the bytes to be deserialized.
@@ -201,20 +169,15 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public Channel DeSerializeChannel(FileInfo file)
+        public Channel DeSerializeChannelFromFile(string file)
         {
-            if (null == file)
-            {
+            if (string.IsNullOrEmpty(file))
                 throw new InvalidArgumentException("File parameter may not be null");
-            }
-
-            return DeSerializeChannel(File.ReadAllBytes(file.FullName).ToUTF8String());
+            return DeSerializeChannel(File.ReadAllText(file, Encoding.UTF8));
         }
 
 
-
-
-        /**
+    /**
     * Deserialize a channel serialized by {@link Channel#serializeChannel()}
     *
     * @param channelBytes bytes to be deserialized.
@@ -225,24 +188,22 @@ namespace Hyperledger.Fabric.SDK
     */
         public Channel DeSerializeChannel(string str)
         {
-
             Channel channel;
             channel = Channel.Deserialize(str);
             string name = channel.Name;
-            lock (channels)
+            using (_channelLock.Lock())
             {
                 if (null != GetChannel(name))
                 {
                     channel.Shutdown(true);
                     throw new InvalidArgumentException($"Channel {name} already exists in the client");
                 }
-
                 channels.Add(name, channel);
                 channel.client = this;
             }
             return channel;
         }
-        /**
+     /**
      * newPeer create a new peer
      *
      * @param name       name of peer.
@@ -287,7 +248,7 @@ namespace Hyperledger.Fabric.SDK
             return Peer.Create(name, grpcURL, properties);
         }
 
-        /**
+     /**
      * newPeer create a new peer
      *
      * @param name
@@ -302,7 +263,7 @@ namespace Hyperledger.Fabric.SDK
             return Peer.Create(name, grpcURL, null);
         }
 
-        /**
+     /**
      * getChannel by name
      *
      * @param name The channel name
@@ -311,7 +272,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel GetChannel(string name)
         {
-            lock (channels)
+            using (_channelLock.Lock())
             {
                 return channels.GetOrNull(name);
             }
@@ -322,10 +283,7 @@ namespace Hyperledger.Fabric.SDK
      *
      * @return InstallProposalRequest
      */
-        public InstallProposalRequest NewInstallProposalRequest()
-        {
-            return new InstallProposalRequest(UserContext);
-        }
+        public InstallProposalRequest NewInstallProposalRequest() => new InstallProposalRequest(UserContext);
 
         /**
      * newInstantiationProposalRequest get new instantiation proposal request.
@@ -333,15 +291,9 @@ namespace Hyperledger.Fabric.SDK
      * @return InstantiateProposalRequest
      */
 
-        public InstantiateProposalRequest NewInstantiationProposalRequest()
-        {
-            return new InstantiateProposalRequest(UserContext);
-        }
+        public InstantiateProposalRequest NewInstantiationProposalRequest() => new InstantiateProposalRequest(UserContext);
 
-        public UpgradeProposalRequest NewUpgradeProposalRequest()
-        {
-            return new UpgradeProposalRequest(UserContext);
-        }
+        public UpgradeProposalRequest NewUpgradeProposalRequest() => new UpgradeProposalRequest(UserContext);
 
         /**
      * newTransactionProposalRequest  get new transaction proposal request.
@@ -349,10 +301,7 @@ namespace Hyperledger.Fabric.SDK
      * @return TransactionProposalRequest
      */
 
-        public TransactionProposalRequest NewTransactionProposalRequest()
-        {
-            return TransactionProposalRequest.Create(UserContext);
-        }
+        public TransactionProposalRequest NewTransactionProposalRequest() => TransactionProposalRequest.Create(UserContext);
 
         /**
      * newQueryProposalRequest get new query proposal request.
@@ -360,10 +309,7 @@ namespace Hyperledger.Fabric.SDK
      * @return QueryByChaincodeRequest
      */
 
-        public QueryByChaincodeRequest NewQueryProposalRequest()
-        {
-            return QueryByChaincodeRequest.Create(UserContext);
-        }
+        public QueryByChaincodeRequest NewQueryProposalRequest() => QueryByChaincodeRequest.Create(UserContext);
 
         /**
      * Set the User context for this client.
@@ -423,10 +369,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public EventHub NewEventHub(string name, string grpcURL)
-        {
-            return NewEventHub(name, grpcURL, null);
-        }
+        public EventHub NewEventHub(string name, string grpcURL) => NewEventHub(name, grpcURL, null);
 
         /**
      * Create a new urlOrderer.
@@ -437,10 +380,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      */
 
-        public Orderer NewOrderer(string name, string grpcURL)
-        {
-            return NewOrderer(name, grpcURL, null);
-        }
+        public Orderer NewOrderer(string name, string grpcURL) => NewOrderer(name, grpcURL, null);
 
         /**
      * Create a new orderer.
@@ -496,20 +436,18 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      * @throws ProposalException
      */
-        public HashSet<string> QueryChannels(Peer peer)
+        public HashSet<string> QueryChannels(Peer peer) => QueryChannelsAsync(peer).RunAndUnwarp();
+
+        public async Task<HashSet<string>> QueryChannelsAsync(Peer peer, CancellationToken token = default(CancellationToken))
         {
             ClientCheck();
             if (null == peer)
-            {
                 throw new InvalidArgumentException("peer set to null");
-            }
-
             //Run this on a system channel.
-
             try
             {
                 Channel systemChannel = Channel.CreateSystemChannel(this);
-                return systemChannel.QueryChannels(peer);
+                return await systemChannel.QueryChannelsAsync(peer, token);
             }
             catch (ProposalException e)
             {
@@ -527,22 +465,19 @@ namespace Hyperledger.Fabric.SDK
      * @throws ProposalException
      */
 
-        public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer)
+        public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer) => QueryInstalledChaincodesAsync(peer).RunAndUnwarp();
+
+        public async Task<List<ChaincodeInfo>> QueryInstalledChaincodesAsync(Peer peer, CancellationToken token = default(CancellationToken))
         {
             ClientCheck();
 
             if (null == peer)
-            {
                 throw new InvalidArgumentException("peer set to null");
-            }
-
             try
             {
                 //Run this on a system channel.
-
                 Channel systemChannel = Channel.CreateSystemChannel(this);
-
-                return systemChannel.QueryInstalledChaincodes(peer);
+                return await systemChannel.QueryInstalledChaincodesAsync(peer, token);
             }
             catch (ProposalException e)
             {
@@ -563,7 +498,6 @@ namespace Hyperledger.Fabric.SDK
         public byte[] GetChannelConfigurationSignature(ChannelConfiguration channelConfiguration, IUser signer)
         {
             ClientCheck();
-
             Channel systemChannel = Channel.CreateSystemChannel(this);
             return systemChannel.GetChannelConfigurationSignature(channelConfiguration, signer);
         }
@@ -580,7 +514,6 @@ namespace Hyperledger.Fabric.SDK
         public byte[] GetUpdateChannelConfigurationSignature(UpdateChannelConfiguration updateChannelConfiguration, IUser signer)
         {
             ClientCheck();
-
             Channel systemChannel = Channel.CreateSystemChannel(this);
             return systemChannel.GetUpdateChannelConfigurationSignature(updateChannelConfiguration, signer);
         }
@@ -595,31 +528,27 @@ namespace Hyperledger.Fabric.SDK
      * @throws ProposalException
      */
 
-        public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers)
+        public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers) => SendInstallProposalAsync(installProposalRequest, peers).RunAndUnwarp();
+
+        public async Task<List<ProposalResponse>> SendInstallProposalAsync(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
         {
             ClientCheck();
-
             installProposalRequest.SetSubmitted();
-
             Channel systemChannel = Channel.CreateSystemChannel(this);
-
-            return systemChannel.SendInstallProposal(installProposalRequest, peers);
+            return await systemChannel.SendInstallProposalAsync(installProposalRequest, peers, token);
         }
 
 
         private void ClientCheck()
         {
             if (null == cryptoSuite)
-            {
                 throw new InvalidArgumentException("No cryptoSuite has been set.");
-            }
-
             userContext.UserContextCheck();
         }
 
         public void RemoveChannel(Channel channel)
         {
-            lock (channels)
+            using (_channelLock.Lock())
             {
                 string name = channel.Name;
                 Channel ch = channels.GetOrNull(name);

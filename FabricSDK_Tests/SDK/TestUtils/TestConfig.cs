@@ -176,14 +176,13 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                     {
                         string cert = "fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".Replace("DNAME", domainName).Replace("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
                         cert = Path.GetFullPath(cert);
-                        FileInfo cf = new FileInfo(cert);
-                        if (!cf.Exists)
+                        if (!File.Exists(cert))
                         {
-                            throw new System.Exception($"TEST is missing cert file {cf.FullName}");
+                            throw new System.Exception($"TEST is missing cert file {cert}");
                         }
 
                         Properties properties = new Properties();
-                        properties.Set("pemFile", cf.FullName);
+                        properties.Set("pemFile", cert);
 
                         properties.Set("allowAllHostNames", "true"); //testing environment only NOT FOR PRODUCTION!
 
@@ -305,42 +304,42 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
             string domainName = GetDomainName(name);
 
-            FileInfo cert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations".Replace("orderer", type), domainName, type + "s", name, "tls/server.crt"));
-            if (!cert.Exists)
+            string cert = Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations".Replace("orderer", type), domainName, type + "s", name, "tls/server.crt");
+            if (!File.Exists(cert))
             {
-                throw new System.Exception($"Missing cert file for: {name}. Could not find at location: {cert.FullName}");
+                throw new System.Exception($"Missing cert file for: {name}. Could not find at location: {cert}");
             }
 
             if (!IsRunningAgainstFabric10())
             {
-                FileInfo clientCert;
-                FileInfo clientKey;
+                string clientCert;
+                string clientKey;
                 if ("orderer".Equals(type))
                 {
-                    clientCert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt"));
-                    clientKey = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key"));
+                    clientCert = Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt");
+                    clientKey = Path.Combine(GetTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key");
                 }
                 else
                 {
-                    clientCert = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt"));
-                    clientKey = new FileInfo(Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key"));
+                    clientCert = Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt");
+                    clientKey = Path.Combine(GetTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.key");
                 }
 
-                if (!clientCert.Exists)
+                if (!File.Exists(clientCert))
                 {
-                    throw new System.Exception($"Missing  client cert file for: {name}. Could not find at location: {clientCert.FullName}");
+                    throw new System.Exception($"Missing  client cert file for: {name}. Could not find at location: {clientCert}");
                 }
 
-                if (!clientKey.Exists)
+                if (!File.Exists(clientKey))
                 {
-                    throw new System.Exception($"Missing  client key file for: {name}. Could not find at location: {clientKey.FullName}");
+                    throw new System.Exception($"Missing  client key file for: {name}. Could not find at location: {clientKey}");
                 }
 
-                ret.Set("clientCertFile", clientCert.FullName);
-                ret.Set("clientKeyFile", clientKey.FullName);
+                ret.Set("clientCertFile", clientCert);
+                ret.Set("clientKeyFile", clientKey);
             }
 
-            ret.Set("pemFile", cert.FullName);
+            ret.Set("pemFile", cert);
             ret.Set("hostnameOverride", name);
             ret.Set("sslProvider", "openSSL");
             ret.Set("negotiationType", "TLS");
@@ -383,39 +382,38 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
          *
          * @return The appropriate Network Config YAML file
          */
-        public FileInfo GetTestNetworkConfigFileYAML()
+        public string GetTestNetworkConfigFileYAML()
         {
             string fname = runningTLS ? "network-config-tls.yaml" : "network-config.yaml";
             string pname = "fixture/sdkintegration/network_configs/";
 
-            FileInfo ret = new FileInfo(Path.Combine(Path.GetFullPath(pname), fname));
+            string ret = Path.Combine(Path.GetFullPath(pname), fname);
 
             if (!"localhost".Equals(LOCALHOST))
             {
                 // change on the fly ...
-                FileInfo temp = null;
+                string temp = null;
 
                 try
                 {
                     //create a temp file
                     string dir = Path.GetTempPath();
                     Directory.CreateDirectory(dir);
-                    string tempname = Path.Combine(dir, fname + "-FixedUp.yaml");
-                    temp = new FileInfo(tempname);
-                    if (temp.Exists)
+                    temp = Path.Combine(dir, fname + "-FixedUp.yaml");
+                    if (File.Exists(temp))
                     {
                         //For testing start fresh
-                        File.Delete(tempname);
+                        File.Delete(temp);
                     }
 
-                    string sourceText = File.ReadAllText(ret.FullName, Encoding.UTF8);
+                    string sourceText = File.ReadAllText(ret, Encoding.UTF8);
 
                     sourceText = sourceText.Replace("https://localhost", "https://" + LOCALHOST);
                     sourceText = sourceText.Replace("http://localhost", "http://" + LOCALHOST);
                     sourceText = sourceText.Replace("grpcs://localhost", "grpcs://" + LOCALHOST);
                     sourceText = sourceText.Replace("grpc://localhost", "grpc://" + LOCALHOST);
-                    File.WriteAllText(tempname, sourceText);
-                    logger.Info($"produced new network-config.yaml file at: {tempname}");
+                    File.WriteAllText(temp, sourceText);
+                    logger.Info($"produced new network-config.yaml file at: {temp}");
                 }
                 catch (System.Exception e)
                 {

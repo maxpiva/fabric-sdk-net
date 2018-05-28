@@ -36,7 +36,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         private SampleStore sampleStore;
 
         [ClassInitialize]
-        public static void SetupBeforeClass()
+        public static void SetupBeforeClass(TestContext context)
         {
             try
             {
@@ -52,11 +52,11 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         [TestInitialize]
         public void Setup()
         {
-            FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
-            if (sampleStoreFile.Exists)
+            string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
+            if (File.Exists(sampleStoreFile))
             {
                 // For testing start fresh
-                sampleStoreFile.Delete();
+                File.Delete(sampleStoreFile);
             }
 
             sampleStore = new SampleStore(sampleStoreFile);
@@ -90,6 +90,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         public void TestHFCAIdentityIDNull()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
+            client.CryptoSuite = crypto;
             client.NewHFCAAffiliation(null);
         }
 
@@ -98,6 +99,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         public void TestBadAffiliationNameSpace()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
+            client.CryptoSuite = crypto;
             client.NewHFCAAffiliation("foo. .bar");
         }
 
@@ -106,6 +108,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         public void TestBadAffiliationNameStartingDot()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
+            client.CryptoSuite = crypto;
             client.NewHFCAAffiliation(".foo");
         }
 
@@ -114,6 +117,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         public void TestBadAffiliationNameEndingDot()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
+            client.CryptoSuite = crypto;
             client.NewHFCAAffiliation("foo.");
         }
 
@@ -122,6 +126,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         public void TestBadAffiliationNameMultipleDots()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
+            client.CryptoSuite = crypto;
             client.NewHFCAAffiliation("foo...bar");
         }
 
@@ -131,7 +136,6 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
-
             HFCAAffiliation aff = client.NewHFCAAffiliation("neworg1");
             aff.Read(admin);
         }
@@ -142,7 +146,6 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
-
             HFCAAffiliation aff = client.NewHFCAAffiliation("neworg1");
             aff.Create(admin);
         }
@@ -165,7 +168,6 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
-
             HFCAAffiliation aff = client.NewHFCAAffiliation("neworg1");
             aff.Delete(admin);
         }

@@ -39,21 +39,21 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Exception
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException1()
+        public void TestInvalidIllegalArgumentException1()
         {
             throw new InvalidArgumentException("test");
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException2()
+        public void TestInvalidIllegalArgumentException2()
         {
             throw new InvalidArgumentException(new InvalidArgumentException("test"));
         }
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
-        public void TestInvalidArgumentException3()
+        public void TestInvalidIllegalArgumentException3()
         {
             throw new InvalidArgumentException("test", new InvalidArgumentException("test"));
         }

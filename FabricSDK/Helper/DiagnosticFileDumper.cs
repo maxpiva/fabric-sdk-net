@@ -33,20 +33,18 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         private static DiagnosticFileDumper singleInstance;
         private static int counter;
-        private readonly string dirAbsolutePath;
 
         private readonly string pid;
         private readonly BlockingCollection<QueEntry> queEntries = new BlockingCollection<QueEntry>();
-        private readonly DirectoryInfo directory;
+        private readonly string directory;
 
-        private DiagnosticFileDumper(DirectoryInfo directory)
+        private DiagnosticFileDumper(string directory)
         {
             this.directory = directory;
-            dirAbsolutePath = directory?.FullName;
             pid = getPID() + "";
         }
 
-        public static DiagnosticFileDumper ConfigInstance(DirectoryInfo directory)
+        public static DiagnosticFileDumper ConfigInstance(string directory)
         {
             if (singleInstance == null)
             {
@@ -65,7 +63,10 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         private bool CantWrite()
         {
-            return null == directory || !directory.Exists || (directory.Attributes & FileAttributes.ReadOnly) != 0;
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                return false;
+            DirectoryInfo dinfo=new DirectoryInfo(directory);
+            return ((dinfo.Attributes & FileAttributes.ReadOnly) != 0);
         }
 
         public string CreateDiagnosticFile(byte[] bytes)
@@ -88,7 +89,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             string fileName = "";
             if (CantWrite())
             {
-                return "Missing dump directory or can not write: " + dirAbsolutePath;
+                return "Missing dump directory or can not write: " + directory;
             }
 
             if (null != bytes)
@@ -137,7 +138,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                     {
                         try
                         {
-                            string finalpath = Path.Combine(dirAbsolutePath, q.FileName);
+                            string finalpath = Path.Combine(directory, q.FileName);
                             File.WriteAllBytes(finalpath, q.DataBytes);
                         }
                         catch (Exception)

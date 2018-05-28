@@ -38,9 +38,9 @@ namespace Hyperledger.Fabric.SDK
          * @param configFile The file containing the channel configuration.
          * @throws IOException
          */
-        public UpdateChannelConfiguration(FileInfo configFile)
+        public UpdateChannelConfiguration(string configFile)
         {
-            UpdateChannelConfigurationBytes = File.ReadAllBytes(configFile.FullName);
+            UpdateChannelConfigurationBytes = File.ReadAllBytes(configFile);
         }
 
         /**

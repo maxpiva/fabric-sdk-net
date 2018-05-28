@@ -70,9 +70,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         private readonly Dictionary<string, SampleUser> members = new Dictionary<string, SampleUser>();
 
-        public SampleStore(FileInfo file)
+        public SampleStore(string file)
         {
-            this.file = file.FullName;
+            this.file = file;
         }
 
         /**
@@ -194,7 +194,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
          * @throws NoSuchProviderException
          * @throws InvalidKeySpecException
          */
-        public SampleUser GetMember(string name, string org, string mspId, FileInfo privateKeyFile, FileInfo certificateFile)
+        public SampleUser GetMember(string name, string org, string mspId, string privateKeyFile, string certificateFile)
         {
             try
             {
@@ -208,9 +208,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // Create the SampleUser and try to restore it's state from the key value store (if found).
                 sampleUser = new SampleUser(name, org, this);
                 sampleUser.MspId = mspId;
-                string certificate = File.ReadAllText(certificateFile.FullName, Encoding.UTF8);
+                string certificate = File.ReadAllText(certificateFile, Encoding.UTF8);
 
-                AsymmetricAlgorithm privateKey = GetPrivateKeyFromBytes(File.ReadAllBytes(privateKeyFile.FullName));
+                AsymmetricAlgorithm privateKey = GetPrivateKeyFromBytes(File.ReadAllBytes(privateKeyFile));
 
                 sampleUser.Enrollment = new SampleStoreEnrollement(privateKey, certificate);
 

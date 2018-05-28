@@ -13,7 +13,6 @@
  */
 
 
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -29,8 +28,6 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
-using Hyperledger.Fabric.Tests.SDK;
-using Hyperledger.Fabric.Tests.SDK.Integration;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Hyperledger.Fabric_CA.SDK;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -55,26 +52,26 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         private static readonly string FOO_CHANNEL_NAME = "foo";
         private static readonly string BAR_CHANNEL_NAME = "bar";
-
-        internal virtual string CHAIN_CODE_FILEPATH {get;}="sdkintegration/gocc/sample_11";
-
-        internal virtual string CHAIN_CODE_NAME { get; }= "example_cc_go";
-        internal virtual string CHAIN_CODE_PATH { get; }= "github.com/example_cc";
         internal static readonly string CHAIN_CODE_VERSION_11 = "11";
         internal static readonly string CHAIN_CODE_VERSION = "1";
         private readonly TestConfigHelper configHelper = new TestConfigHelper();
+
+        internal readonly string sampleStoreFile = Path.Combine(Path.GetTempPath() + "HFCSampletest.properties");
+        internal SampleStore sampleStore;
+        private IReadOnlyList<SampleOrg> testSampleOrgs;
+        private string testTxID = null; // save the CC invoke TxID and use in queries
+
+        internal virtual string CHAIN_CODE_FILEPATH { get; } = "sdkintegration/gocc/sample_11";
+
+        internal virtual string CHAIN_CODE_NAME { get; } = "example_cc_go";
+        internal virtual string CHAIN_CODE_PATH { get; } = "github.com/example_cc";
         internal virtual TransactionRequest.Type CHAIN_CODE_LANG { get; } = TransactionRequest.Type.GO_LANG;
 
         internal virtual ChaincodeID chaincodeID => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION).SetPath(CHAIN_CODE_PATH);
 
         internal virtual ChaincodeID chaincodeID_11 => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION_11).SetPath(CHAIN_CODE_PATH);
-        internal SampleStore sampleStore;
 
-        internal readonly FileInfo sampleStoreFile = new FileInfo(Path.GetTempPath() + "/HFCSampletest.properties");
-
-        internal virtual string testName { get; }= "End2endAndBackAgainIT";
-        private IReadOnlyList<SampleOrg> testSampleOrgs;
-        private string testTxID = null; // save the CC invoke TxID and use in queries
+        internal virtual string testName { get; } = "End2endAndBackAgainIT";
 
 
         private static bool CheckInstalledChaincode(HFClient client, Peer peer, string ccName, string ccPath, string ccVersion)
@@ -291,221 +288,187 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // exercise v1 of chaincode
 
-                TaskCompletionSource<BlockEvent.TransactionEvent> fl = MoveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.PeerAdmin: null).ThenApply((transactionEvent) =>
+                BlockEvent.TransactionEvent transactionEvent = MoveAmount(client, channel, chaincodeID, "25", changeContext ? sampleOrg.PeerAdmin : null);
+
+
+                WaitOnFabric();
+                client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+                QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
+
+                //////////////////
+                // Start of upgrade first must install it.
+
+                client.UserContext = sampleOrg.PeerAdmin;
+                ///////////////
+                ////
+                InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
+                installProposalRequest.ChaincodeID = chaincodeID;
+                ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
+                installProposalRequest.ChaincodeSourceLocation =Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH));
+ 
+                installProposalRequest.ChaincodeVersion = CHAIN_CODE_VERSION_11;
+                installProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                installProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
+
+                if (changeContext)
+                {
+                    installProposalRequest.UserContext = sampleOrg.PeerAdmin;
+                }
+
+                Util.COut("Sending install proposal for channel: {0}", channel.Name);
+
+                ////////////////////////////
+                // only a client from the same org as the peer can issue an install request
+                int numInstallProposal = 0;
+
+                List<ProposalResponse> responses;
+                List<ProposalResponse> successful = new List<ProposalResponse>();
+                List<ProposalResponse> failed = new List<ProposalResponse>();
+                IReadOnlyList<Peer> peersFromOrg = channel.Peers;
+                numInstallProposal = numInstallProposal + peersFromOrg.Count;
+
+                responses = client.SendInstallProposal(installProposalRequest, peersFromOrg);
+
+                foreach (ProposalResponse response in responses)
+                {
+                    if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
                     {
-                        try
-                        {
-                            WaitOnFabric();
-                            client.UserContext=sampleOrg.GetUser(TESTUSER_1_NAME);
-
-                            QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
-
-                            //////////////////
-                            // Start of upgrade first must install it.
-
-                            client.UserContext = sampleOrg.PeerAdmin;
-                            ///////////////
-                            ////
-                            InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
-                            installProposalRequest.ChaincodeID = chaincodeID;
-                            ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                            installProposalRequest.ChaincodeSourceLocation = new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH)));
-
-                            installProposalRequest.ChaincodeVersion = CHAIN_CODE_VERSION_11;
-                            installProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
-                            installProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
-
-                            if (changeContext)
-                            {
-                                installProposalRequest.UserContext = sampleOrg.PeerAdmin;
-                            }
-
-                            Util.COut("Sending install proposal for channel: {0}", channel.Name);
-
-                            ////////////////////////////
-                            // only a client from the same org as the peer can issue an install request
-                            int numInstallProposal = 0;
-
-                            List<ProposalResponse> responses;
-                            List<ProposalResponse> successful = new List<ProposalResponse>();
-                            List<ProposalResponse> failed = new List<ProposalResponse>();
-                            IReadOnlyList<Peer> peersFromOrg = channel.Peers;
-                            numInstallProposal = numInstallProposal + peersFromOrg.Count;
-
-                            responses = client.SendInstallProposal(installProposalRequest, peersFromOrg);
-
-                            foreach (ProposalResponse response in responses)
-                            {
-                                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
-                                {
-                                    Util.COut("Successful install proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
-                                    successful.Add(response);
-                                }
-                                else
-                                {
-                                    failed.Add(response);
-                                }
-                            }
-
-                            Util.COut("Received {0} install proposal responses. Successful+verified: {1} . Failed: {2}", numInstallProposal, successful.Count, failed.Count);
-
-                            if (failed.Count > 0)
-                            {
-                                ProposalResponse first = failed.First();
-                                Assert.Fail($"Not enough endorsers for install : {successful.Count}.  {first.Message}");
-                            }
-
-                            //////////////////
-                            // Upgrade chaincode to ***double*** our move results.
-
-                            if (changeContext)
-                            {
-                                installProposalRequest.UserContext = sampleOrg.PeerAdmin;
-                            }
-
-                            UpgradeProposalRequest upgradeProposalRequest = client.NewUpgradeProposalRequest();
-                            upgradeProposalRequest.ChaincodeID = chaincodeID_11;
-                            upgradeProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
-                            upgradeProposalRequest.Fcn = "init";
-                            upgradeProposalRequest.Args = new List<string>(); // no arguments don't change the ledger see chaincode.
-
-                            ChaincodeEndorsementPolicy chaincodeEndorsementPolicy;
-
-                            chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                            chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
-
-                            upgradeProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
-                            Dictionary<string, byte[]> tmap = new Dictionary<string, byte[]>();
-                            tmap.Add("test", "data".ToBytes());
-                            upgradeProposalRequest.SetTransientMap(tmap);
-
-                            if (changeContext)
-                            {
-                                upgradeProposalRequest.UserContext = sampleOrg.PeerAdmin;
-                            }
-
-                            Util.COut("Sending upgrade proposal");
-
-                            List<ProposalResponse> responses2;
-
-                            responses2 = channel.SendUpgradeProposal(upgradeProposalRequest);
-
-                            successful.Clear();
-                            failed.Clear();
-                            foreach (ProposalResponse response in responses2)
-                            {
-                                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
-                                {
-                                    Util.COut("Successful upgrade proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
-                                    successful.Add(response);
-                                }
-                                else
-                                {
-                                    failed.Add(response);
-                                }
-                            }
-
-                            Util.COut("Received {0} upgrade proposal responses. Successful+verified: {1} . Failed: {2}", channel.Peers.Count, successful.Count, failed.Count);
-
-                            if (failed.Count > 0)
-                            {
-                                ProposalResponse first = failed.First();
-                                Assert.Fail($"Not enough endorsers for upgrade : {successful.Count}.  {first.Message}");
-                            }
-
-                            if (changeContext)
-                            {
-                                return channel.SendTransaction(successful, sampleOrg.PeerAdmin);
-                            }
-                            else
-                            {
-                                return channel.SendTransaction(successful);
-                            }
-                        }
-                        catch (TimeoutException e)
-                        {
-                            throw;
-                        }
-                        catch (System.Exception e)
-                        {
-                            throw;
-                        }
-                    }, testConfig.GetTransactionWaitTime() * 1000).ThenApply(transactionEvent =>
+                        Util.COut("Successful install proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                        successful.Add(response);
+                    }
+                    else
                     {
-                        try
-                        {
-                            WaitOnFabric(10000);
+                        failed.Add(response);
+                    }
+                }
 
-                            Util.COut("Chaincode has been upgraded to version {0}", CHAIN_CODE_VERSION_11);
+                Util.COut("Received {0} install proposal responses. Successful+verified: {1} . Failed: {2}", numInstallProposal, successful.Count, failed.Count);
 
-                            //Check to see if peers have new chaincode and old chaincode is gone.
+                if (failed.Count > 0)
+                {
+                    ProposalResponse first = failed.First();
+                    Assert.Fail($"Not enough endorsers for install : {successful.Count}.  {first.Message}");
+                }
 
-                            client.UserContext = sampleOrg.PeerAdmin;
-                            foreach (Peer peer in channel.Peers)
-                            {
-                                if (!CheckInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
-                                {
-                                    Assert.Fail($"Peer {peer.Name} is missing chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
-                                }
+                //////////////////
+                // Upgrade chaincode to ***double*** our move results.
 
-                                //should be instantiated too..
-                                if (!CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
-                                {
-                                    Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
-                                }
+                if (changeContext)
+                {
+                    installProposalRequest.UserContext = sampleOrg.PeerAdmin;
+                }
 
-                                if (CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
-                                {
-                                    Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION}");
-                                }
-                            }
+                UpgradeProposalRequest upgradeProposalRequest = client.NewUpgradeProposalRequest();
+                upgradeProposalRequest.ChaincodeID = chaincodeID_11;
+                upgradeProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                upgradeProposalRequest.Fcn = "init";
+                upgradeProposalRequest.Args = new List<string>(); // no arguments don't change the ledger see chaincode.
 
-                            client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+                ChaincodeEndorsementPolicy chaincodeEndorsementPolicy;
 
-                            ///Check if we still get the same value on the ledger
-                            Util.COut("delta is {0}", delta);
-                            QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
+                chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
+                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
 
-                            //Now lets run the new chaincode which should *double* the results we asked to move.
-                            return MoveAmount(client, channel, chaincodeID_11, "50", changeContext ? sampleOrg.PeerAdmin: null); // really move 100
-                        }
-                        catch (TimeoutException e)
-                        {
-                            throw;
-                        }
-                        catch (System.Exception e)
-                        {
-                            throw;
-                        }
-                    }, testConfig.GetTransactionWaitTime() * 1000);
-                fl.Task.Wait();
+                upgradeProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
+                Dictionary<string, byte[]> tmap = new Dictionary<string, byte[]>();
+                tmap.Add("test", "data".ToBytes());
+                upgradeProposalRequest.SetTransientMap(tmap);
+
+                if (changeContext)
+                {
+                    upgradeProposalRequest.UserContext = sampleOrg.PeerAdmin;
+                }
+
+                Util.COut("Sending upgrade proposal");
+
+                List<ProposalResponse> responses2;
+
+                responses2 = channel.SendUpgradeProposal(upgradeProposalRequest);
+
+                successful.Clear();
+                failed.Clear();
+                foreach (ProposalResponse response in responses2)
+                {
+                    if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                    {
+                        Util.COut("Successful upgrade proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                        successful.Add(response);
+                    }
+                    else
+                    {
+                        failed.Add(response);
+                    }
+                }
+
+                Util.COut("Received {0} upgrade proposal responses. Successful+verified: {1} . Failed: {2}", channel.Peers.Count, successful.Count, failed.Count);
+
+                if (failed.Count > 0)
+                {
+                    ProposalResponse first = failed.First();
+                    Assert.Fail($"Not enough endorsers for upgrade : {successful.Count}.  {first.Message}");
+                }
+
+                if (changeContext)
+                {
+                    transactionEvent = channel.SendTransaction(successful, sampleOrg.PeerAdmin, testConfig.GetTransactionWaitTime() * 1000);
+                }
+                else
+                {
+                    transactionEvent = channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
+                }
+
                 WaitOnFabric(10000);
 
-                if (fl.Task.IsFaulted)
+                Util.COut("Chaincode has been upgraded to version {0}", CHAIN_CODE_VERSION_11);
+
+                //Check to see if peers have new chaincode and old chaincode is gone.
+
+                client.UserContext = sampleOrg.PeerAdmin;
+                foreach (Peer peer in channel.Peers)
                 {
-                    if (fl.Task.Exception.InnerException is TransactionEventException)
+                    if (!CheckInstalledChaincode(client, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
                     {
-                        TransactionEventException t = (TransactionEventException) fl.Task.Exception.InnerException;
-                        BlockEvent.TransactionEvent te = t.TransactionEvent;
-                        if (te != null)
-                            Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+                        Assert.Fail($"Peer {peer.Name} is missing chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
                     }
 
-                    Assert.Fail($"Test failed with {fl.Task.Exception.InnerException.GetType().Name} exception {fl.Task.Exception.InnerException.Message}");
+                    //should be instantiated too..
+                    if (!CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION_11))
+                    {
+                        Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION_11}");
+                    }
+
+                    if (CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
+                    {
+                        Assert.Fail($"Peer {peer.Name} is missing instantiated chaincode name:{CHAIN_CODE_NAME}, path:{CHAIN_CODE_PATH}, version: {CHAIN_CODE_VERSION}");
+                    }
                 }
-                QueryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
 
-                ;
+                client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+                ///Check if we still get the same value on the ledger
+                Util.COut("delta is {0}", delta);
+                QueryChaincodeForExpectedValue(client, channel, "" + (325 + delta), chaincodeID);
+
+                transactionEvent = MoveAmount(client, channel, chaincodeID_11, "50", changeContext ? sampleOrg.PeerAdmin : null); // really move 100
             }
-            catch (System.Exception)
+            catch (TransactionEventException t)
             {
-                throw;
+                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                if (te != null)
+                    Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+            }
+            catch (System.Exception e)
+            {
+                Assert.Fail($"Test failed with {e.GetType().Name} exception {e.Message}");
             }
 
+            WaitOnFabric(10000);
+            QueryChaincodeForExpectedValue(client, channel, "" + (425 + delta), chaincodeID_11);
             Util.COut("Running for Channel {0} done", channelName);
         }
 
-        private TaskCompletionSource<BlockEvent.TransactionEvent> MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string moveAmount, IUser user)
+        private BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string moveAmount, IUser user)
         {
             try
             {
@@ -556,8 +519,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // Send transaction to orderer
                 Util.COut("Sending chaincode transaction(move a,b,{0}) to orderer.", moveAmount);
                 if (user != null)
-                    return channel.SendTransaction(successful, user);
-                return channel.SendTransaction(successful);
+                    return channel.SendTransaction(successful, user, testConfig.GetTransactionWaitTime() * 1000);
+                return channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
             }
             catch (System.Exception e)
             {
@@ -784,9 +747,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Channel finalChannel = replayTestChannel;
             ConcurrentDictionary<long, BlockEvent> blockEvents = new ConcurrentDictionary<long, BlockEvent>();
 
-            string blockListenerHandle = replayTestChannel.RegisterBlockListener((blockEvent)=>
+            string blockListenerHandle = replayTestChannel.RegisterBlockListener((blockEvent) =>
             {
-
                 try
                 {
                     long blockNumber = blockEvent.BlockNumber;
@@ -963,8 +925,5 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private void WaitOnFabric(int additional)
         {
         }
-
-
-
     }
 }

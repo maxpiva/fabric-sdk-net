@@ -11,7 +11,7 @@ namespace Hyperledger.Fabric.SDK.Helper
     public class BaseDeserializer<T> where T: class, IMessage<T>, new()
     {
         protected internal ByteString bs;
-        protected WeakReference<T> reference;
+        protected WeakReference<T> reference=null;
         public BaseDeserializer(ByteString byteString)
         {
             bs = byteString;
@@ -25,25 +25,34 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             get
             {
+                T ret;
                 byte[] data = bs.ToByteArray();
-                reference.TryGetTarget(out T ret);
-                if (ret == null)
+                if (reference == null)
+                    ret = Parse(data);
+                else
                 {
-                    try
-                    {
-                        MessageParser<T> parser = new MessageParser<T>(() => new T());
-                        ret = parser.ParseFrom(data);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new InvalidProtocolBufferRuntimeException(e);
-                    }
-
-                    reference = new WeakReference<T>(ret);
+                    reference.TryGetTarget(out ret);
+                    if (ret == null)
+                        ret = Parse(data);
                 }
                 return ret;
             }
             set => reference = new WeakReference<T>(value);
+        }
+
+        private T Parse(byte[] data)
+        {
+            try
+            {
+                MessageParser<T> parser = new MessageParser<T>(() => new T());
+                T ret = parser.ParseFrom(data);
+                reference = new WeakReference<T>(ret);
+                return ret;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidProtocolBufferRuntimeException(e);
+            }
         }
     }
 }

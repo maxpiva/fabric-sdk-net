@@ -23,8 +23,8 @@ namespace Hyperledger.Fabric.SDK.Requests
     public class InstallProposalRequest : TransactionRequest
     {
         private Stream chaincodeInputStream;
-        private DirectoryInfo chaincodeMetaInfLocation;
-        private DirectoryInfo chaincodeSourceLocation;
+        private string chaincodeMetaInfLocation;
+        private string chaincodeSourceLocation;
 
 
         public InstallProposalRequest(IUser userContext) : base(userContext)
@@ -40,12 +40,12 @@ namespace Hyperledger.Fabric.SDK.Requests
     * Fabric Read the docs couchdb as a state database
     * </a>
     */
-        public DirectoryInfo ChaincodeMetaInfLocation
+        public string ChaincodeMetaInfLocation
         {
             get => chaincodeMetaInfLocation;
             set
             {
-                if (value == null)
+                if (string.IsNullOrEmpty(value))
                     throw new InvalidArgumentException("Chaincode META-INF location may not be null.");
                 if (chaincodeInputStream != null)
                     throw new InvalidArgumentException("Chaincode META-INF location may not be set with chaincode input stream set.");
@@ -58,7 +58,7 @@ namespace Hyperledger.Fabric.SDK.Requests
  * The contents of the stream are not validated or inspected by the SDK.
  *
  * @param chaincodeInputStream
- * @throws InvalidArgumentException
+ * @throws InvalidIllegalArgumentException
  */
 
         public Stream ChaincodeInputStream
@@ -82,14 +82,14 @@ namespace Hyperledger.Fabric.SDK.Requests
  * Chaincode input stream and source location can not both be set.
  *
  * @param chaincodeSourceLocation
- * @throws InvalidArgumentException
+ * @throws InvalidIllegalArgumentException
  */
-        public DirectoryInfo ChaincodeSourceLocation
+        public string ChaincodeSourceLocation
         {
             get => chaincodeSourceLocation;
             set
             {
-                if (chaincodeSourceLocation == null)
+                if (string.IsNullOrEmpty(chaincodeSourceLocation))
                     throw new InvalidArgumentException("Chaincode source location may not be null.");
                 if (chaincodeInputStream != null)
                     throw new InvalidArgumentException("Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.");
@@ -105,17 +105,13 @@ namespace Hyperledger.Fabric.SDK.Requests
 
     public static class InstallProposalRequestBuilder
     {
-        public static T SetChaincodeSourceLocation<T>(this T request, DirectoryInfo chainCodeSourceLocation) where T : InstallProposalRequest
+        public static T SetChaincodeSourceLocation<T>(this T request, string chainCodeSourceLocation) where T : InstallProposalRequest
         {
             request.ChaincodeSourceLocation = chainCodeSourceLocation;
             return request;
         }
 
-        public static T SetChaincodeSourceLocation<T>(this T request, string chainCodeSourceLocation) where T : InstallProposalRequest
-        {
-            request.ChaincodeSourceLocation = new DirectoryInfo(chainCodeSourceLocation);
-            return request;
-        }
+
 
         public static T SetChaincodeInputStream<T>(this T request, Stream chaincodeInputStream) where T : InstallProposalRequest
         {
@@ -123,15 +119,10 @@ namespace Hyperledger.Fabric.SDK.Requests
             return request;
         }
 
-        public static T SetChaincodeMetaInfLocation<T>(this T request, DirectoryInfo chaincodeMetaInfLocation) where T : InstallProposalRequest
-        {
-            request.ChaincodeMetaInfLocation = chaincodeMetaInfLocation;
-            return request;
-        }
 
         public static T SetChaincodeMetaInfLocation<T>(this T request, string chaincodeMetaInfLocation) where T : InstallProposalRequest
         {
-            request.ChaincodeMetaInfLocation = new DirectoryInfo(chaincodeMetaInfLocation);
+            request.ChaincodeMetaInfLocation = chaincodeMetaInfLocation;
             return request;
         }
     }

@@ -65,10 +65,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         [ExpectedException(typeof(IOException))]
         public void TestGenerateDirectoryHashNoDirectory()
         {
-            DirectoryInfo rootDir = new DirectoryInfo(tempFolder);
-            DirectoryInfo nonExistentDir = new DirectoryInfo(Path.Combine(rootDir.FullName, "temp"));
+            string nonExistentDir = Path.Combine(Path.GetFullPath(tempFolder), "temsp");
 
-            Utils.GenerateDirectoryHash(null, nonExistentDir.FullName, "");
+            Utils.GenerateDirectoryHash(null, nonExistentDir, "");
             Assert.Fail("Expected an IOException as the directory does not exist");
         }
 
@@ -77,10 +76,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         [ExpectedException(typeof(IOException))]
         public void TestGenerateDirectoryHashEmptyDirectory()
         {
-            DirectoryInfo temp = new DirectoryInfo(tempFolder);
-            DirectoryInfo emptyDir = temp.CreateSubdirectory("subfolder");
-
-            Utils.GenerateDirectoryHash(null, emptyDir.FullName, "");
+            string emptydir = Path.Combine(tempFolder, "subfolder");
+            Directory.CreateDirectory(emptydir);
+            Utils.GenerateDirectoryHash(null, emptydir, "");
             Assert.Fail("Expected an IOException as the directory is empty");
         }
 
@@ -113,15 +111,15 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         public void TestDeleteFileOrDirectoryDirectory()
         {
             // create a temp directory with some files in it
-            DirectoryInfo tempDir = CreateTempDirWithFiles();
+            string tempDir = CreateTempDirWithFiles();
 
             // Ensure the dir exists
-            Assert.IsTrue(tempDir.Exists);
+            Assert.IsTrue(Directory.Exists(tempDir));
 
-            Utils.DeleteFileOrDirectory(tempDir.FullName);
+            Utils.DeleteFileOrDirectory(tempDir);
 
             // Ensure the file was deleted
-            Assert.IsFalse(tempDir.Exists);
+            Assert.IsFalse(Directory.Exists(tempDir));
         }
 
         // Test compressing a directory
@@ -129,10 +127,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         public void TestGenerateTarGz()
         {
             // create a temp directory with some files in it
-            DirectoryInfo tempDir = CreateTempDirWithFiles();
+            string tempDir = CreateTempDirWithFiles();
 
             // Compress
-            byte[] data = Utils.GenerateTarGz(tempDir.FullName, "newPath", null);
+            byte[] data = Utils.GenerateTarGz(tempDir, "newPath", null);
 
             // Here, we simply ensure that it did something!
             Assert.IsNotNull(data);
@@ -144,8 +142,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         public void TestGenerateTarGzEmptyDirectory()
         {
             // create an empty directory
-            DirectoryInfo emptyDir = new DirectoryInfo(tempFolder).CreateSubdirectory("subfolder");
-            byte[] data = Utils.GenerateTarGz(emptyDir.FullName, null, null);
+            string emptydir = Path.Combine(tempFolder, "subfolder");
+            Directory.CreateDirectory(emptydir);
+            byte[] data = Utils.GenerateTarGz(emptydir, null, null);
 
             // Here, we simply ensure that it did something!
             Assert.IsNotNull(data);
@@ -153,7 +152,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         }
 
         // Test compressing a non-existent directory
-        // Note that this currently throws an IllegalArgumentException, and not an IOException!
+        // Note that this currently throws an IllegalIllegalArgumentException, and not an IOException!
         [TestMethod]
         [ExpectedException(typeof(IOException))]
         public void TestGenerateTarGzNoDirectory()
@@ -338,16 +337,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         }
 
         // Creates a temp directory containing a couple of files
-        private DirectoryInfo CreateTempDirWithFiles()
+        private string CreateTempDirWithFiles()
         {
-            DirectoryInfo dirinfo = new DirectoryInfo(Path.GetFullPath(tempFolder));
+            string tempdir = Path.Combine(tempFolder, "tempDir");
             // create a temp directory with some files in it
-            DirectoryInfo tempDir = dirinfo.CreateSubdirectory("tempDir");
-            string tempfile1 = Path.Combine(tempDir.FullName, "test1.txt");
+            Directory.CreateDirectory(tempdir);
+            string tempfile1 = Path.Combine(tempdir, "test1.txt");
             File.WriteAllBytes(tempfile1, "TheQuickBrownFox".ToBytes());
-            string tempfile2 = Path.Combine(tempDir.FullName, "test2.txt");
+            string tempfile2 = Path.Combine(tempdir, "test2.txt");
             File.WriteAllBytes(tempfile2, "JumpsOverTheLazyDog".ToBytes());
-            return tempDir;
+            return tempdir;
         }
     }
 }

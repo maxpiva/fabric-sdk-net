@@ -56,7 +56,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
 
 
-            NetworkConfig.FromYamlFile((FileInfo) null);
+            NetworkConfig.FromYamlFile(null);
         }
 
         [TestMethod]
@@ -65,7 +65,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
 
-            NetworkConfig.FromJsonFile((FileInfo) null);
+            NetworkConfig.FromJsonFile(null);
         }
 
         [TestMethod]
@@ -75,8 +75,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             // Should not be able to instantiate a new instance of "Client" without an actual configuration file
 
 
-            FileInfo f = new FileInfo("FileDoesNotExist.yaml");
-            NetworkConfig.FromYamlFile(f);
+            NetworkConfig.FromYamlFile("FileDoesNotExist.yaml");
         }
 
         [TestMethod]
@@ -86,14 +85,13 @@ namespace Hyperledger.Fabric.Tests.SDK
             // Should not be able to instantiate a new instance of "Client" without an actual configuration file
 
 
-            FileInfo f = new FileInfo("FileDoesNotExist.json");
-            NetworkConfig.FromJsonFile(f);
+            NetworkConfig.FromJsonFile("FileDoesNotExist.json");
         }
 
         [TestMethod]
         public void TestLoadFromConfigFileYamlBasic()
         {
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             Assert.IsNotNull(config);
             List<string> channelNames = config.GetChannelNames();
@@ -104,7 +102,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestLoadFromConfigFileJsonBasic()
         {
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json"));
+            string f=Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json");
             NetworkConfig config = NetworkConfig.FromJsonFile(f);
             Assert.IsNotNull(config);
         }
@@ -113,7 +111,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYaml()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f=Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             Assert.IsNotNull(config);
 
@@ -129,7 +127,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileJson()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the JSON configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.json");
             NetworkConfig config = NetworkConfig.FromJsonFile(f);
             Assert.IsNotNull(config);
 
@@ -189,7 +187,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestGetChannelNotExists()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             //HFClient client = HFClient.loadFromConfig(f);
             Assert.IsNotNull(config);
@@ -267,7 +265,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlNOOverrides()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             //HFClient client = HFClient.loadFromConfig(f);
@@ -296,7 +294,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlNOOverridesButSet()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             //HFClient client = HFClient.loadFromConfig(f);
@@ -328,7 +326,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlOverrides()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            FileInfo f = new FileInfo(Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml"));
+            string f = Path.GetFullPath("fixture/sdkintegration/network_configs/network-config.yaml");
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             foreach (string peerName in config.PeerNames)

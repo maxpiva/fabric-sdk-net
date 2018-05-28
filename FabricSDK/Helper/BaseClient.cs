@@ -29,7 +29,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 throw new InvalidArgumentException("Bad url.", e);
             Url = url;
             Name = name;
-            Properties = properties.Clone();
+            Properties = properties?.Clone();
         }
 
         public BaseClient()

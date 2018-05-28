@@ -74,7 +74,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private static readonly Dictionary<string, IUser> orgRegisteredUsers = new Dictionary<string, IUser>();
 
         [ClassInitialize]
-        public static void doMainSetup()
+        public static void doMainSetup(TestContext context)
         {
             Util.COut("\n\n\nRUNNING: NetworkConfigIT.\n");
 
@@ -230,47 +230,27 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             client.UserContext = orgRegisteredUsers.GetOrNull("Org1"); // only using org1
 
             // Move some assets
-            TaskCompletionSource<BlockEvent.TransactionEvent> tsk = MoveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null);
-            tsk.Task.Wait(testConfig.GetTransactionWaitTime() * 1000);
-            bool erro = false;
-            if (tsk.Task.IsCompleted)
+            try
             {
+
+                MoveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null);
+                bool erro = false;
                 QueryChaincodeForExpectedValue(client, channel, newVal, chaincodeID);
-                TaskCompletionSource<BlockEvent.TransactionEvent> tsk2 = MoveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null);
-                tsk2.Task.Wait(testConfig.GetTransactionWaitTime() * 1000);
-                if (tsk2.Task.IsCompleted)
-                {
-                    QueryChaincodeForExpectedValue(client, channel, originalVal, chaincodeID);
-                }
-                else
-                {
-                    tsk = tsk2;
-                    erro = true;
-                }
+                MoveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null);
+                QueryChaincodeForExpectedValue(client, channel, originalVal, chaincodeID);
             }
-            else
+            catch (TransactionEventException t)
             {
-                erro = true;
+                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                if (te != null)
+                    Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+                Assert.Fail($"Transaction failed with exception message {t.Message}");
+
             }
-
-            if (erro)
+            catch (System.Exception e)
             {
-                if (tsk.Task.IsFaulted)
-                {
-                    if (tsk.Task.Exception.InnerException is TransactionEventException)
-                    {
-                        TransactionEventException t = (TransactionEventException) tsk.Task.Exception.InnerException;
-                        BlockEvent.TransactionEvent te = t.TransactionEvent;
-                        if (te != null)
-                            Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
-                    }
+                Assert.Fail($"Test failed with {e.GetType().Name} exception {e.Message}");
 
-                    Assert.Fail($"Test failed with {tsk.Task.Exception.InnerException.GetType().Name} exception {tsk.Task.Exception.InnerException.Message}");
-                }
-                else if (tsk.Task.IsCanceled)
-                {
-                    Assert.Fail("Task Canceled");
-                }
             }
 
             channel.Shutdown(true); // Force channel to shutdown clean up resources.
@@ -324,7 +304,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return expect;
         }
 
-        private static TaskCompletionSource<BlockEvent.TransactionEvent> MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
+        private static BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
         {
             List<ProposalResponse> successful = new List<ProposalResponse>();
             List<ProposalResponse> failed = new List<ProposalResponse>();
@@ -381,10 +361,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Util.COut("Sending chaincode transaction(move %s,%s,%s) to orderer.", from, to, moveAmount);
             if (user != null)
             {
-                return channel.SendTransaction(successful, user);
+                return channel.SendTransaction(successful, user, testConfig.GetTransactionWaitTime() * 1000);
             }
 
-            return channel.SendTransaction(successful);
+            return channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
         }
 
         private static ChaincodeID DeployChaincode(HFClient client, Channel channel, string ccName, string ccPath, string ccVersion)
@@ -413,7 +393,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 installProposalRequest.SetChaincodeID(chaincodeID);
 
                 ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                installProposalRequest.SetChaincodeSourceLocation(new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/gocc/sample1"))));
+                installProposalRequest.SetChaincodeSourceLocation(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/gocc/sample1")));
 
                 installProposalRequest.SetChaincodeVersion(ccVersion);
 
@@ -471,7 +451,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                   See README.md Chaincode endorsement policies section for more details.
                 */
                 ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
+                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
                 instantiateProposalRequest.SetChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
 
                 Util.COut("Sending instantiateProposalRequest to all peers...");
@@ -503,12 +483,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 ///////////////
                 /// Send instantiate transaction to orderer
                 Util.COut("Sending instantiateTransaction to orderer...");
-                TaskCompletionSource<BlockEvent.TransactionEvent> future = channel.SendTransaction(successful, orderers);
-                future.Task.Wait(30 * 1000);
-                if (future.Task.IsCanceled || future.Task.IsCanceled)
-                    throw new TimeoutException("Timeout waiting for transaction");
                 Util.COut("calling get...");
-                BlockEvent.TransactionEvent evnt = future.Task.Result;
+                BlockEvent.TransactionEvent evnt = channel.SendTransaction(successful, orderers, 30 * 1000);
                 Util.COut("get done...");
 
                 Assert.IsTrue(evnt.IsValid); // must be valid to be here.

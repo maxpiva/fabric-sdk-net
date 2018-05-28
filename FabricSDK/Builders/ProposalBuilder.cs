@@ -49,7 +49,7 @@ import org.hyperledger.fabric.protos.peer.FabricProposal;
 import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeHeaderExtension;
 import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeProposalPayload;
 import org.hyperledger.fabric.sdk.TransactionRequest;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.exception.ProposalException;
 
 import static java.lang.String.format;

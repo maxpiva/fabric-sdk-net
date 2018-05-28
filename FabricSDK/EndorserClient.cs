@@ -14,6 +14,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Peer;
@@ -74,13 +75,13 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        public async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal) 
+        public async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken)) 
         {
             if (shutdown)
             {
                 throw new PeerException("Shutdown");
             }
-            return await ecl.ProcessProposalAsync(proposal);
+            return await ecl.ProcessProposalAsync(proposal,null,null, token);
         }
         public Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse SendProposal(SignedProposal proposal)
         {

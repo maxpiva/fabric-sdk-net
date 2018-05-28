@@ -27,14 +27,14 @@ namespace Hyperledger.Fabric.Tests.SDK
     {
         private static HFClient hfclient = null;
         private static Orderer orderer = null;
-        private static FileInfo tempFile;
+        private static string tempFile;
 
         private static readonly string DEFAULT_CHANNEL_NAME = "channel";
         private static readonly string ORDERER_NAME = "testorderer";
 
 
         [ClassInitialize]
-        public static void SetupClient()
+        public static void SetupClient(TestContext context)
         {
             hfclient = TestHFClient.Create();
             orderer = hfclient.NewOrderer(ORDERER_NAME, "grpc://localhost:5151");
@@ -45,7 +45,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             if (tempFile != null)
             {
-                tempFile.Delete();
+                File.Delete(tempFile);
                 tempFile = null;
             }
         }

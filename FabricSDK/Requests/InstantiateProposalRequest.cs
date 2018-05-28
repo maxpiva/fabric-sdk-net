@@ -30,7 +30,7 @@ namespace Hyperledger.Fabric.SDK.Requests
          * Transient data added to the proposal that is not added to the ledger.
          *
          * @param transientMap Map of strings to bytes that's added to the proposal
-         * @throws InvalidArgumentException if the argument is null.
+         * @throws InvalidIllegalArgumentException if the argument is null.
          */
 
         public override Dictionary<string, byte[]> TransientMap

@@ -39,23 +39,21 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
      * @return return inputstream.
      * @throws IOException
      */
-        public static Stream GenerateTarGzInputStream(DirectoryInfo src, string pathPrefix)
+        public static Stream GenerateTarGzInputStream(string src, string pathPrefix)
         {
-            DirectoryInfo sourceDirectory = src;
 
             MemoryStream bos = new MemoryStream();
 
-            string sourcePath = sourceDirectory.FullName;
+            string sourcePath = src;
             using (var writer = WriterFactory.Open(bos, ArchiveType.Tar, CompressionType.GZip))
             {
-                FileInfo[] files = src.GetFiles("*", SearchOption.AllDirectories);
-                foreach (FileInfo childFile in files)
+                string[] files = Directory.GetFiles(src, "*", SearchOption.AllDirectories).ToArray();
+                foreach (string childPath in files)
                 {
-                    string childPath = childFile.FullName;
                     string relativePath = childPath.Substring(sourcePath.Length + 1);
                     if (pathPrefix != null)
                         relativePath = Path.Combine(pathPrefix, relativePath);
-                    writer.Write(relativePath, childFile);
+                    writer.Write(relativePath, File.OpenRead(childPath));
                 }
             }
 
@@ -65,21 +63,13 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
 
-        public static FileInfo FindFileSk(string directorys)
+        public static string FindFileSk(string directorys)
         {
-            DirectoryInfo directory = new DirectoryInfo(Path.GetFullPath(directorys));
-            FileInfo[] matches = directory.EnumerateFiles().Where(a => a.Name.EndsWith("_sk")).ToArray();
-
+            string[] matches = Directory.EnumerateFiles(Path.GetFullPath(directorys)).Where(a => a.EndsWith("_sk")).ToArray();
             if (null == matches)
-            {
-                throw new System.Exception($"Matches returned null does {directory.FullName} directory exist?");
-            }
-
+                throw new System.Exception($"Matches returned null does {directorys} directory exist?");
             if (matches.Length != 1)
-            {
-                throw new SystemException($"Expected in {directory.FullName} only 1 sk file but found {matches.Length}");
-            }
-
+                throw new SystemException($"Expected in {directorys} only 1 sk file but found {matches.Length}");
             return matches[0];
         }
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -9,11 +10,11 @@ namespace Hyperledger.Fabric.SDK.Helper
     //From StackOverflow
     //https://stackoverflow.com/a/7696370
     //User: Nick Rimmer & Community
-    //Modified to suit
+    //Heavly modified to suit
     public class Properties : IEnumerable<string>
     {
         private string filename;
-        private Dictionary<string, string> list;
+        private Dictionary<string, string> list=new Dictionary<string, string>();
 
         public Properties()
         {
@@ -53,10 +54,13 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public void Set(string field, object value)
         {
+            string val = null;
+            if (value != null)
+                val = Convert.ToString(value, CultureInfo.InvariantCulture);
             if (!list.ContainsKey(field))
-                list.Add(field, value.ToString());
+                list.Add(field, val);
             else
-                list[field] = value.ToString();
+                list[field] = val;
         }
 
         public void Save()
@@ -67,9 +71,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         public void Save(string filename)
         {
             this.filename = filename;
-
-            if (!File.Exists(filename))
-                File.Create(filename);
 
             StreamWriter file = new StreamWriter(filename);
 
@@ -93,8 +94,6 @@ namespace Hyperledger.Fabric.SDK.Helper
 
             if (File.Exists(filename))
                 LoadFromFile(filename);
-            else
-                File.Create(filename);
         }
 
         private void LoadFromFile(string file)

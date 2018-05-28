@@ -22,7 +22,7 @@ import org.hyperledger.fabric.protos.peer.FabricProposal;
 import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeHeaderExtension;
 import org.hyperledger.fabric.protos.peer.FabricProposalResponse;
 import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.exception.ProposalException;
 import org.hyperledger.fabric.sdk.helper.Config;
 import org.hyperledger.fabric.sdk.helper.DiagnosticFileDumper;
@@ -107,7 +107,7 @@ namespace Hyperledger.Fabric.SDK.Responses
          * Chaincode ID that was executed.
          *
          * @return See {@link ChaincodeID}
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public ChaincodeID ChaincodeID
@@ -137,7 +137,7 @@ namespace Hyperledger.Fabric.SDK.Responses
          * ChaincodeActionResponsePayload is the result of the executing chaincode.
          *
          * @return the result of the executing chaincode.
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public byte[] ChaincodeActionResponsePayload
@@ -176,7 +176,7 @@ namespace Hyperledger.Fabric.SDK.Responses
          * getChaincodeActionResponseStatus returns the what chaincode executions set as the return status.
          *
          * @return status code.
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public int ChaincodeActionResponseStatus
@@ -209,7 +209,7 @@ namespace Hyperledger.Fabric.SDK.Responses
          * getChaincodeActionResponseReadWriteSetInfo get this proposals read write set.
          *
          * @return The read write set. See {@link TxReadWriteSetInfo}
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public TxReadWriteSetInfo ChaincodeActionResponseReadWriteSetInfo

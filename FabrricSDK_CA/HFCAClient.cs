@@ -11,109 +11,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric_ca.sdk;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.net.MalformedURLException;
-import java.net.Socket;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.KeyManagementException;
-import java.security.KeyPair;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.TimeZone;
-
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonReader;
-import javax.json.JsonValue;
-import javax.json.JsonWriter;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-import javax.xml.bind.DatatypeConverter;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.ParseException;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.AuthCache;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.BasicAuthCache;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.EntityUtils;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
-import org.bouncycastle.asn1.x509.Extension;
-import org.hyperledger.fabric.sdk.Enrollment;
-import org.hyperledger.fabric.sdk.NetworkConfig;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.helper.Utils;
-import org.hyperledger.fabric.sdk.security.CryptoPrimitives;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-import org.hyperledger.fabric_ca.sdk.exception.AffiliationException;
-import org.hyperledger.fabric_ca.sdk.exception.EnrollmentException;
-import org.hyperledger.fabric_ca.sdk.exception.GenerateCRLException;
-import org.hyperledger.fabric_ca.sdk.exception.HTTPException;
-import org.hyperledger.fabric_ca.sdk.exception.IdentityException;
-import org.hyperledger.fabric_ca.sdk.exception.InfoException;
-import org.hyperledger.fabric_ca.sdk.exception.InvalidArgumentException;
-import org.hyperledger.fabric_ca.sdk.exception.RegistrationException;
-import org.hyperledger.fabric_ca.sdk.exception.RevocationException;
-import org.hyperledger.fabric_ca.sdk.helper.Config;
-
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-*/
 /**
  * HFCAClient Hyperledger Fabric Certificate Authority Client.
  */
@@ -129,22 +27,22 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
-
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
 using Hyperledger.Fabric_CA.SDK.Requests;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
-using Config = Hyperledger.Fabric_CA.SDK.Helper.Config;
 
 namespace Hyperledger.Fabric_CA.SDK
 {
@@ -212,7 +110,7 @@ namespace Hyperledger.Fabric_CA.SDK
      */
         public static readonly string HFCA_ATTRIBUTE_HFGENCRL = "hf.GenCRL";
 
-           private static readonly ILog logger = LogProvider.GetLogger(typeof(HFCAClient));
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(HFCAClient));
 
         public static readonly string FABRIC_CA_REQPROP = "caname";
         public static readonly string HFCA_CONTEXT_ROOT = "/api/v1/";
@@ -251,47 +149,32 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             logger.Debug("new HFCAClient {url}");
             this.url = url;
-
             CAName = caName; //name may be null
-
-            Uri purl = new Uri(url);
+            Uri purl = null;
+            try
+            {
+                purl = new Uri(url);
+            }
+            catch (UriFormatException e)
+            {
+                if (e.Message.Contains("hostname could not be parsed"))
+                    throw new IllegalArgumentException("HFCAClient url needs host");
+                throw;
+            }
             string proto = purl.Scheme;
             if (!"http".Equals(proto) && !"https".Equals(proto))
-            {
                 throw new IllegalArgumentException("HFCAClient only supports http or https not " + proto);
-            }
-
             string host = purl.Host;
-
             if (string.IsNullOrEmpty(host))
-            {
                 throw new IllegalArgumentException("HFCAClient url needs host");
-            }
-
             string path = purl.LocalPath;
-
-            if (!string.IsNullOrEmpty(path))
-            {
+            if (!string.IsNullOrEmpty(path) && path!="/")
                 throw new IllegalArgumentException("HFCAClient url does not support path portion in url remove path: '" + path + "'.");
-            }
-
             string query = purl.Query;
-
             if (!string.IsNullOrEmpty(query))
-            {
                 throw new IllegalArgumentException("HFCAClient url does not support query portion in url remove query: '" + query + "'.");
-            }
-
             isSSL = "https".Equals(proto);
-
-            if (properties != null)
-            {
-                this.properties = properties.Clone();
-            }
-            else
-            {
-                this.properties = null;
-            }
+            this.properties = properties?.Clone();
         }
 
         /**
@@ -308,7 +191,7 @@ namespace Hyperledger.Fabric_CA.SDK
          *
          * @return statusCode
          */
-        public int StatusCode { get; internal set;  } = 400;
+        public int StatusCode { get; internal set; } = 400;
 
         public ICryptoSuite CryptoSuite { get; set; }
 
@@ -321,7 +204,6 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             if (string.IsNullOrEmpty(name))
                 throw new InvalidArgumentException("name must not be null or an empty string.");
-
             return new HFCAClient(name, url, properties);
         }
 
@@ -359,15 +241,9 @@ namespace Hyperledger.Fabric_CA.SDK
         public static HFCAClient Create(NetworkConfig.CAInfo caInfo, ICryptoSuite cryptoSuite)
         {
             if (null == caInfo)
-            {
                 throw new InvalidArgumentException("The caInfo parameter can not be null.");
-            }
-
             if (null == cryptoSuite)
-            {
                 throw new InvalidArgumentException("The cryptoSuite parameter can not be null.");
-            }
-
             HFCAClient ret = new HFCAClient(caInfo.CAName, caInfo.Url, caInfo.Properties);
             ret.CryptoSuite = cryptoSuite;
             return ret;
@@ -382,31 +258,24 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RegistrationException    if registration fails.
          * @throws InvalidArgumentException
          */
-
         public string Register(RegistrationRequest request, IUser registrar)
         {
+            return RegisterAsync(request, registrar).RunAndUnwarp();
+        }
+        public async Task<string> RegisterAsync(RegistrationRequest request, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (string.IsNullOrEmpty(request.EnrollmentID))
-            {
                 throw new InvalidArgumentException("EntrollmentID cannot be null or empty");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             logger.Debug($"register  url: {url}, registrar: {registrar.Name}");
             SetUpSSL();
-
             try
             {
                 string body = request.ToJson();
-                JObject resp = HttpPost(url + HFCA_REGISTER, body, registrar);
+                JObject resp = await HttpPostAsync(url + HFCA_REGISTER, body, registrar, token);
                 string secret = resp["secret"].Value<string>();
                 if (secret == null)
                 {
@@ -437,6 +306,11 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return Enroll(user, secret, new EnrollmentRequest());
         }
+        
+        public Task<IEnrollment> EnrollAsync(string user, string secret, CancellationToken token = default(CancellationToken))
+        {
+            return EnrollAsync(user, secret, new EnrollmentRequest(), token);
+        }
 
         /**
          * Enroll the user with member service
@@ -448,81 +322,51 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws EnrollmentException
          * @throws InvalidArgumentException
          */
-
         public IEnrollment Enroll(string user, string secret, EnrollmentRequest req)
         {
+            return EnrollAsync(user, secret, req).RunAndUnwarp();
+        }
+
+        public async Task<IEnrollment> EnrollAsync(string user, string secret, EnrollmentRequest req, CancellationToken token = default(CancellationToken))
+        {
             logger.Debug($"url: {url} enroll user: {user}");
-
             if (string.IsNullOrEmpty(user))
-            {
                 throw new InvalidArgumentException("enrollment user is not set");
-            }
-
             if (string.IsNullOrEmpty(secret))
-            {
                 throw new InvalidArgumentException("enrollment secret is not set");
-            }
-
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             SetUpSSL();
-
             try
             {
                 string pem = req.CSR;
                 AsymmetricAlgorithm keypair = req.KeyPair;
                 if (null != pem && keypair == null)
-                {
                     throw new InvalidArgumentException("If certificate signing request is supplied the key pair needs to be supplied too.");
-                }
-
                 if (keypair == null)
                 {
                     logger.Debug("[HFCAClient.enroll] Generating keys...");
-
                     // generate ECDSA keys: signing and encryption keys
                     keypair = CryptoSuite.KeyGen();
-
                     logger.Debug("[HFCAClient.enroll] Generating keys...done!");
                 }
-
                 if (pem == null)
-                {
                     req.CSR = CryptoSuite.GenerateCertificationRequest(user, keypair);
-                }
-
                 if (!string.IsNullOrEmpty(CAName))
-                {
                     req.CAName = CAName;
-                }
-
                 string body = req.ToJson();
-                string responseBody = HttpPost(url + HFCA_ENROLL, body, new NetworkCredential(user, secret));
-
+                string responseBody = await HttpPostAsync(url + HFCA_ENROLL, body, new NetworkCredential(user, secret), token);
                 logger.Debug("response:" + responseBody);
                 JObject jsonst = JObject.Parse(responseBody);
-
                 bool success = jsonst["success"].Value<bool>();
                 logger.Debug($"[HFCAClient] enroll success:[{success}]");
-
                 if (!success)
-                {
                     throw new EnrollmentException($"FabricCA failed enrollment for user {user} response success is false.");
-                }
-
                 JObject result = jsonst["result"] as JObject;
                 if (result == null)
-                {
                     throw new EnrollmentException($"FabricCA failed enrollment for user {user} - response did not contain a result");
-                }
-
-
                 string signedPem = Convert.FromBase64String(result["Cert"].Value<string>()).ToUTF8String();
                 logger.Debug($"[HFCAClient] enroll returned pem:[{signedPem}]");
-
                 JArray messages = jsonst["messages"] as JArray;
                 if (messages != null && messages.Count > 0)
                 {
@@ -530,9 +374,7 @@ namespace Hyperledger.Fabric_CA.SDK
                     string message = $"Enroll request response message [code {jo["code"].Value<int>()}]: {jo["message"].Value<string>()}";
                     logger.Info(message);
                 }
-
                 logger.Debug("Enrollment done.");
-
                 return new HFCAEnrollment(keypair, signedPem);
             }
             catch (EnrollmentException ee)
@@ -556,53 +398,36 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws InfoException
          * @throws InvalidArgumentException
          */
-
         public HFCAInfo Info()
+        {
+            return InfoAsync().RunAndUnwarp();
+        }
+        public async Task<HFCAInfo> InfoAsync(CancellationToken token = default(CancellationToken))
         {
             logger.Debug("info url:{url}");
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             SetUpSSL();
-
             try
             {
                 JObject body = new JObject();
-
                 if (CAName != null)
-                {
                     body.Add(new JProperty(FABRIC_CA_REQPROP, CAName));
-                }
-
-                string responseBody = HttpPost(url + HFCA_INFO, body.ToString(), (NetworkCredential) null);
-
+                string responseBody = await HttpPostAsync(url + HFCA_INFO, body.ToString(), (NetworkCredential) null, token);
                 logger.Debug("response:" + responseBody);
                 JObject jsonst = JObject.Parse(responseBody);
-
                 bool success = jsonst["success"].Value<bool>();
                 logger.Debug($"[HFCAClient] enroll success:[{success}]");
-
                 if (!success)
-                {
                     throw new EnrollmentException("FabricCA failed info {url}");
-                }
-
                 JObject result = jsonst["result"] as JObject;
                 if (result == null)
-                {
                     throw new InfoException($"FabricCA info error  - response did not contain a result url {url}");
-                }
-
                 string caNames = result["CAName"].Value<string>();
                 string caChain = result["CAChain"].Value<string>();
                 string version = null;
                 if (result.ContainsKey("Version"))
-                {
                     version = result["Version"].Value<string>();
-                }
-
                 return new HFCAInfo(caNames, caChain, version);
             }
             catch (Exception e)
@@ -625,6 +450,10 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return Reenroll(user, new EnrollmentRequest());
         }
+        public Task<IEnrollment> ReenrollAsync(IUser user, CancellationToken token = default(CancellationToken))
+        {
+            return ReenrollAsync(user, new EnrollmentRequest(), token);
+        }
 
         /**
          * Re-Enroll the user with member service
@@ -635,33 +464,24 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws EnrollmentException
          * @throws InvalidArgumentException
          */
-
         public IEnrollment Reenroll(IUser user, EnrollmentRequest req)
         {
+            return ReenrollAsync(user, req).RunAndUnwarp();
+        }
+        public async Task<IEnrollment> ReenrollAsync(IUser user, EnrollmentRequest req, CancellationToken token = default(CancellationToken))
+        {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (user == null)
-            {
                 throw new InvalidArgumentException("reenrollment user is missing");
-            }
-
             if (user.Enrollment == null)
-            {
                 throw new InvalidArgumentException("reenrollment user is not a valid user object");
-            }
-
             logger.Debug($"re-enroll user: {user.Name}, url: {url}");
-
             try
             {
                 SetUpSSL();
                 AsymmetricAlgorithm pub = CryptoSuite.BytesToCertificate(user.Enrollment.Cert.ToBytes()).PublicKey.Key;
                 AsymmetricAlgorithm priv = user.Enrollment.Key;
-
-
                 // generate CSR
 
                 string pem = CryptoSuite.GenerateCertificationRequest(user.Name, pub, priv);
@@ -676,7 +496,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 string body = req.ToJson();
 
                 // build authentication header
-                JObject result = HttpPost(url + HFCA_REENROLL, body, user);
+                JObject result = await HttpPostAsync(url + HFCA_REENROLL, body, user, token);
 
                 // get new cert from response
                 string signedPem = Convert.FromBase64String(result["Cert"].Value<string>()).ToUTF8String();
@@ -707,10 +527,14 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public void Revoke(IUser revoker, IEnrollment enrollment, string reason)
         {
-            RevokeInternal(revoker, enrollment, reason, false);
+            RevokeAsync(revoker, enrollment, reason).RunAndUnwarp();
+        }
+
+        public Task RevokeAsync(IUser revoker, IEnrollment enrollment, string reason, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, enrollment, reason, false, token);
         }
 
         /**
@@ -723,74 +547,57 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public string Revoke(IUser revoker, IEnrollment enrollment, string reason, bool genCRL)
         {
-            return RevokeInternal(revoker, enrollment, reason, genCRL);
+            return RevokeAsync(revoker, enrollment, reason, genCRL).RunAndUnwarp();
+        }
+        public Task<string> RevokeAsync(IUser revoker, IEnrollment enrollment, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, enrollment, reason, genCRL, token);
         }
 
-        private string RevokeInternal(IUser revoker, IEnrollment enrollment, string reason, bool genCRL)
+        private async Task<string> RevokeInternalAsync(IUser revoker, IEnrollment enrollment, string reason, bool genCRL, CancellationToken token)
         {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (enrollment == null)
-            {
                 throw new InvalidArgumentException("revokee enrollment is not set");
-            }
-
             if (revoker == null)
-            {
                 throw new InvalidArgumentException("revoker is not set");
-            }
-
             logger.Debug($"revoke revoker: {revoker.Name}, reason: {reason}, url: {url}x");
-
             try
             {
                 SetUpSSL();
-
                 // get cert from to-be-revoked enrollment
                 X509Certificate2 certificate = CryptoSuite.BytesToCertificate(enrollment.Cert.ToBytes());
                 Org.BouncyCastle.X509.X509Certificate ncert = DotNetUtilities.FromX509Certificate(certificate);
-
                 // get its serial number
                 string serial = ncert.SerialNumber.ToByteArray().ToHexString();
-
                 // get its aki
                 // 2.5.29.35 : AuthorityKeyIdentifier
-
-
                 Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier.Id);
                 string aki = AuthorityKeyIdentifier.GetInstance(akiOc.GetOctets()).GetKeyIdentifier().ToHexString();
-
-
                 // build request body
                 RevocationRequest req = new RevocationRequest(CAName, null, serial, aki, reason, genCRL);
                 string body = req.ToJson();
-
                 // send revoke request
-                JObject resp = HttpPost(url + HFCA_REVOKE, body, revoker);
+                JObject resp = await HttpPostAsync(url + HFCA_REVOKE, body, revoker, token);
                 logger.Debug("revoke done");
-
                 if (genCRL)
                 {
                     if (!resp.HasValues)
-                    {
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
-                    }
-
                     if (!resp.ContainsKey("CRL"))
-                    {
                         throw new RevocationException("Failed to return CRL");
-                    }
-
                     return resp["CRL"].Value<string>();
                 }
 
                 return null;
+            }
+            catch (NullReferenceException e)
+            {
+                logger.Error($"Cannot validate certificate. Error is: {e.Message}");
+                throw new RevocationException($"Error while revoking cert. {e.Message}", e);
             }
             catch (CertificateException e)
             {
@@ -814,10 +621,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public void Revoke(IUser revoker, string revokee, string reason)
         {
-            RevokeInternal(revoker, revokee, reason, false);
+            RevokeAsync(revoker, revokee, reason).RunAndUnwarp();
+        }
+        public Task RevokeAsync(IUser revoker, string revokee, string reason, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, revokee, reason, false, token);
         }
 
         /**
@@ -830,59 +640,41 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public string Revoke(IUser revoker, string revokee, string reason, bool genCRL)
         {
-            return RevokeInternal(revoker, revokee, reason, genCRL);
+            return RevokeAsync(revoker, revokee, reason, genCRL).RunAndUnwarp();
+        }
+        public Task<string> RevokeAsync(IUser revoker, string revokee, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, revokee, reason, genCRL, token);
         }
 
-        private string RevokeInternal(IUser revoker, string revokee, string reason, bool genCRL)
+        private async Task<string> RevokeInternalAsync(IUser revoker, string revokee, string reason, bool genCRL, CancellationToken token)
         {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             logger.Debug($"revoke revoker: {revoker}, revokee: {revokee}, reason: {reason}");
-
             if (string.IsNullOrEmpty(revokee))
-            {
                 throw new InvalidArgumentException("revokee user is not set");
-            }
-
             if (revoker == null)
-            {
                 throw new InvalidArgumentException("revoker is not set");
-            }
-
             try
             {
                 SetUpSSL();
-
                 // build request body
                 RevocationRequest req = new RevocationRequest(CAName, revokee, null, null, reason, genCRL);
                 string body = req.ToJson();
-
                 // send revoke request
-                JObject resp = HttpPost(url + HFCA_REVOKE, body, revoker);
-
+                JObject resp = await HttpPostAsync(url + HFCA_REVOKE, body, revoker, token);
                 logger.Debug($"revoke revokee: {revokee} done.");
-
                 if (genCRL)
                 {
                     if (!resp.HasValues)
-                    {
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
-                    }
-
                     if (!resp.ContainsKey("CRL"))
-                    {
                         throw new RevocationException("Failed to return CRL");
-                    }
-
                     return resp["CRL"].Value<string>();
                 }
-
                 return null;
             }
             catch (Exception e)
@@ -902,10 +694,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public void Revoke(IUser revoker, string serial, string aki, string reason)
         {
-            RevokeInternal(revoker, serial, aki, reason, false);
+            RevokeAsync(revoker, serial, aki, reason).RunAndUnwarp();
+        }
+        public Task RevokeAsync(IUser revoker, string serial, string aki, string reason, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, serial, aki, reason, false, token);
         }
 
         /**
@@ -919,63 +714,44 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws RevocationException
          * @throws InvalidArgumentException
          */
-
         public string Revoke(IUser revoker, string serial, string aki, string reason, bool genCRL)
         {
-            return RevokeInternal(revoker, serial, aki, reason, genCRL);
+            return RevokeAsync(revoker, serial, aki, reason, genCRL).RunAndUnwarp();
+        }
+        public Task<string> RevokeAsync(IUser revoker, string serial, string aki, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
+        {
+            return RevokeInternalAsync(revoker, serial, aki, reason, genCRL, token);
         }
 
-        private string RevokeInternal(IUser revoker, string serial, string aki, string reason, bool genCRL)
+        private async Task<string> RevokeInternalAsync(IUser revoker, string serial, string aki, string reason, bool genCRL, CancellationToken token)
         {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (string.IsNullOrEmpty(serial))
-            {
                 throw new IllegalArgumentException("Serial number id required to revoke ceritificate");
-            }
-
             if (string.IsNullOrEmpty(aki))
-            {
                 throw new IllegalArgumentException("AKI is required to revoke certificate");
-            }
-
             if (revoker == null)
-            {
                 throw new InvalidArgumentException("revoker is not set");
-            }
-
             logger.Debug($"revoke revoker: {revoker.Name}, reason: {reason}, url: {url}");
 
             try
             {
                 SetUpSSL();
-
                 // build request body
                 RevocationRequest req = new RevocationRequest(CAName, null, serial, aki, reason, genCRL);
                 string body = req.ToJson();
-
                 // send revoke request
-                JObject resp = HttpPost(url + HFCA_REVOKE, body, revoker);
+                JObject resp = await HttpPostAsync(url + HFCA_REVOKE, body, revoker, token);
                 logger.Debug("revoke done");
-
                 if (genCRL)
                 {
                     if (!resp.HasValues)
-                    {
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
-                    }
-
                     if (!resp.ContainsKey("CRL"))
-                    {
                         throw new RevocationException("Failed to return CRL");
-                    }
-
                     return resp["CRL"].Value<string>();
                 }
-
                 return null;
             }
             catch (CertificateException e)
@@ -1003,54 +779,34 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public string GenerateCRL(IUser registrar, DateTime? revokedBefore, DateTime? revokedAfter, DateTime? expireBefore, DateTime? expireAfter)
         {
+            return GenerateCRLAsync(registrar, revokedBefore, revokedAfter, expireBefore, expireAfter).RunAndUnwarp();
+        }
+
+        public async Task<string> GenerateCRLAsync(IUser registrar, DateTime? revokedBefore, DateTime? revokedAfter, DateTime? expireBefore, DateTime? expireAfter, CancellationToken token = default(CancellationToken))
+        {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("registrar is not set");
-            }
-
             try
             {
                 SetUpSSL();
-
                 //---------------------------------------
                 JObject o = new JObject();
                 if (revokedBefore != null)
-                {
                     o.Add(new JProperty("revokedBefore", revokedBefore.Value.ToUniversalTime()));
-                }
-
                 if (revokedAfter != null)
-                {
                     o.Add(new JProperty("revokedAfter", revokedAfter.Value.ToUniversalTime()));
-                }
-
                 if (expireBefore != null)
-                {
                     o.Add(new JProperty("expireBefore", expireBefore.Value.ToUniversalTime()));
-                }
-
                 if (expireAfter != null)
-                {
                     o.Add(new JProperty("expireAfter", expireAfter.Value.ToUniversalTime()));
-                }
-
                 if (CAName != null)
-                {
                     o.Add(new JProperty(FABRIC_CA_REQPROP, CAName));
-                }
-
                 string body = o.ToString();
-
                 //---------------------------------------
-
                 // send revoke request
-                JObject ret = HttpPost(url + HFCA_GENCRL, body, registrar);
-
+                JObject ret = await HttpPostAsync(url + HFCA_GENCRL, body, registrar, token);
                 return ret["CRL"].Value<string>();
             }
             catch (Exception e)
@@ -1081,19 +837,19 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws IdentityException        if adding an identity fails.
          * @throws InvalidArgumentException Invalid (null) argument specified
          */
-
         public List<HFCAIdentity> GetHFCAIdentities(IUser registrar)
         {
+            return GetHFCAIdentitiesAsync(registrar).RunAndUnwarp();
+        }
+
+        public async Task<List<HFCAIdentity>> GetHFCAIdentitiesAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             logger.Debug("identity  url: {url}, registrar: {registrar.Name}");
-
             try
             {
-                JObject result = HttpGet(HFCAIdentity.HFCA_IDENTITY, registrar);
+                JObject result = await HttpGetAsync(HFCAIdentity.HFCA_IDENTITY, registrar, token);
                 List<HFCAIdentity> allIdentities = HFCAIdentity.FromJArray(result["identities"] as JArray);
                 logger.Debug($"identity  url: {url}, registrar: {registrar.Name} done.");
                 return allIdentities;
@@ -1132,26 +888,22 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException     if getting all affiliations fails
          * @throws InvalidArgumentException
          */
-
         public HFCAAffiliation GetHFCAAffiliations(IUser registrar)
         {
+            return GetHFCAAffiliationsAsync(registrar).RunAndUnwarp();
+        }
+
+        public async Task<HFCAAffiliation> GetHFCAAffiliationsAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             logger.Debug($"affiliations  url: {url}, registrar: {registrar.Name}");
-
             try
             {
-                JObject result = HttpGet(HFCAAffiliation.HFCA_AFFILIATION, registrar);
+                JObject result = await HttpGetAsync(HFCAAffiliation.HFCA_AFFILIATION, registrar, token);
                 HFCAAffiliation affiliations = new HFCAAffiliation(result);
-
                 logger.Debug($"affiliations  url: {url}, registrar: {registrar.Name} done.");
                 return affiliations;
             }
@@ -1189,10 +941,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (isSSL && null == caStore)
             {
                 if (!properties.Contains("pemBytes") && !properties.Contains("pemFile"))
-                {
                     logger.Warn("SSL with no CA certficates in either pemBytes or pemFile");
-                }
-
                 try
                 {
                     if (properties.Contains("pemBytes"))
@@ -1201,7 +950,6 @@ namespace Hyperledger.Fabric_CA.SDK
                         X509Certificate2 cert2 = cryptoPrimitives.BytesToCertificate(permbytes);
                         cryptoPrimitives.AddCACertificateToTrustStore(cert2);
                     }
-
                     if (properties.Contains("pemFile"))
                     {
                         string pemFile = (string) properties["pemFile"];
@@ -1209,7 +957,6 @@ namespace Hyperledger.Fabric_CA.SDK
                         {
                             Regex pattern = new Regex("[ \t]*,[ \t]*");
                             string[] pems = pattern.Split(pemFile);
-
                             foreach (string pem in pems)
                             {
                                 if (!string.IsNullOrEmpty(pem))
@@ -1218,8 +965,8 @@ namespace Hyperledger.Fabric_CA.SDK
                                     try
                                     {
                                         byte[] pembytes = File.ReadAllBytes(fname);
-                                        X509Certificate2 cert2 = cryptoPrimitives.BytesToCertificate(pembytes);
-                                        cryptoPrimitives.AddCACertificateToTrustStore(cert2);
+                                        List<X509Certificate2> certs = cryptoPrimitives.BytesToCertificates(pembytes);
+                                        certs.ForEach(a => cryptoPrimitives.AddCACertificateToTrustStore(a));
                                     }
                                     catch (IOException e)
                                     {
@@ -1251,7 +998,6 @@ namespace Hyperledger.Fabric_CA.SDK
                 if (certificate.Subject == cert.Subject && certificate.Issuer == cert.Issuer && certificate.GetCertHashString() == cert.GetCertHashString())
                     return true;
             }
-
             return false;
         }
 
@@ -1264,7 +1010,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @return Body of post returned.
          * @throws Exception
          */
+
         public virtual string HttpPost(string url, string body, NetworkCredential credentials)
+        {
+            return HttpPostAsync(url, body, credentials).RunAndUnwarp();
+        }
+
+        public async Task<string> HttpPostAsync(string url, string body, NetworkCredential credentials, CancellationToken token = default(CancellationToken))
         {
             logger.Debug($"httpPost {url}, body:{body}");
             HttpClientHandler handler = new HttpClientHandler();
@@ -1277,7 +1029,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 request.Content = new StringContent(body, Encoding.UTF8);
                 request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
                 logger.Trace("httpPost {url}  sending...");
-                HttpResponseMessage msg = client.SendAsync(request, HttpCompletionOption.ResponseContentRead).GetAwaiter().GetResult();
+                HttpResponseMessage msg = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, token);
                 string result = msg.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                 logger.Trace($"httpPost {url}  responseBody {result}");
                 int status = (int) msg.StatusCode;
@@ -1295,10 +1047,15 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public virtual JObject HttpPost(string url, string body, IUser registrar)
         {
-            return HttpVerb(url, "POST", body, registrar);
+            return HttpPostAsync(url, body, registrar).RunAndUnwarp();
         }
 
-        private JObject HttpVerb(string url, string verb, string body, IUser registrar)
+        public Task<JObject> HttpPostAsync(string url, string body, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return HttpVerbAsync(url, "POST", body, registrar, token);
+        }
+
+        private async Task<JObject> HttpVerbAsync(string url, string verb, string body, IUser registrar, CancellationToken token)
         {
             string authHTTPCert = GetHTTPAuthCertificate(registrar.Enrollment, body);
             logger.Debug($"http{verb} {url}, body:{body}, authHTTPCert: {authHTTPCert}");
@@ -1334,31 +1091,44 @@ namespace Hyperledger.Fabric_CA.SDK
                     request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
                 }
 
-                HttpResponseMessage msg = client.SendAsync(request, HttpCompletionOption.ResponseContentRead).GetAwaiter().GetResult();
-                return GetResult(msg, body, verb);
+                HttpResponseMessage msg = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, token);
+                return await GetResultAsync(msg, body, verb);
             }
         }
 
         public JObject HttpGet(string url, IUser registrar)
         {
-            return HttpVerb(url, "GET", "", registrar);
+            return HttpGetAsync(url, registrar).RunAndUnwarp();
+        }
+
+        public Task<JObject> HttpGetAsync(string url, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return HttpVerbAsync(url, "GET", "", registrar, token);
         }
 
         public JObject HttpPut(string url, string body, IUser registrar)
         {
-            return HttpVerb(url, "PUT", body, registrar);
+            return HttpPutAsync(url, body, registrar).RunAndUnwarp();
+        }
+        public Task<JObject> HttpPutAsync(string url, string body, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return HttpVerbAsync(url, "PUT", body, registrar, token);
         }
 
         public JObject HttpDelete(string url, IUser registrar)
         {
-            return HttpVerb(url, "DELETE", "", registrar);
+            return HttpDeleteAsync(url, registrar).RunAndUnwarp();
+        }
+        public Task<JObject> HttpDeleteAsync(string url, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return HttpVerbAsync(url, "DELETE", "", registrar, token);
         }
 
-        private JObject GetResult(HttpResponseMessage response, string body, string type)
+        private async Task<JObject> GetResultAsync(HttpResponseMessage response, string body, string type)
         {
             int respStatusCode = (int) response.StatusCode;
             logger.Trace($"response status {respStatusCode}, Phrase {response.ReasonPhrase ?? ""}");
-            string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            string responseBody = await response.Content.ReadAsStringAsync();
             logger.Trace($"responseBody: {responseBody}");
 
             // If the status code in the response is greater or equal to the status code set in the client object then an exception will
@@ -1369,20 +1139,16 @@ namespace Hyperledger.Fabric_CA.SDK
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
-
             if (responseBody == null)
             {
                 HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} with null response body returned.", respStatusCode);
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
-
             logger.Debug("Status: " + respStatusCode);
             JObject jobj = JObject.Parse(responseBody);
-
             JObject job = new JObject();
             job.Add(new JProperty("statusCode", respStatusCode));
-
             JArray errors = jobj["errors"] as JArray;
             // If the status code is greater than or equal to 400 but less than or equal to the client status code setting,
             // then encountered an error and we return back the status code, and log the error rather than throwing an exception.
@@ -1394,10 +1160,8 @@ namespace Hyperledger.Fabric_CA.SDK
                     string errorMsg = $"[HTTP Status Code: {respStatusCode}] - {type} request to {url} failed request body {body} error message: [Error Code {jo["code"].Value<int>()}] - {jo["message"].Value<string>()}";
                     logger.Error(errorMsg);
                 }
-
                 return job;
             }
-
             if (errors != null && errors.Count > 0)
             {
                 JObject jo = (JObject) errors.First;
@@ -1405,7 +1169,6 @@ namespace Hyperledger.Fabric_CA.SDK
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
-
             bool success = jobj["success"].Value<bool>();
             if (!success)
             {
@@ -1432,10 +1195,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
             // Construct JSON object that contains the result and HTTP status code
             foreach (JProperty prop in result.Children())
-            {
                 job.Add(prop);
-            }
-
             logger.Debug($"{type} {url}, body:{body} result: {job}");
             return job;
         }
@@ -1474,16 +1234,11 @@ namespace Hyperledger.Fabric_CA.SDK
             SetUpSSL();
             string url = this.url + endpoint;
             if (CAName != null)
-            {
                 url = AddQueryValue(url, "ca", CAName);
-            }
-
             if (queryMap != null)
             {
                 foreach (string key in queryMap.Keys)
-                {
                     url = AddQueryValue(url, key, queryMap[key]);
-                }
             }
 
             return url;
@@ -1492,7 +1247,7 @@ namespace Hyperledger.Fabric_CA.SDK
         // Convert the identity request to a JSON string
         public string ToJson(JObject toJsonFunc)
         {
-            return toJsonFunc.ToString();
+            return toJsonFunc.ToString(Formatting.None);
         }
     }
 }

@@ -70,7 +70,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         private SampleStore sampleStore;
 
         [ClassInitialize]
-        public static void Init()
+        public static void Init(TestContext context)
         {
             Util.COut("\n\n\nRUNNING: HFCAClientEnrollIT.\n");
 
@@ -80,13 +80,13 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         [TestInitialize]
-        public void setup()
+        public void Setup()
         {
-            FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
-            if (sampleStoreFile.Exists)
+            string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
+            if (File.Exists(sampleStoreFile))
             {
                 // For testing start fresh
-                sampleStoreFile.Delete();
+                File.Delete(sampleStoreFile);
             }
 
             sampleStore = new SampleStore(sampleStoreFile);
@@ -1150,11 +1150,11 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // See if a normal user can revoke the admin...
             SampleUser user1 = GetEnrolledUser(TEST_ADMIN_ORG);
 
-            FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
-            if (sampleStoreFile.Exists)
+            string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
+            if (File.Exists(sampleStoreFile))
             {
                 // For testing start fresh
-                sampleStoreFile.Delete();
+                File.Delete(sampleStoreFile);
             }
 
             sampleStore = new SampleStore(sampleStoreFile);

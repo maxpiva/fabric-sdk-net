@@ -126,10 +126,8 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        public TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal)
+        public async Task<Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken))
         {
-            TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse> src = new TaskCompletionSource<Protos.Peer.FabricProposalResponse.ProposalResponse>();
-
             CheckSendProposal(proposal);
 
             logger.Debug($"peer.sendProposalAsync name: {Name}, url: {Url}");
@@ -144,19 +142,13 @@ namespace Hyperledger.Fabric.SDK
 
             try
             {
-                Task.Factory.StartNew(async () =>
-                {
-                    Protos.Peer.FabricProposalResponse.ProposalResponse resp = await localEndorserClient.SendProposalAsync(proposal);
-                    src.SetResult(resp);
-                }, default(CancellationToken), TaskCreationOptions.None, ExecutorService);
+                return await localEndorserClient.SendProposalAsync(proposal,token);
             }
             catch (Exception)
             {
                 endorserClent = null;
                 throw;
             }
-
-            return src;
         }
 
         private void CheckSendProposal(SignedProposal proposal)

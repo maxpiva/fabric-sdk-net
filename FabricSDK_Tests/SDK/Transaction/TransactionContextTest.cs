@@ -31,7 +31,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         static HFClient hfclient = null;
 
         [ClassInitialize]
-        public static void SetupClient()
+        public static void SetupClient(TestContext context)
         {
 
             try

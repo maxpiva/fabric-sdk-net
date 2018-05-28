@@ -60,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         public readonly string tempFolder = Path.GetTempPath();
 
         [ClassInitialize]
-        public static void SetUpBeforeClass()
+        public static void SetUpBeforeClass(TestContext context)
         {
             var _ = Config.Instance;
             
@@ -71,11 +71,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
             crypto = new CryptoPrimitives();
             crypto.Init();
-        }
 
-        [ClassInitialize]
-        public void SetUp()
-        {
             // TODO should do this in @BeforeClass. Need to find out how to get to
             // files from static junit method
 
@@ -86,15 +82,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
 
             crypto.GetTrustStore().Add(cert);
-//        crypto.getTrustStore().setKeyEntry("key", key, "123456".toCharArray(), certificates);
-//        pem.close();
+            //        crypto.getTrustStore().setKeyEntry("key", key, "123456".toCharArray(), certificates);
+            //        pem.close();
+
         }
 
-        private X509Certificate2 GenerateFromCertAndPriv()
+        private static X509Certificate2 GenerateFromCertAndPriv()
         {
             X509CertificateEntry entry = null;
             AsymmetricCipherKeyPair privKey = null;
-            using (Stream ms = new FileInfo(Path.GetFullPath("Resources/keypair-signed.crt")).OpenRead())
+            using (Stream ms = File.OpenRead(Path.GetFullPath("Resources/keypair-signed.crt")))
             {
                 PemReader pemReader = new PemReader(new StreamReader(ms));
                 object o;
@@ -107,7 +104,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 }
             }
 
-            using (Stream ms = new FileInfo(Path.GetFullPath("Resources/keypair-signed.key")).OpenRead())
+            using (Stream ms = File.OpenRead(Path.GetFullPath("Resources/keypair-signed.key")))
             {
                 PemReader pemReader = new PemReader(new StreamReader(ms));
                 object o;
@@ -321,7 +318,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 // Write this to a temp file
                 string newFile = Path.Combine(Path.GetFullPath(tempFolder), "temp.txt");
                 File.WriteAllText(newFile, certData);
-                crypto.AddCACertificateToTrustStore(new FileInfo(newFile), "ca"); //KeyStore overrides existing cert if same alias
+                crypto.AddCACertificateToTrustStoreFromFile(newFile, "ca"); //KeyStore overrides existing cert if same alias
             }
             catch (System.Exception e)
             {
@@ -335,7 +332,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                crypto.AddCACertificateToTrustStore(new FileInfo("something"), null);
+                crypto.AddCACertificateToTrustStoreFromFile("something", null);
             }
             catch (CryptoException e)
             {
@@ -349,7 +346,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                crypto.AddCACertificateToTrustStore(new FileInfo("something"), "");
+                crypto.AddCACertificateToTrustStoreFromFile("something", "");
             }
             catch (CryptoException e)
             {
@@ -383,7 +380,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                crypto.AddCACertificateToTrustStore(new FileInfo("does/not/exist"), "abc");
+                crypto.AddCACertificateToTrustStoreFromFile("does/not/exist", "abc");
             }
             catch (InvalidArgumentException e)
             {
@@ -397,7 +394,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                crypto.AddCACertificateToTrustStore(new FileInfo("/bad-ca1.crt"), "abc");
+                crypto.AddCACertificateToTrustStoreFromFile("/bad-ca1.crt", "abc");
             }
             catch (InvalidArgumentException e)
             {
@@ -439,7 +436,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         [ExpectedException(typeof(InvalidArgumentException))]
         public void TestAddCACertificateToTrustStoreNullFile()
         {
-            crypto.AddCACertificateToTrustStore((FileInfo) null, "test");
+            crypto.AddCACertificateToTrustStoreFromFile(null, "test");
         }
 
         [TestMethod]
@@ -786,7 +783,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
             byte[] onceFailingPem = File.ReadAllBytes(Path.GetFullPath("Fixture/testPems/peerCert.pem"));
             CryptoPrimitives cryptoPrimitives = (CryptoPrimitives) cryptoSuite;
-            cryptoPrimitives.AddCACertificatesToTrustStore(new FileInfo(Path.GetFullPath("fixture/testPems/caBundled.pems")));
+            cryptoPrimitives.AddCACertificatesToTrustStoreFromFile(Path.GetFullPath("fixture/testPems/caBundled.pems"));
             Assert.IsTrue(cryptoPrimitives.ValidateCertificate(onceFailingPem));
         }
     }

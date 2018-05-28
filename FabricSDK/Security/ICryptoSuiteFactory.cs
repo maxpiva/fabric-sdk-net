@@ -20,7 +20,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Properties;
 
 import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.helper.Config;
 /*
 /**
@@ -49,7 +49,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @param properties
          * @return
          * @throws CryptoException
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         ICryptoSuite GetCryptoSuite(Properties properties);
@@ -58,7 +58,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * Return a default crypto suite
          * @return
          * @throws CryptoException
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         ICryptoSuite GetCryptoSuite();

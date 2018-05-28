@@ -115,7 +115,7 @@ namespace Hyperledger.Fabric.SDK.Builders
             /*
             if (chaincodeType == null)
             {
-                throw new InvalidArgumentException("Chaincode type is required");
+                throw new InvalidIllegalArgumentException("Chaincode type is required");
             }
             */
             LinkedList<string> modlist = new LinkedList<string>();

@@ -560,7 +560,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             if (dd != null)
             {
 
-                diagnosticFileDumper = DiagnosticFileDumper.ConfigInstance(new DirectoryInfo(dd));
+                diagnosticFileDumper = DiagnosticFileDumper.ConfigInstance(dd);
 
             }
 

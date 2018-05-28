@@ -23,15 +23,18 @@ import org.apache.commons.logging.LogFactory;
 import org.hyperledger.fabric.protos.common.Common;
 import org.hyperledger.fabric.protos.orderer.Ab;
 import org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.exception.TransactionException;
 
 import static java.lang.String.format;
 import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;*/
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -97,6 +100,10 @@ namespace Hyperledger.Fabric.SDK
 
         public BroadcastResponse SendTransaction(Envelope transaction)
         {
+            return SendTransactionAsync(transaction).RunAndUnwarp();
+        }
+        public async Task<BroadcastResponse> SendTransactionAsync(Envelope transaction, CancellationToken token=default(CancellationToken))
+        {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
             logger.Debug($"Order.sendTransaction name: {Name}, url: {Url}");
@@ -108,7 +115,7 @@ namespace Hyperledger.Fabric.SDK
             }
             try
             {
-                return localOrdererClient.SendTransaction(transaction);
+                return await localOrdererClient.SendTransactionAsync(transaction,token);
             }
             catch (Exception)
             {
@@ -116,8 +123,11 @@ namespace Hyperledger.Fabric.SDK
                 throw;
             }
         }
-
-        public DeliverResponse[] SendDeliver(Envelope transaction)
+        public List<DeliverResponse> SendDeliver(Envelope transaction)
+        {
+            return SendDeliverAsync(transaction).RunAndUnwarp();
+        }
+        public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope transaction, CancellationToken token=default(CancellationToken))
         {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
@@ -130,7 +140,7 @@ namespace Hyperledger.Fabric.SDK
             }
             try
             {
-                return localOrdererClient.SendDeliver(transaction);
+                return await localOrdererClient.SendDeliverAsync(transaction,token);
             }
             catch (Exception)
             {
@@ -138,7 +148,6 @@ namespace Hyperledger.Fabric.SDK
                 throw;
             }
         }
-
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown(bool force)
         {

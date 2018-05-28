@@ -163,7 +163,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
             string s = testEnrollReq.ToJson();
             Assert.IsNotNull(s);
-            Assert.IsTrue(s.Contains("\"attr_reqs\":[]"));
+            Assert.IsTrue(s.Contains("\"attr_reqs\":[]") || !s.Contains("\"attr_reqs\""));
         }
 
         [TestMethod]

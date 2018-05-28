@@ -44,11 +44,11 @@ namespace Hyperledger.Fabric.Tests.SDK
      * @throws IOException
      */
         [TestMethod]
-        [ExpectedException(typeof(IOException))]
+        [ExpectedException(typeof(DirectoryNotFoundException))]
         public void TestPolicyCtorFile()
         {
             ChaincodeEndorsementPolicy policy = new ChaincodeEndorsementPolicy();
-            policy.FromFile(new FileInfo("/does/not/exists"));
+            policy.FromFile("/does/not/exists");
         }
 
         /**
@@ -59,10 +59,10 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestPolicyCtorValidFile()
         {
-            FileInfo policyFile = new FileInfo("Resources/policyBitsAdmin");
+            string policyFile = Path.GetFullPath("Resources/policyBitsAdmin");
             ChaincodeEndorsementPolicy policy = new ChaincodeEndorsementPolicy();
             policy.FromFile(policyFile);
-            byte[] policyBits = File.ReadAllBytes(policyFile.FullName);
+            byte[] policyBits = File.ReadAllBytes(policyFile);
             CollectionAssert.AreEqual(policyBits, policy.ChaincodeEndorsementPolicyAsBytes);
         }
 
@@ -87,7 +87,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestSDKIntegrationYaml()
         {
             ChaincodeEndorsementPolicy itTestPolicy = new ChaincodeEndorsementPolicy();
-            itTestPolicy.FromYamlFile(new FileInfo("Fixture/sdkintegration/chaincodeendorsementpolicy.yaml"));
+            itTestPolicy.FromYamlFile(Path.GetFullPath("Fixture/sdkintegration/chaincodeendorsementpolicy.yaml"));
             SignaturePolicyEnvelope sigPolEnv = SignaturePolicyEnvelope.Parser.ParseFrom(itTestPolicy.ChaincodeEndorsementPolicyAsBytes);
             List<MSPPrincipal> identitiesList = sigPolEnv.Identities.ToList();
             foreach (MSPPrincipal ident in identitiesList)
@@ -103,7 +103,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             SignaturePolicy rule = sigPolEnv.Rule;
             SignaturePolicy.TypeOneofCase typeCase = rule.TypeCase;
-            Assert.Equals(SignaturePolicy.TypeOneofCase.NOutOf, typeCase);
+            Assert.AreEqual(SignaturePolicy.TypeOneofCase.NOutOf, typeCase);
         }
 
         [TestMethod]
@@ -112,7 +112,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             try
             {
                 ChaincodeEndorsementPolicy itTestPolicy = new ChaincodeEndorsementPolicy();
-                itTestPolicy.FromYamlFile(new FileInfo("fixture/sample_chaincode_endorsement_policies/badusertestCCEPPolicy.yaml"));
+                itTestPolicy.FromYamlFile(Path.GetFullPath("fixture/sample_chaincode_endorsement_policies/badusertestCCEPPolicy.yaml"));
 
                 Assert.Fail("Expected ChaincodeEndorsementPolicyParseException");
             }

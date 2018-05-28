@@ -21,7 +21,7 @@ namespace Hyperledger.Fabric.SDK
 
 import java.util.Set;
 
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.helper.Utils;
 
 import static java.lang.String.format;

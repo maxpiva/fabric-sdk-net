@@ -26,10 +26,10 @@ namespace Hyperledger.Fabric.Tests.SDK
     public class TestHFClient
     {
 
-        internal FileInfo tempFile;
+        internal string tempFile;
         HFClient hfClient;
 
-        public TestHFClient(FileInfo tempFile, HFClient hfClient)
+        public TestHFClient(string tempFile, HFClient hfClient)
         {
             this.tempFile = tempFile;
             this.hfClient = hfClient;
@@ -50,43 +50,30 @@ namespace Hyperledger.Fabric.Tests.SDK
 
         public static void SetupClient(HFClient hfclient)
         {
-            string tempdir = Path.GetTempPath();
-            string filename = "teststore_" + Path.GetTempFileName() + ".properties";
-            string fulltempname = Path.Combine(tempdir, filename);
-
-            FileInfo tempFile = new FileInfo(fulltempname);
             string props = Path.Combine(GetHomePath(), "test.properties");
             if (File.Exists(props))
                 File.Delete(props);
-            FileInfo sampleStoreFile = new FileInfo(props);
-            SampleStore sampleStore = new SampleStore(sampleStoreFile);
+            SampleStore sampleStore = new SampleStore(props);
 
             //src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
 
             //SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG");
-            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), new FileInfo(Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem")));
+            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem"));
             someTestUSER.MspId = "testMSPID?";
 
             hfclient.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
             hfclient.UserContext = someTestUSER;
         }
 
-        static FileInfo FindFileSk(string directorys)
+        static string FindFileSk(string directorys)
         {
 
-            DirectoryInfo directory = new DirectoryInfo(Path.GetFullPath(directorys));
-            FileInfo[] matches = directory.EnumerateFiles().Where(a => a.Name.EndsWith("_sk")).ToArray();
+            string[] matches = Directory.EnumerateFiles(Path.GetFullPath(directorys)).Where(a => a.EndsWith("_sk")).ToArray();
 
             if (null == matches)
-            {
-                throw new System.Exception($"Matches returned null does {directory.FullName} directory exist?");
-            }
-
+                throw new System.Exception($"Matches returned null does {directorys} directory exist?");
             if (matches.Length != 1)
-            {
-                throw new SystemException($"Expected in {directory.FullName} only 1 sk file but found {matches.Length}");
-            }
-
+                throw new SystemException($"Expected in {directorys} only 1 sk file but found {matches.Length}");
             return matches[0];
 
         }
@@ -97,7 +84,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             {
                 try
                 {
-                    tempFile.Delete();
+                    File.Delete(tempFile);
                 }
                 catch (System.Exception e)
                 {

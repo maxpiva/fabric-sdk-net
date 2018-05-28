@@ -21,6 +21,8 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
@@ -325,7 +327,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             (string Protocol, string Host, int Port) ret;
             if (string.IsNullOrEmpty(url))
-                throw new ArgumentException("URL cannot be null or empty");
+                throw  new IllegalArgumentException("URL cannot be null or empty");
             Dictionary<string, string> props = new Dictionary<string, string>();
             Regex p = new Regex("([^:]+)[:]//([^:]+)[:]([0-9]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             Match m = p.Match(url);
@@ -336,13 +338,13 @@ namespace Hyperledger.Fabric.SDK.Helper
                 string ports = m.Groups[3].Value;
                 int port;
                 if (!int.TryParse(ports,out port))
-                    throw new ArgumentException("Invalid port");
+                    throw  new IllegalArgumentException("Invalid port");
                 ret.Port = port;
                 if (!"grpc".Equals(ret.Protocol,StringComparison.InvariantCultureIgnoreCase) && !"grpcs".Equals(ret.Protocol, StringComparison.InvariantCultureIgnoreCase))
-                    throw new ArgumentException($"Invalid protocol expected grpc or grpcs and found {ret.Protocol}.");
+                    throw  new IllegalArgumentException($"Invalid protocol expected grpc or grpcs and found {ret.Protocol}.");
                 return ret;
             }
-            throw new ArgumentException("URL must be of the format protocol://host:port");
+            throw  new IllegalArgumentException("URL must be of the format protocol://host:port");
 
             // TODO: allow all possible formats of the URL
         }

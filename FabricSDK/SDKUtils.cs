@@ -27,7 +27,7 @@ import com.google.protobuf.ByteString;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequenceGenerator;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
+import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 import org.hyperledger.fabric.sdk.security.CryptoSuite;
 
 import static java.lang.String.format;*/
@@ -60,7 +60,7 @@ namespace Hyperledger.Fabric.SDK
          * @param dataHash
          * @return byte[]
          * @throws IOException
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
         public static byte[] CalculateBlockHash(HFClient client, long blockNumber, byte[] previousHash, byte[] dataHash)
         {
@@ -96,7 +96,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @param proposalResponses
          * @return A Collection of sets where each set has consistent proposals.
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public static List<HashSet<ProposalResponse>> GetProposalConsistencySets(List<ProposalResponse> proposalResponses)
@@ -112,7 +112,7 @@ namespace Hyperledger.Fabric.SDK
          * @param proposalResponses
          * @param invalid           proposals that were found to be invalid.
          * @return A Collection of sets where each set has consistent proposals.
-         * @throws InvalidArgumentException
+         * @throws InvalidIllegalArgumentException
          */
 
         public static List<HashSet<ProposalResponse>> GetProposalConsistencySets(List<ProposalResponse> proposalResponses, HashSet<ProposalResponse> invalid) {

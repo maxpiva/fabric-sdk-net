@@ -70,6 +70,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using Grpc.Core;
+using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 
@@ -148,7 +149,7 @@ namespace Hyperledger.Fabric.SDK
                                         }
                                         catch (IOException e)
                                         {
-                                            throw new ArgumentException($"Failed to read certificate file {Path.GetFullPath(pem)}");
+                                            throw new IllegalArgumentException($"Failed to read certificate file {Path.GetFullPath(pem)}");
                                         }
                                     }
                                 }
@@ -199,11 +200,11 @@ namespace Hyperledger.Fabric.SDK
                     // check for mutual TLS - both clientKey and clientCert must be present
                     if (properties.Contains("clientKeyFile") && properties.Contains("clientKeyBytes"))
                     {
-                        throw new ArgumentException("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set");
+                        throw new IllegalArgumentException("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set");
                     }
                     else if (properties.Contains("clientCertFile") && properties.Contains("clientCertBytes"))
                     {
-                        throw new ArgumentException("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set");
+                        throw new IllegalArgumentException("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set");
                     }
                     else if (properties.Contains("clientKeyFile") || properties.Contains("clientCertFile"))
                     {
@@ -216,19 +217,19 @@ namespace Hyperledger.Fabric.SDK
                             }
                             catch (Exception e)
                             {
-                                throw new ArgumentException("Failed to parse TLS client key and/or cert", e);
+                                throw new IllegalArgumentException("Failed to parse TLS client key and/or cert", e);
                             }
                         }
                         else
                         {
-                            throw new ArgumentException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");
+                            throw new IllegalArgumentException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");
                         }
                     }
                     else if (properties.Contains("clientKeyThumbprint"))
                     {
                         X509Certificate2 certi = SearchCertificateByFingerprint((string) properties["clientKeyThumbprint"]);
                         if (certi == null)
-                            throw new ArgumentException($"Thumbprint {(string) properties["clientKeyThumbprint"]} not found in KeyStore");
+                            throw new IllegalArgumentException($"Thumbprint {(string) properties["clientKeyThumbprint"]} not found in KeyStore");
                         ccb = ExportToPEMCert(certi);
                         ckb = ExportToPEMKey(certi);
                     }
@@ -236,7 +237,7 @@ namespace Hyperledger.Fabric.SDK
                     {
                         X509Certificate2 certi = SearchCertificateBySubject((string) properties["clientKeySubject"]);
                         if (certi == null)
-                            throw new ArgumentException($"Subject {(string) properties["clientKeySubject"]} not found in KeyStore");
+                            throw new IllegalArgumentException($"Subject {(string) properties["clientKeySubject"]} not found in KeyStore");
                         ccb = ExportToPEMCert(certi);
                         ckb = ExportToPEMKey(certi);
                     }
@@ -246,7 +247,7 @@ namespace Hyperledger.Fabric.SDK
                         ccb = properties["clientCertBytes"].ToBytes();
                         if (ckb == null || ccb == null)
                         {
-                            throw new ArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
+                            throw new IllegalArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
                         }
                     }
 
@@ -266,7 +267,7 @@ namespace Hyperledger.Fabric.SDK
                         }
                         catch (CryptoException e)
                         {
-                            throw new ArgumentException("Failed to parse TLS client " + what, e);
+                            throw new IllegalArgumentException("Failed to parse TLS client " + what, e);
                         }
                     }
 
@@ -281,7 +282,7 @@ namespace Hyperledger.Fabric.SDK
 
                     if (!"TLS".Equals(nt, StringComparison.InvariantCultureIgnoreCase) && !"plainText".Equals(nt, StringComparison.InvariantCultureIgnoreCase))
                     {
-                        throw new ArgumentException($"Endpoint {url} property of negotiationType has to be either TLS or plainText. value:'{nt}'");
+                        throw new IllegalArgumentException($"Endpoint {url} property of negotiationType has to be either TLS or plainText. value:'{nt}'");
                     }
                 }
             }
@@ -334,7 +335,7 @@ namespace Hyperledger.Fabric.SDK
                 }
                 else
                 {
-                    throw new ArgumentException("invalid protocol: " + Protocol);
+                    throw new IllegalArgumentException("invalid protocol: " + Protocol);
                 }
             }
             catch (Exception e)

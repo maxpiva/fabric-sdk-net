@@ -24,7 +24,7 @@ namespace Hyperledger.Fabric.Tests.Helper
                 Assert.Fail($"ExpectedExceptionWithMessage failed. Expected exception type: <{ExceptionType.FullName}>. Actual exception type: <{e.GetType().FullName}>. Exception message: <{e.Message}>");
             }
 
-            if (ExpectedMessage != e.Message && !e.Message.StartsWith(ExpectedMessage))
+            if (ExpectedMessage != e.Message && !e.Message.Contains(ExpectedMessage))
             {
                 Assert.Fail($"ExpectedExceptionWithMessage failed. Expected message to contain: <{ExpectedMessage}>. Actual message: <{e.Message}>. Exception type: <{e.GetType().FullName}>");
             }

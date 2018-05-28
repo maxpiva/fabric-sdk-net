@@ -30,7 +30,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [ClassInitialize]
-        public static void SetupClient()
+        public static void SetupClient(TestContext context)
         {
             try
             {

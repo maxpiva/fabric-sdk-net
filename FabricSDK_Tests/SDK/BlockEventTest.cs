@@ -39,7 +39,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [ClassInitialize]
-        public static void SetUpBeforeClass()
+        public static void SetUpBeforeClass(TestContext context)
         {
 
             eventHub = new EventHub("test", "grpc://lh:99", null, null);
@@ -58,7 +58,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             // transaction 1
             channelHeaderBuilder.TxId = "TRANSACTION1";
             headerBuilder.ChannelHeader = channelHeaderBuilder.ToByteString();
-            payloadBuilder.Header = headerBuilder;
+            payloadBuilder.Header = new Header(headerBuilder);
             payloadBuilder.Data = ByteString.CopyFrom("test data".ToBytes());
             envelopeBuilder.Payload = payloadBuilder.ToByteString();
             blockDataBuilder.Data.Add(envelopeBuilder.ToByteString());
@@ -66,7 +66,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             // transaction 2
             channelHeaderBuilder.TxId = "TRANSACTION2";
             headerBuilder.ChannelHeader = channelHeaderBuilder.ToByteString();
-            payloadBuilder.Header = headerBuilder;
+            payloadBuilder.Header = new Header(headerBuilder);
             payloadBuilder.Data = ByteString.CopyFrom("test data".ToBytes());
             envelopeBuilder.Payload = payloadBuilder.ToByteString();
             blockDataBuilder.Data.Add(envelopeBuilder.ToByteString());
@@ -74,20 +74,20 @@ namespace Hyperledger.Fabric.Tests.SDK
             // transaction 3
             channelHeaderBuilder.TxId = "TRANSACTION3";
             headerBuilder.ChannelHeader = channelHeaderBuilder.ToByteString();
-            payloadBuilder.Header = headerBuilder;
+            payloadBuilder.Header = new Header(headerBuilder);
             payloadBuilder.Data = ByteString.CopyFrom("test data".ToBytes());
             envelopeBuilder.Payload = payloadBuilder.ToByteString();
 
             blockDataBuilder.Data.Add(envelopeBuilder.ToByteString());
             // blockData with 3 envelopes
-            blockData = blockDataBuilder;
+            blockData = new BlockData(blockDataBuilder);
 
             // block header
             BlockHeader blockHeaderBuilder = new BlockHeader();
             blockHeaderBuilder.Number = 1;
             blockHeaderBuilder.PreviousHash = ByteString.CopyFrom("previous_hash".ToBytes());
             blockHeaderBuilder.DataHash = ByteString.CopyFrom("data_hash".ToBytes());
-            blockHeader = blockHeaderBuilder;
+            blockHeader = new BlockHeader(blockHeaderBuilder);
 
             // block metadata
             BlockMetadata blockMetadataBuilder = new BlockMetadata();
@@ -97,26 +97,26 @@ namespace Hyperledger.Fabric.Tests.SDK
             byte[] txResultsMap = new byte[] {(byte) TxValidationCode.Valid, (byte) TxValidationCode.InvalidOtherReason, (byte) TxValidationCode.Valid};
             blockMetadataBuilder.Metadata.Add(ByteString.CopyFrom(txResultsMap)); //BlockMetadataIndex.TRANSACTIONS_FILTER_VALUE
             blockMetadataBuilder.Metadata.Add(ByteString.CopyFrom("orderer".ToBytes())); //BlockMetadataIndex.ORDERER_VALUE
-            blockMetadata = blockMetadataBuilder;
+            blockMetadata = new BlockMetadata(blockMetadataBuilder);
 
             Block blockBuilder = new Block();
-            blockBuilder.Data = blockData;
-            blockBuilder.Header = blockHeader;
-            blockBuilder.Metadata = blockMetadata;
-            block = blockBuilder;
+            blockBuilder.Data = new BlockData(blockData);
+            blockBuilder.Header = new BlockHeader(blockHeader);
+            blockBuilder.Metadata = new BlockMetadata(blockMetadata);
+            block = new Block(blockBuilder);
 
-            goodEventBlock = new Event {Block = blockBuilder};
+            goodEventBlock = new Event {Block = new Block(blockBuilder)};
 
             // block with bad header
             headerBuilder.ChannelHeader = ByteString.CopyFrom("bad channel header".ToBytes());
-            payloadBuilder.Header = headerBuilder;
+            payloadBuilder.Header = new Header(headerBuilder);
             payloadBuilder.Data = ByteString.CopyFrom("test data".ToBytes());
             envelopeBuilder.Payload = payloadBuilder.ToByteString();
             blockDataBuilder.Data.Clear();
             blockDataBuilder.Data.Add(envelopeBuilder.ToByteString());
-            blockBuilder.Data = blockDataBuilder;
-            badBlock = blockBuilder;
-            badEventBlock = new Event {Block = badBlock};
+            blockBuilder.Data = new BlockData(blockDataBuilder);
+            badBlock = new Block(blockBuilder);
+            badEventBlock = new Event {Block = new Block(badBlock)};
         }
 
         [TestMethod]

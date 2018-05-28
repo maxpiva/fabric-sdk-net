@@ -33,6 +33,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.SDK.Integration;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Hyperledger.Fabric_CA.SDK;
 using Hyperledger.Fabric_CA.SDK.Requests;
@@ -64,7 +65,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private readonly Dictionary<string, Properties> clientTLSProperties = new Dictionary<string, Properties>();
         internal SampleStore sampleStore = null;
 
-        internal readonly FileInfo sampleStoreFile = new FileInfo(Path.Combine(Path.GetTempPath(), "HFCSampletest.properties"));
+        internal readonly string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
         private IReadOnlyList<SampleOrg> testSampleOrgs;
         private string testTxID = null; // save the CC invoke TxID and use in queries
 
@@ -130,10 +131,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             //Persistence is not part of SDK. Sample file store is for demonstration purposes only!
             //   MUST be replaced with more robust application implementation  (Database, LDAP)
 
-            if (sampleStoreFile.Exists)
+            if (File.Exists(sampleStoreFile))
             {
                 //For testing start fresh
-                sampleStoreFile.Delete();
+                File.Delete(sampleStoreFile);
             }
 
             sampleStore = new SampleStore(sampleStoreFile);
@@ -268,7 +269,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
 
-                SampleUser peerOrgAdmin = sampleStore.GetMember(sampleOrgName + "Admin", sampleOrgName, sampleOrg.MSPID, Util.FindFileSk(Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/keystore")), new FileInfo(Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/signcerts/Admin@{sampleOrgDomainName}-cert.pem")));
+                SampleUser peerOrgAdmin = sampleStore.GetMember(sampleOrgName + "Admin", sampleOrgName, sampleOrg.MSPID, Util.FindFileSk(Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/keystore")), Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/signcerts/Admin@{sampleOrgDomainName}-cert.pem"));
 
                 sampleOrg.PeerAdmin = peerOrgAdmin; //A special user that can create channels, join peers and install chaincode
             }
@@ -305,11 +306,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // Register a chaincode event listener that will trigger for any chaincode id and only for EXPECTED_EVENT_NAME event.
 
-                string chaincodeEventListenerHandle = channel.RegisterChaincodeEventListener(new Regex(".*", RegexOptions.Compiled), new Regex(Regex.Escape(EXPECTED_EVENT_NAME)), (handle, blockEvent, chaincodeEvent) =>
+                string chaincodeEventListenerHandle = channel.RegisterChaincodeEventListener(new Regex(".*", RegexOptions.Compiled), new Regex(Regex.Escape(EXPECTED_EVENT_NAME)), (handle, blockEventx, chaincodeEvent) =>
                 {
-                    chaincodeEvents.Add(new ChaincodeEventCapture(handle, blockEvent, chaincodeEvent));
+                    chaincodeEvents.Add(new ChaincodeEventCapture(handle, blockEventx, chaincodeEvent));
 
-                    string es = blockEvent.Peer != null ? blockEvent.Peer.Name : blockEvent.EventHub.Name;
+                    string es = blockEventx.Peer != null ? blockEventx.Peer.Name : blockEventx.EventHub.Name;
                     Util.COut("RECEIVED Chaincode event with handle: {0}, chaincode Id: {1}, chaincode event name: {2}, " + "transaction id: {3}, event payload: \"{4}\", from eventhub: {5}", handle, chaincodeEvent.ChaincodeId, chaincodeEvent.EventName, chaincodeEvent.TxId, chaincodeEvent.Payload.ToStringUtf8(), es);
                 });
 
@@ -346,7 +347,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                         // on foo chain install from directory.
 
                         ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                        installProposalRequest.ChaincodeSourceLocation = new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH)));
+                        installProposalRequest.ChaincodeSourceLocation = Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH));
                     }
                     else
                     {
@@ -354,11 +355,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                         if (CHAIN_CODE_LANG == TransactionRequest.Type.GO_LANG)
                         {
-                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH, "src", CHAIN_CODE_PATH))), Path.Combine("src", CHAIN_CODE_PATH));
+                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH, "src", CHAIN_CODE_PATH)), Path.Combine("src", CHAIN_CODE_PATH));
                         }
                         else
                         {
-                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(new DirectoryInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH))), "src");
+                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH)), "src");
                         }
                     }
 
@@ -423,7 +424,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                   See README.md Chaincode endorsement policies section for more details.
                 */
                 ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                chaincodeEndorsementPolicy.FromYamlFile(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml"))));
+                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
                 instantiateProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
 
                 Util.COut("Sending instantiateProposalRequest to all peers with arguments: a and b set to 100 and {0} respectively", "" + (200 + delta));
@@ -484,153 +485,129 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     nOfEvents.AddEventHubs(channel.EventHubs);
                 }
 
-                TaskCompletionSource<BlockEvent.TransactionEvent> fl = channel.SendTransaction(successful, Channel.TransactionOptions.Create() //Basically the default options but shows it's usage.
-                        .WithUserContext(client.UserContext) //could be a different user context. this is the default.
-                        .WithShuffleOrders(false) // don't shuffle any orderers the default is true.
-                        .WithOrderers(channel.GetOrderers()) // specify the orderers we want to try this transaction. Fails once all Orderers are tried.
-                        .WithNOfEvents(nOfEvents) // The events to signal the completion of the interest in the transaction
-                ).ThenApply(transactionEvent =>
-                    {
-                        WaitOnFabric(0);
+                BlockEvent.TransactionEvent transactionEvent = channel.SendTransaction(successful, Channel.TransactionOptions.Create() //Basically the default options but shows it's usage.
+                        .SetUserContext(client.UserContext) //could be a different user context. this is the default.
+                        .SetShuffleOrders(false) // don't shuffle any orderers the default is true.
+                        .SetOrderers(channel.Orderers) // specify the orderers we want to try this transaction. Fails once all Orderers are tried.
+                        .SetNOfEvents(nOfEvents) // The events to signal the completion of the interest in the transaction
+                    , testConfig.GetTransactionWaitTime() * 1000);
 
-                        Assert.IsTrue(transactionEvent.IsValid); // must be valid to be here.
-                        Assert.IsNotNull(transactionEvent.Signature); //musth have a signature.
-                        BlockEvent blockEvent = transactionEvent.BlockEvent; // This is the blockevent that has this transaction.
-                        Assert.IsNotNull(blockEvent.Block); // Make sure the RAW Fabric block is returned.
+                WaitOnFabric(0);
 
-                        Util.COut("Finished instantiate transaction with transaction id {0}", transactionEvent.TransactionID);
+                Assert.IsTrue(transactionEvent.IsValid); // must be valid to be here.
+                Assert.IsNotNull(transactionEvent.Signature); //musth have a signature.
+                BlockEvent blockEvent = transactionEvent.BlockEvent; // This is the blockevent that has this transaction.
+                Assert.IsNotNull(blockEvent.Block); // Make sure the RAW Fabric block is returned.
 
-                        try
-                        {
-                            Assert.AreEqual(blockEvent.ChannelId, channel.Name);
-                            successful.Clear();
-                            failed.Clear();
-
-                            client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
-
-                            ///////////////
-                            /// Send transaction proposal to all peers
-                            TransactionProposalRequest transactionProposalRequest = client.NewTransactionProposalRequest();
-                            transactionProposalRequest.ChaincodeID = chaincodeID;
-                            transactionProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
-                            //transactionProposalRequest.SetFcn("invoke");
-                            transactionProposalRequest.Fcn = "move";
-                            transactionProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
-                            transactionProposalRequest.SetArgs("a", "b", "100");
-
-                            Dictionary<string, byte[]> tm2 = new Dictionary<string, byte[]>();
-                            tm2.Add("HyperLedgerFabric", "TransactionProposalRequest:JavaSDK".ToBytes()); //Just some extra junk in transient map
-                            tm2.Add("method", "TransactionProposalRequest".ToBytes()); // ditto
-                            tm2.Add("result", ":)".ToBytes()); // This should be returned see chaincode why.
-                            tm2.Add(EXPECTED_EVENT_NAME, EXPECTED_EVENT_DATA); //This should trigger an event see chaincode why.
-
-                            transactionProposalRequest.SetTransientMap(tm2);
-
-                            Util.COut("sending transactionProposal to all peers with arguments: move(a,b,100)");
-
-                            List<ProposalResponse> transactionPropResp = channel.SendTransactionProposal(transactionProposalRequest, channel.GetPeers());
-                            foreach (ProposalResponse response in transactionPropResp)
-                            {
-                                if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
-                                {
-                                    Util.COut("Successful transaction proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
-                                    successful.Add(response);
-                                }
-                                else
-                                {
-                                    failed.Add(response);
-                                }
-                            }
-
-                            // Check that all the proposals are consistent with each other. We should have only one set
-                            // where all the proposals above are consistent. Note the when sending to Orderer this is done automatically.
-                            //  Shown here as an example that applications can invoke and select.
-                            // See org.hyperledger.fabric.sdk.proposal.consistency_validation config property.
-                            List<HashSet<ProposalResponse>> proposalConsistencySets = SDKUtils.GetProposalConsistencySets(transactionPropResp);
-                            if (proposalConsistencySets.Count != 1)
-                                Assert.Fail($"Expected only one set of consistent proposal responses but got {proposalConsistencySets.Count}");
-
-                            Util.COut("Received {0} transaction proposal responses. Successful+verified: {1} . Failed: {2}", transactionPropResp.Count, successful.Count, failed.Count);
-                            if (failed.Count > 0)
-                            {
-                                ProposalResponse firstTransactionProposalResponse = failed.First();
-                                Assert.Fail($"Not enough endorsers for invoke(move a,b,100): {failed.Count} endorser error: {firstTransactionProposalResponse.Message}. Was verified: {firstTransactionProposalResponse.IsVerified}");
-                            }
-
-                            Util.COut("Successfully received transaction proposal responses.");
-
-                            ProposalResponse resp = successful.First();
-                            byte[] x = resp.ChaincodeActionResponsePayload; // This is the data returned by the chaincode.
-                            string resultAsString = null;
-                            if (x != null)
-                            {
-                                resultAsString = x.ToUTF8String();
-                            }
-
-                            Assert.AreEqual(":)", resultAsString);
-
-                            Assert.AreEqual(200, resp.ChaincodeActionResponseStatus); //Chaincode's status.
-
-                            TxReadWriteSetInfo readWriteSetInfo = resp.ChaincodeActionResponseReadWriteSetInfo;
-                            //See blockwalker below how to transverse this
-                            Assert.IsNotNull(readWriteSetInfo);
-                            Assert.IsTrue(readWriteSetInfo.NsRwsetCount > 0);
-
-                            ChaincodeID cid = resp.ChaincodeID;
-                            Assert.IsNotNull(cid);
-                            string path = cid.Path;
-                            if (null == CHAIN_CODE_PATH)
-                            {
-                                Assert.IsTrue(path == null || "".Equals(path));
-                            }
-                            else
-                            {
-                                Assert.AreEqual(CHAIN_CODE_PATH, path);
-                            }
-
-                            Assert.AreEqual(CHAIN_CODE_NAME, cid.Name);
-                            Assert.AreEqual(CHAIN_CODE_VERSION, cid.Version);
-
-                            ////////////////////////////
-                            // Send Transaction Transaction to orderer
-                            Util.COut("Sending chaincode transaction(move a,b,100) to orderer.");
-                            return channel.SendTransaction(successful);
-                        }
-                        catch (System.Exception e)
-                        {
-                            Util.COut("Caught an exception while invoking chaincode");
-                            Assert.Fail($"Failed invoking chaincode with error : {e.Message}");
-                        }
-
-                        return null;
-                    }, testConfig.GetTransactionWaitTime() * 1000);
-                fl.Task.Wait();
-
-                if (fl.Task.IsFaulted)
+                Util.COut("Finished instantiate transaction with transaction id {0}", transactionEvent.TransactionID);
+                try
                 {
-                    if (fl.Task.Exception.InnerException is TransactionEventException)
+                    Assert.AreEqual(blockEvent.ChannelId, channel.Name);
+                    successful.Clear();
+                    failed.Clear();
+
+                    client.UserContext = sampleOrg.GetUser(TESTUSER_1_NAME);
+
+                    ///////////////
+                    /// Send transaction proposal to all peers
+                    TransactionProposalRequest transactionProposalRequest = client.NewTransactionProposalRequest();
+                    transactionProposalRequest.ChaincodeID = chaincodeID;
+                    transactionProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
+                    //transactionProposalRequest.SetFcn("invoke");
+                    transactionProposalRequest.Fcn = "move";
+                    transactionProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
+                    transactionProposalRequest.SetArgs("a", "b", "100");
+
+                    Dictionary<string, byte[]> tm2 = new Dictionary<string, byte[]>();
+                    tm2.Add("HyperLedgerFabric", "TransactionProposalRequest:JavaSDK".ToBytes()); //Just some extra junk in transient map
+                    tm2.Add("method", "TransactionProposalRequest".ToBytes()); // ditto
+                    tm2.Add("result", ":)".ToBytes()); // This should be returned see chaincode why.
+                    tm2.Add(EXPECTED_EVENT_NAME, EXPECTED_EVENT_DATA); //This should trigger an event see chaincode why.
+
+                    transactionProposalRequest.SetTransientMap(tm2);
+
+                    Util.COut("sending transactionProposal to all peers with arguments: move(a,b,100)");
+
+                    List<ProposalResponse> transactionPropResp = channel.SendTransactionProposal(transactionProposalRequest, channel.GetPeers());
+                    foreach (ProposalResponse response in transactionPropResp)
                     {
-                        TransactionEventException t = (TransactionEventException) fl.Task.Exception.InnerException;
-                        BlockEvent.TransactionEvent te = t.TransactionEvent;
-                        if (te != null)
-                            Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+                        if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                        {
+                            Util.COut("Successful transaction proposal response Txid: {0} from peer {1}", response.TransactionID, response.Peer.Name);
+                            successful.Add(response);
+                        }
+                        else
+                        {
+                            failed.Add(response);
+                        }
                     }
 
-                    Assert.Fail($"Test failed with {fl.Task.Exception.InnerException.GetType().Name} exception {fl.Task.Exception.InnerException.Message}");
-                }
-                else if (fl.Task.IsCanceled)
-                {
-                    Assert.Fail("Task Canceled");
-                }
+                    // Check that all the proposals are consistent with each other. We should have only one set
+                    // where all the proposals above are consistent. Note the when sending to Orderer this is done automatically.
+                    //  Shown here as an example that applications can invoke and select.
+                    // See org.hyperledger.fabric.sdk.proposal.consistency_validation config property.
+                    List<HashSet<ProposalResponse>> proposalConsistencySets = SDKUtils.GetProposalConsistencySets(transactionPropResp);
+                    if (proposalConsistencySets.Count != 1)
+                        Assert.Fail($"Expected only one set of consistent proposal responses but got {proposalConsistencySets.Count}");
 
-                BlockEvent.TransactionEvent transactionEvnt = fl.Task.Result;
+                    Util.COut("Received {0} transaction proposal responses. Successful+verified: {1} . Failed: {2}", transactionPropResp.Count, successful.Count, failed.Count);
+                    if (failed.Count > 0)
+                    {
+                        ProposalResponse firstTransactionProposalResponse = failed.First();
+                        Assert.Fail($"Not enough endorsers for invoke(move a,b,100): {failed.Count} endorser error: {firstTransactionProposalResponse.Message}. Was verified: {firstTransactionProposalResponse.IsVerified}");
+                    }
+
+                    Util.COut("Successfully received transaction proposal responses.");
+
+                    ProposalResponse resp = successful.First();
+                    byte[] x = resp.ChaincodeActionResponsePayload; // This is the data returned by the chaincode.
+                    string resultAsString = null;
+                    if (x != null)
+                    {
+                        resultAsString = x.ToUTF8String();
+                    }
+
+                    Assert.AreEqual(":)", resultAsString);
+
+                    Assert.AreEqual(200, resp.ChaincodeActionResponseStatus); //Chaincode's status.
+
+                    TxReadWriteSetInfo readWriteSetInfo = resp.ChaincodeActionResponseReadWriteSetInfo;
+                    //See blockwalker below how to transverse this
+                    Assert.IsNotNull(readWriteSetInfo);
+                    Assert.IsTrue(readWriteSetInfo.NsRwsetCount > 0);
+
+                    ChaincodeID cid = resp.ChaincodeID;
+                    Assert.IsNotNull(cid);
+                    string path = cid.Path;
+                    if (null == CHAIN_CODE_PATH)
+                    {
+                        Assert.IsTrue(path == null || "".Equals(path));
+                    }
+                    else
+                    {
+                        Assert.AreEqual(CHAIN_CODE_PATH, path);
+                    }
+
+                    Assert.AreEqual(CHAIN_CODE_NAME, cid.Name);
+                    Assert.AreEqual(CHAIN_CODE_VERSION, cid.Version);
+
+                    ////////////////////////////
+                    // Send Transaction Transaction to orderer
+                    Util.COut("Sending chaincode transaction(move a,b,100) to orderer.");
+                    transactionEvent=channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
+                }
+                catch (System.Exception e)
+                {
+                    Util.COut("Caught an exception while invoking chaincode");
+                    Assert.Fail($"Failed invoking chaincode with error : {e.Message}");
+                }
                 try
                 {
                     WaitOnFabric(0);
 
-                    Assert.IsTrue(transactionEvnt.IsValid); // must be valid to be here.
-                    Util.COut("Finished transaction with transaction id {0}", transactionEvnt.TransactionID);
-                    testTxID = transactionEvnt.TransactionID; // used in the channel queries later
+                    Assert.IsTrue(transactionEvent.IsValid); // must be valid to be here.
+                    Util.COut("Finished transaction with transaction id {0}", transactionEvent.TransactionID);
+                    testTxID = transactionEvent.TransactionID; // used in the channel queries later
 
                     ////////////////////////////
                     // Send Query Proposal to all peers
@@ -638,7 +615,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     string expect = "" + (300 + delta);
                     Util.COut("Now query chaincode for the value of b.");
                     QueryByChaincodeRequest queryByChaincodeRequest = client.NewQueryProposalRequest();
-                    queryByChaincodeRequest.SetArgs(new string[] {"b"});
+                    queryByChaincodeRequest.SetArgs(new string[] { "b" });
                     queryByChaincodeRequest.SetFcn("query");
                     queryByChaincodeRequest.SetChaincodeID(chaincodeID);
 
@@ -736,7 +713,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                         CollectionAssert.AreEqual(EXPECTED_EVENT_DATA, chaincodeEventCapture.chaincodeEvent.Payload.ToByteArray());
                         Assert.AreEqual(CHAIN_CODE_NAME, chaincodeEventCapture.chaincodeEvent.ChaincodeId);
 
-                        BlockEvent blockEvent = chaincodeEventCapture.blockEvent;
+                        blockEvent = chaincodeEventCapture.blockEvent;
                         Assert.AreEqual(channelName, blockEvent.ChannelId);
                         //   Assert.IsTrue(channel.GetEventHubs().contains(blockEvent.GetEventHub()));
                     }
@@ -748,11 +725,19 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 Util.COut("Running for Channel {0} done", channelName);
             }
+            catch (TransactionEventException t)
+            {
+                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                if (te != null)
+                    Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
+                Assert.Fail($"Test failed with exception message {t.Message}");
+
+            }
             catch (System.Exception e)
             {
-                Util.COut("Caught an exception running channel {0}", channel.Name);
-                Assert.Fail($"Test failed with error : {e.Message}");
+                Assert.Fail($"Test failed with {e.GetType().Name} exception {e.Message}");
             }
+
         }
 
         internal virtual Channel ConstructChannel(string name, HFClient client, SampleOrg sampleOrg)
@@ -790,7 +775,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Orderer anOrderer = orderers.First();
             orderers.Remove(anOrderer);
 
-            ChannelConfiguration channelConfiguration = new ChannelConfiguration(new FileInfo(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH + "sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/" + name + ".tx"))));
+            ChannelConfiguration channelConfiguration = new ChannelConfiguration(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH + "sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/" + name + ".tx")));
 
             //Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.
             Channel newChannel = client.NewChannel(name, anOrderer, channelConfiguration, client.GetChannelConfigurationSignature(channelConfiguration, sampleOrg.PeerAdmin));

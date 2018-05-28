@@ -75,7 +75,7 @@ namespace Hyperledger.Fabric.SDK
             }
             else
             {
-                throw new ArgumentException($"DeliverResponse type has unexpected type");
+                throw new IllegalArgumentException($"DeliverResponse type has unexpected type");
             }
         }
 
@@ -85,12 +85,12 @@ namespace Hyperledger.Fabric.SDK
             {
                 if (filteredBlock == null && block == null)
                 {
-                    throw new ArgumentException("Both block and filter is null.");
+                    throw new IllegalArgumentException("Both block and filter is null.");
                 }
 
                 if (filteredBlock != null && block != null)
                 {
-                    throw new ArgumentException("Both block and filter are set.");
+                    throw new IllegalArgumentException("Both block and filter are set.");
                 }
 
                 return filteredBlock != null;

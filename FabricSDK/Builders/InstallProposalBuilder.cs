@@ -13,7 +13,10 @@
  */
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
@@ -36,13 +39,13 @@ namespace Hyperledger.Fabric.SDK.Builders
         
     private string chaincodePath;
 
-    private DirectoryInfo chaincodeSource;
+    private string chaincodeSource;
     private string chaincodeName;
     private string chaincodeVersion;
     private TransactionRequest.Type chaincodeLanguage;
     protected string action = "install";
     private Stream chaincodeInputStream;
-    private DirectoryInfo chaincodeMetaInfLocation;
+    private string chaincodeMetaInfLocation;
 
     protected InstallProposalBuilder()
     {
@@ -69,13 +72,13 @@ namespace Hyperledger.Fabric.SDK.Builders
 
     }
 
-    public InstallProposalBuilder ChaincodeSource(DirectoryInfo chaincodeSource) {
-        this.chaincodeSource = chaincodeSource;
+    public InstallProposalBuilder ChaincodeSource(string chaincodeLocation) {
+        this.chaincodeSource = chaincodeLocation;
 
         return this;
     }
 
-    public InstallProposalBuilder ChaincodeMetaInfLocation(DirectoryInfo chaincodeMetaInfLocation) {
+    public InstallProposalBuilder ChaincodeMetaInfLocation(string chaincodeMetaInfLocation) {
 
         this.chaincodeMetaInfLocation = chaincodeMetaInfLocation;
         return this;
@@ -107,45 +110,38 @@ namespace Hyperledger.Fabric.SDK.Builders
         logger.Debug("createNetModeTransaction");
 
         if (null == chaincodeSource && chaincodeInputStream == null) {
-            throw new ArgumentException("Missing chaincodeSource or chaincodeInputStream in InstallRequest");
+            throw  new IllegalArgumentException("Missing chaincodeSource or chaincodeInputStream in InstallRequest");
         }
 
         if (null != chaincodeSource && chaincodeInputStream != null) {
-            throw new ArgumentException("Both chaincodeSource and chaincodeInputStream in InstallRequest were set. Specify one or the other");
+            throw  new IllegalArgumentException("Both chaincodeSource and chaincodeInputStream in InstallRequest were set. Specify one or the other");
         }
 
         ChaincodeSpec.Types.Type ccType;
-        DirectoryInfo projectSourceDir = null;
+        string projectSourceDir = null;
         String targetPathPrefix = null;
         String dplang;
 
-        DirectoryInfo metainf = null;
+        string metainf = null;
         if (null != chaincodeMetaInfLocation)
         {
-            if (!chaincodeMetaInfLocation.Exists)
+            if (!Directory.Exists(chaincodeMetaInfLocation))
             {
-                throw new ArgumentException($"Directory to find chaincode META-INF {chaincodeMetaInfLocation.FullName} does not exist");
+                throw  new IllegalArgumentException($"Directory to find chaincode META-INF {chaincodeMetaInfLocation} does not exist");
             }
-            /*
-            if (!chaincodeMetaInfLocation==null) {
-                throw new IllegalArgumentException(format("Directory to find chaincode META-INF %s is not a directory", chaincodeMetaInfLocation.getAbsolutePath()));
-            }*/
-            try
-            {
-                metainf = new DirectoryInfo(Path.Combine(chaincodeMetaInfLocation.FullName, "META-INF"));
-            }
-            catch (Exception e)
-            {
-                throw new ArgumentException($"The META-INF in {Path.Combine(chaincodeMetaInfLocation.FullName, "META-INF")} is not a directory.");
+                /*
+                if (!chaincodeMetaInfLocation==null) {
+                    throw new IllegalArgumentException(format("Directory to find chaincode META-INF %s is not a directory", chaincodeMetaInfLocation.getAbsolutePath()));
+                }*/
+            metainf = Path.Combine(chaincodeMetaInfLocation, "META-INF");
+
+            logger.Trace($"META-INF directory is {metainf}");
+            if (!Directory.Exists(metainf)) {
+
+                throw  new IllegalArgumentException($"The META-INF directory does not exist in {chaincodeMetaInfLocation}");
             }
 
-            logger.Trace("META-INF directory is " + metainf.FullName);
-            if (!metainf.Exists) {
-
-                throw new ArgumentException($"The META-INF directory does not exist in {chaincodeMetaInfLocation.FullName}");
-            }
-            
-            FileInfo[] files = metainf.GetFiles();
+            string[] files = Directory.EnumerateFiles(metainf).ToArray();
             /*
             if (files == null) {
                 throw new IllegalArgumentException("null for listFiles on: " + chaincodeMetaInfLocation.getAbsolutePath());
@@ -153,10 +149,10 @@ namespace Hyperledger.Fabric.SDK.Builders
             */
             if (files.Length < 1) {
 
-                throw new ArgumentException($"The META-INF directory {metainf.FullName} is empty.");
+                throw  new IllegalArgumentException($"The META-INF directory {metainf} is empty.");
             }
 
-            logger.Trace($"chaincode META-INF found {metainf.FullName}");
+            logger.Trace($"chaincode META-INF found {metainf}");
 
         }
 
@@ -168,14 +164,14 @@ namespace Hyperledger.Fabric.SDK.Builders
 
                 //   Verify that chaincodePath is being passed
                 if (string.IsNullOrEmpty(chaincodePath)) {
-                    throw new ArgumentException("Missing chaincodePath in InstallRequest");
+                    throw  new IllegalArgumentException("Missing chaincodePath in InstallRequest");
                 }
 
                 dplang = "Go";
                 ccType = ChaincodeSpec.Types.Type.Golang;
                 if (null != chaincodeSource) {
 
-                    projectSourceDir = new DirectoryInfo(Path.Combine(chaincodeSource.FullName,"src", chaincodePath));
+                    projectSourceDir = Path.Combine(chaincodeSource,"src", chaincodePath);
                     targetPathPrefix = Path.Combine("src", chaincodePath);
                 }
                 break;
@@ -187,7 +183,7 @@ namespace Hyperledger.Fabric.SDK.Builders
 
                 //   Verify that chaincodePath is null
                 if (!string.IsNullOrEmpty(chaincodePath)) {
-                    throw new ArgumentException("chaincodePath must be null for Java chaincode");
+                    throw  new IllegalArgumentException("chaincodePath must be null for Java chaincode");
                 }
 
                 dplang = "Java";
@@ -206,7 +202,7 @@ namespace Hyperledger.Fabric.SDK.Builders
 
                     //   Verify that chaincodePath is null
                 if (!string.IsNullOrEmpty(chaincodePath)) {
-                        throw new ArgumentException("chaincodePath must be null for Node chaincode");
+                        throw  new IllegalArgumentException("chaincodePath must be null for Node chaincode");
                 }
 
                 dplang = "Node";
@@ -219,7 +215,7 @@ namespace Hyperledger.Fabric.SDK.Builders
                 }
                 break;
             default:
-                throw new ArgumentException("Unexpected chaincode language: " + chaincodeLanguage);
+                throw  new IllegalArgumentException("Unexpected chaincode language: " + chaincodeLanguage);
         }
 
         CcType(ccType);
@@ -228,11 +224,11 @@ namespace Hyperledger.Fabric.SDK.Builders
         string chaincodeID = chaincodeName + "::" + chaincodePath + "::" + chaincodeVersion;
 
         if (chaincodeSource != null) {
-            if (!projectSourceDir.Exists)
+            if (!Directory.Exists(projectSourceDir))
             {
-                string message = "The project source directory does not exist: " + projectSourceDir.FullName;
+                string message = "The project source directory does not exist: " + projectSourceDir;
                 logger.Error(message);
-                throw new ArgumentException(message);
+                throw  new IllegalArgumentException(message);
             }
             /*
             if (!projectSourceDir.isDirectory()) {
@@ -241,15 +237,15 @@ namespace Hyperledger.Fabric.SDK.Builders
                 throw new IllegalArgumentException(message);
             }
             */
-            logger.Info($"Installing '{chaincodeID}' language {dplang} chaincode from directory: '{projectSourceDir.FullName}' with source location: '{targetPathPrefix}'. chaincodePath:'{chaincodePath}'",
-                    chaincodeID, dplang, projectSourceDir.FullName, targetPathPrefix, chaincodePath);
+            logger.Info($"Installing '{chaincodeID}' language {dplang} chaincode from directory: '{projectSourceDir}' with source location: '{targetPathPrefix}'. chaincodePath:'{chaincodePath}'",
+                    chaincodeID, dplang, projectSourceDir, targetPathPrefix, chaincodePath);
 
             // generate chaincode source tar
-            data = Utils.GenerateTarGz(projectSourceDir.FullName, targetPathPrefix, metainf.FullName);
+            data = Utils.GenerateTarGz(projectSourceDir, targetPathPrefix, metainf);
 
             if (null != diagnosticFileDumper)
             {
-                logger.Trace($"Installing '{chaincodeID}' language {dplang} chaincode from directory: '{projectSourceDir.FullName}' with source location: '{targetPathPrefix}'. chaincodePath:'{chaincodePath}' tar file dump {diagnosticFileDumper.CreateDiagnosticTarFile(data)}");
+                logger.Trace($"Installing '{chaincodeID}' language {dplang} chaincode from directory: '{projectSourceDir}' with source location: '{targetPathPrefix}'. chaincodePath:'{chaincodePath}' tar file dump {diagnosticFileDumper.CreateDiagnosticTarFile(data)}");
             }
 
         } else {

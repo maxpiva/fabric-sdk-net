@@ -29,8 +29,8 @@ namespace Hyperledger.Fabric.Tests.SDK
     {
         private HFClient hfclient;
         private Stream mockstream;
-        private readonly DirectoryInfo someFileLocation = new DirectoryInfo("");
-        private readonly DirectoryInfo someFileLocation2 = new DirectoryInfo("");
+        private readonly string someFileLocation = "";
+        private readonly string someFileLocation2 = "";
 
         [TestInitialize]
         public void SetupClient()

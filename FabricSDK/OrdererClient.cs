@@ -40,7 +40,9 @@ import static org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse.TypeCase.
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
@@ -48,7 +50,6 @@ using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 
@@ -59,14 +60,17 @@ namespace Hyperledger.Fabric.SDK
      */
     public class OrdererClient
     {
-        private long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
         private static readonly ILog logger = LogProvider.GetLogger(typeof(OrdererClient));
-        private readonly Endpoint endPoint;
         private readonly string channelName;
+        private readonly Endpoint endPoint;
         private readonly string name;
         private readonly long ordererWaitTimeMilliSecs;
         private readonly string url;
         private Grpc.Core.Channel managedChannel = null;
+
+        private readonly Orderer orderer;
+        private readonly long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
+
         private bool shutdown = false;
 
         /**
@@ -77,6 +81,7 @@ namespace Hyperledger.Fabric.SDK
             this.endPoint = endPoint;
             name = orderer.Name;
             url = orderer.Url;
+            this.orderer = orderer;
             channelName = orderer.Channel.Name;
 
             ordererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
@@ -138,111 +143,10 @@ namespace Hyperledger.Fabric.SDK
 
         public BroadcastResponse SendTransaction(Envelope envelope)
         {
-            if (shutdown)
-                throw new TransactionException("Orderer client is shutdown");
-            Grpc.Core.Channel lmanagedChannel = managedChannel;
-
-            if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure || lmanagedChannel.State == ChannelState.Shutdown)
-            {
-                lmanagedChannel = endPoint.BuildChannel();
-                managedChannel = lmanagedChannel;
-                AtomicBroadcast.AtomicBroadcastClient nso;
-                try
-                {
-                    CountDownLatch finishLatch = new CountDownLatch(1);
-                    BroadcastResponse ret = null;
-                    Exception throwable = null;
-
-                    nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-                    using (var call = nso.Broadcast())
-                    {
-                        Task.Run(async () =>
-                        {
-                            try
-                            {
-                                while (await call.ResponseStream.MoveNext())
-                                {
-                                    BroadcastResponse resp = call.ResponseStream.Current;
-                                    logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
-                                    if (resp.Status == Status.Success)
-                                    {
-                                        ret = resp;
-                                    }
-                                    else
-                                    {
-                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status}x ({resp.Info}) during order registration");
-                                    }
-
-                                    finishLatch.Signal();
-                                }
-
-                                Grpc.Core.Status stats = call.GetStatus();
-                                if (stats.StatusCode != StatusCode.OK)
-                                {
-                                    if (!shutdown)
-                                    {
-                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
-                                    }
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                if (!shutdown)
-                                {
-                                    logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
-                                }
-
-                                throwable = e;
-                            }
-
-                            finishLatch.Signal();
-                        });
-                        call.RequestStream.WriteAsync(envelope).Wait();
-                        try
-                        {
-                            if (!finishLatch.Wait((int) ordererWaitTimeMilliSecs))
-                            {
-                                TransactionException ste = new TransactionException($"Channel {channelName}, send transactions failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
-                                logger.ErrorException("sendTransaction error " + ste.Message, ste);
-                                throw ste;
-                            }
-
-                            if (throwable != null)
-                            {
-                                Exception t = throwable;
-                                if (t is RpcException)
-                                {
-                                    RpcException sre = (RpcException) t;
-                                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
-                                }
-
-                                //get full stack trace
-                                TransactionException ste = new TransactionException($"Channel {channelName}, send transaction failed on orderer {name}. Reason: {throwable.Message}", throwable);
-                                logger.ErrorException("sendTransaction error " + ste.Message, ste);
-                                throw ste;
-                            }
-
-                            logger.Debug("Done waiting for reply! Got:" + ret);
-                        }
-                        catch (Exception e)
-                        {
-                            logger.ErrorException(e.Message, e);
-                        }
-
-                        return ret;
-                    }
-                }
-                catch (Exception t)
-                {
-                    managedChannel = null;
-                    throw t;
-                }
-            }
-
-            return null;
+            return SendTransactionAsync(envelope).RunAndUnwarp();
         }
 
-        public DeliverResponse[] SendDeliver(Envelope envelope)
+        public async Task<BroadcastResponse> SendTransactionAsync(Envelope envelope, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
                 throw new TransactionException("Orderer client is shutdown");
@@ -253,103 +157,231 @@ namespace Hyperledger.Fabric.SDK
                 lmanagedChannel = endPoint.BuildChannel();
                 managedChannel = lmanagedChannel;
                 AtomicBroadcast.AtomicBroadcastClient nso;
-                try
+                CancellationTokenSource tsource = CancellationTokenSource.CreateLinkedTokenSource(token);
+                TaskCompletionSource<BroadcastResponse> response = new TaskCompletionSource<BroadcastResponse>();
+                nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+                using (var call = nso.Broadcast())
                 {
-                    CountDownLatch finishLatch = new CountDownLatch(1);
-                    List<DeliverResponse> retList = new List<DeliverResponse>();
-                    Exception throwable = null;
-
-                    nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-                    using (var call = nso.Deliver())
+#pragma warning disable 4014
+                    Task.Factory.StartNew(async () =>
+#pragma warning restore 4014
                     {
-                        Task.Run(async () =>
-                        {
-                            try
-                            {
-                                bool done = false;
-                                while (await call.ResponseStream.MoveNext())
-                                {
-                                    // logger.info("Got Broadcast response: " + resp);
-                                    DeliverResponse resp = call.ResponseStream.Current;
-                                    logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
-                                    if (done)
-                                    {
-                                        break;
-                                    }
-
-                                    if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
-                                    {
-                                        done = true;
-                                        retList.Insert(0, resp);
-                                        finishLatch.Signal();
-                                    }
-                                    else
-                                    {
-                                        retList.Add(resp);
-                                    }
-                                }
-
-                                Grpc.Core.Status stats = call.GetStatus();
-                                if (stats.StatusCode != StatusCode.OK)
-                                {
-                                    if (!shutdown)
-                                    {
-                                        throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
-                                    }
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                if (!shutdown)
-                                {
-                                    logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
-                                }
-
-                                throwable = e;
-                            }
-
-                            finishLatch.Signal();
-                        });
-                        call.RequestStream.WriteAsync(envelope).Wait();
+                        BroadcastResponse ret = null;
+                        Exception throwable = null;
+                        bool canceled = false;
                         try
                         {
-                            if (!finishLatch.Wait((int) ordererWaitTimeMilliSecs))
+                            while (await call.ResponseStream.MoveNext(tsource.Token))
                             {
-                                TransactionException ste = new TransactionException($"Channel {channelName}, sendDeliver failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
-                                logger.ErrorException("sendDeliver error " + ste.Message, ste);
-                                throw ste;
+                                tsource.Token.ThrowIfCancellationRequested();
+                                BroadcastResponse resp = call.ResponseStream.Current;
+                                logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
+                                if (resp.Status == Status.Success)
+                                    ret = resp;
+                                else
+                                    throwable = new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status}x ({resp.Info}) during order registration");
                             }
 
-                            if (throwable != null)
+                            Grpc.Core.Status stats = call.GetStatus();
+                            if (stats.StatusCode != StatusCode.OK)
                             {
-                                Exception t = throwable;
-                                if (t is RpcException)
-                                {
-                                    RpcException sre = (RpcException) t;
-                                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
-                                }
-
-                                //get full stack trace
-                                TransactionException ste = new TransactionException($"Channel {channelName}, sendDeliver  failed on orderer {name}. Reason: {throwable.Message}", throwable);
-                                logger.ErrorException("sendDeliver error " + ste.Message, ste);
-                                throw ste;
+                                if (!shutdown)
+                                    throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
+                                else
+                                    canceled = true;
                             }
-
-                            logger.Debug("Done waiting for reply!");
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            canceled = true;
                         }
                         catch (Exception e)
                         {
-                            logger.ErrorException(e.Message, e);
+                            if (!shutdown)
+                            {
+                                logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
+                                throwable = e;
+                            }
+                            else
+                            {
+                                canceled = true;
+                            }
                         }
 
-                        return retList.ToArray();
+                        if (canceled)
+                            response.SetCanceled();
+                        else if (throwable != null)
+                            response.SetException(throwable);
+                        else
+                            response.SetResult(ret);
+                    }, tsource.Token, TaskCreationOptions.None, orderer.Channel.ExecutorService);
+                    try
+                    {
+                        await call.RequestStream.WriteAsync(envelope);
+                    }
+                    catch (Exception e)
+                    {
+                        tsource.Cancel();
+                        TransactionException ste = new TransactionException($"Channel {channelName}, send transactions failed on orderer {name}. Reason: {e.Message}");
+                        logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                        throw ste;
                     }
                 }
-                catch (Exception t)
+
+                if (!response.Task.Wait((int) ordererWaitTimeMilliSecs))
                 {
-                    managedChannel = null;
-                    throw t;
+                    tsource.Cancel();
+                    TransactionException ste = new TransactionException($"Channel {channelName}, send transactions failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
+                    logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                    throw ste;
                 }
+
+                if (response.Task.IsCanceled)
+                    throw new OperationCanceledException($"Channel {channelName}, send transactions were canceled");
+                if (response.Task.IsFaulted)
+                {
+                    Exception ex = null;
+                    if (response.Task.Exception != null && response.Task.Exception.InnerExceptions.Count > 0)
+                        ex = response.Task.Exception.InnerExceptions.First();
+                    if (ex is RpcException)
+                    {
+                        RpcException sre = (RpcException) ex;
+                        logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                    }
+
+                    TransactionException ste = new TransactionException($"Channel {channelName}, send transaction failed on orderer {name}. Reason: {ex?.Message ?? "Unknown"}", ex);
+                    logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                    throw ste;
+                }
+
+                return response.Task.Result;
+            }
+
+            return null;
+        }
+
+        public List<DeliverResponse> SendDeliver(Envelope envelope)
+        {
+            return SendDeliverAsync(envelope).RunAndUnwarp();
+        }
+        public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope envelope, CancellationToken token = default(CancellationToken))
+        {
+            if (shutdown)
+                throw new TransactionException("Orderer client is shutdown");
+            Grpc.Core.Channel lmanagedChannel = managedChannel;
+
+            if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure || lmanagedChannel.State == ChannelState.Shutdown)
+            {
+                lmanagedChannel = endPoint.BuildChannel();
+                managedChannel = lmanagedChannel;
+                AtomicBroadcast.AtomicBroadcastClient nso;
+                CancellationTokenSource tsource = CancellationTokenSource.CreateLinkedTokenSource(token);
+                TaskCompletionSource<List<DeliverResponse>> response = new TaskCompletionSource<List<DeliverResponse>>();
+                nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+                using (var call = nso.Deliver())
+                {
+#pragma warning disable 4014
+                    Task.Factory.StartNew(async () =>
+#pragma warning restore 4014
+                    {
+                        BroadcastResponse ret = null;
+                        Exception throwable = null;
+                        List<DeliverResponse> responses = new List<DeliverResponse>();
+                        bool canceled = false;
+                        try
+                        {
+                            bool done = false;
+
+                            while (await call.ResponseStream.MoveNext(tsource.Token))
+                            {
+                                tsource.Token.ThrowIfCancellationRequested();
+                                DeliverResponse resp = call.ResponseStream.Current;
+                                logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
+                                if (done)
+                                    break;
+
+                                if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
+                                {
+                                    done = true;
+                                    responses.Insert(0, resp);
+                                }
+                                else
+                                    responses.Add(resp);
+                            }
+
+                            Grpc.Core.Status stats = call.GetStatus();
+                            if (stats.StatusCode != StatusCode.OK)
+                            {
+                                if (!shutdown)
+                                    throwable = new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {stats.StatusCode} ({stats.Detail}) during order registration");
+                                else
+                                    canceled = true;
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            canceled = true;
+                        }
+                        catch (Exception e)
+                        {
+                            if (!shutdown)
+                            {
+                                logger.Error($"Received error on channel  {channelName} orderer {name}, url {url}, {e.Message}");
+                                throwable = e;
+                            }
+                            else
+                            {
+                                canceled = true;
+                            }
+                        }
+
+                        if (canceled)
+                            response.SetCanceled();
+                        else if (throwable != null)
+                            response.SetException(throwable);
+                        else
+                            response.SetResult(responses);
+                    }, tsource.Token, TaskCreationOptions.None, orderer.Channel.ExecutorService);
+                    try
+                    {
+                        await call.RequestStream.WriteAsync(envelope);
+                    }
+                    catch (Exception e)
+                    {
+                        tsource.Cancel();
+                        TransactionException ste = new TransactionException($"Channel {channelName}, send deliver failed on orderer {name}. Reason: {e.Message}");
+                        logger.ErrorException("sendTransaction error " + ste.Message, ste);
+                        throw ste;
+                    }
+                }
+
+                if (!response.Task.Wait((int) ordererWaitTimeMilliSecs))
+                {
+                    tsource.Cancel();
+                    TransactionException ste = new TransactionException($"Channel {channelName}, sendDeliver failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.");
+                    logger.ErrorException("sendDeliver error " + ste.Message, ste);
+                    throw ste;
+                }
+
+                if (response.Task.IsCanceled)
+                    throw new OperationCanceledException($"Channel {channelName}, sendDeliver were canceled");
+                if (response.Task.IsFaulted)
+                {
+                    Exception ex = null;
+                    if (response.Task.Exception != null && response.Task.Exception.InnerExceptions.Count > 0)
+                        ex = response.Task.Exception.InnerExceptions.First();
+                    if (ex is RpcException)
+                    {
+                        RpcException sre = (RpcException) ex;
+                        logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                    }
+
+                    TransactionException ste = new TransactionException($"Channel {channelName}, send deliver failed on orderer {name}. Reason: {ex?.Message ?? "Unknown"}", ex);
+                    logger.ErrorException("SendDeliver error " + ste.Message, ste);
+                    throw ste;
+                }
+
+                return response.Task.Result;
             }
 
             return null;

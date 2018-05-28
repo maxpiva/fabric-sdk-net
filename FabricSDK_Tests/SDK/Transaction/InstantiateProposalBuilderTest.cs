@@ -41,7 +41,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         /*
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode type is required")]
+        [ExpectedExceptionWithMessage(typeof(InvalidIllegalArgumentException), "Chaincode type is required")]
 
         public void TestInvalidType()
         {

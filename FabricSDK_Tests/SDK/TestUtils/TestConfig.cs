@@ -34,6 +34,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
 
 namespace Hyperledger.Fabric.Tests.SDK.TestUtils
@@ -174,8 +175,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
                     if (runningFabricCATLS)
                     {
-                        string cert = "fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".Replace("DNAME", domainName).Replace("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS);
-                        cert = Path.GetFullPath(cert);
+                        string cert = "fixture/sdkintegration/e2e-2Orgs/FAB_CONFIG_GEN_VERS/crypto-config/peerOrganizations/DNAME/ca/ca.DNAME-cert.pem".Replace("DNAME", domainName).Replace("FAB_CONFIG_GEN_VERS", FAB_CONFIG_GEN_VERS).Locate();
                         if (!File.Exists(cert))
                         {
                             throw new System.Exception($"TEST is missing cert file {cert}");
@@ -205,7 +205,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             System.Exception e = Utils.CheckGrpcUrl(location);
             if (e != null)
             {
-                throw new System.Exception("Bad TEST parameters for grpc url {location}");
+                throw new System.Exception($"Bad TEST parameters for grpc url {location}");
             }
 
             return runningFabricTLS ? Regex.Replace(location, "^grpc://", "grpcs://") : location;
@@ -354,7 +354,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         public string GetTestChannelPath()
         {
-            return Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS);
+            return ("fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS).Locate();
         }
 
         public bool IsRunningAgainstFabric10()
@@ -387,7 +387,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             string fname = runningTLS ? "network-config-tls.yaml" : "network-config.yaml";
             string pname = "fixture/sdkintegration/network_configs/";
 
-            string ret = Path.Combine(Path.GetFullPath(pname), fname);
+            string ret = Path.Combine(pname.Locate(), fname);
 
             if (!"localhost".Equals(LOCALHOST))
             {

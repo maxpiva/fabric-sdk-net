@@ -24,7 +24,7 @@ using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
-using NeoSmart.AsyncLock;
+
 
 namespace Hyperledger.Fabric.SDK
 {

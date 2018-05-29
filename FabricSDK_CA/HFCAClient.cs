@@ -147,7 +147,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAClient(string caName, string url, Properties properties)
         {
-            logger.Debug("new HFCAClient {url}");
+            logger.Debug($"new HFCAClient {url}");
             this.url = url;
             CAName = caName; //name may be null
             Uri purl = null;
@@ -404,7 +404,7 @@ namespace Hyperledger.Fabric_CA.SDK
         }
         public async Task<HFCAInfo> InfoAsync(CancellationToken token = default(CancellationToken))
         {
-            logger.Debug("info url:{url}");
+            logger.Debug($"info url:{url}");
             if (CryptoSuite == null)
                 throw new InvalidArgumentException("Crypto primitives not set.");
             SetUpSSL();
@@ -419,7 +419,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 bool success = jsonst["success"].Value<bool>();
                 logger.Debug($"[HFCAClient] enroll success:[{success}]");
                 if (!success)
-                    throw new EnrollmentException("FabricCA failed info {url}");
+                    throw new EnrollmentException($"FabricCA failed info {url}");
                 JObject result = jsonst["result"] as JObject;
                 if (result == null)
                     throw new InfoException($"FabricCA info error  - response did not contain a result url {url}");
@@ -846,7 +846,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             if (registrar == null)
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            logger.Debug("identity  url: {url}, registrar: {registrar.Name}");
+            logger.Debug($"identity  url: {url}, registrar: {registrar.Name}");
             try
             {
                 JObject result = await HttpGetAsync(HFCAIdentity.HFCA_IDENTITY, registrar, token);
@@ -1028,7 +1028,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Content = new StringContent(body, Encoding.UTF8);
                 request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-                logger.Trace("httpPost {url}  sending...");
+                logger.Trace($"httpPost {url}  sending...");
                 HttpResponseMessage msg = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, token);
                 string result = msg.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                 logger.Trace($"httpPost {url}  responseBody {result}");

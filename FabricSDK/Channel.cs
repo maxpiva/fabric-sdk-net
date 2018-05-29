@@ -41,7 +41,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
-using NeoSmart.AsyncLock;
+
 using Newtonsoft.Json;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
@@ -393,7 +393,7 @@ namespace Hyperledger.Fabric.SDK
             try
             {
                 long startLastConfigIndex = await GetLastConfigIndexAsync(orderer, token);
-                logger.Trace("startLastConfigIndex: {startLastConfigIndex}. Channel config wait time is: {CHANNEL_CONFIG_WAIT_TIME}");
+                logger.Trace($"startLastConfigIndex: {startLastConfigIndex}. Channel config wait time is: {CHANNEL_CONFIG_WAIT_TIME}");
                 await SendUpdateChannelAsync(updateChannelConfiguration.UpdateChannelConfigurationBytes, signers, orderer, token);
                 long currentLastConfigIndex = -1;
                 Stopwatch timer = new Stopwatch();
@@ -430,7 +430,7 @@ namespace Hyperledger.Fabric.SDK
             }
             catch (TransactionException e)
             {
-                logger.ErrorException("Channel {name} error: {e.Message}", e);
+                logger.ErrorException($"Channel {Name} error: {e.Message}", e);
                 throw e;
             }
             catch (Exception e)
@@ -498,7 +498,7 @@ namespace Hyperledger.Fabric.SDK
             }
             catch (TransactionException e)
             {
-                logger.ErrorException("Channel {name} error: {e.Message}", e);
+                logger.ErrorException($"Channel {Name} error: {e.Message}", e);
                 throw e;
             }
             catch (Exception e)
@@ -655,7 +655,7 @@ namespace Hyperledger.Fabric.SDK
             try
             {
                 genesisBlock = await GetGenesisBlockAsync(orderer, token);
-                logger.Debug("Channel {name} got genesis block");
+                logger.Debug($"Channel {Name} got genesis block");
                 Channel systemChannel = CreateSystemChannel(client); //channel is not really created and this is targeted to system channel
                 TransactionContext transactionContext = systemChannel.GetTransactionContext();
                 Proposal joinProposal = JoinPeerProposalBuilder.Create().Context(transactionContext).GenesisBlock(genesisBlock).Build();
@@ -729,11 +729,11 @@ namespace Hyperledger.Fabric.SDK
                         logger.Warn(lastException.Message);
                     }
                     else
-                        logger.Warn("Got empty proposals from {peer}");
+                        logger.Warn($"Got empty proposals from {peer.Name}");
                 }
                 catch (Exception e)
                 {
-                    lastException = new ProposalException("GetConfigBlock for channel {name} failed with peer {peer.Name}.", e);
+                    lastException = new ProposalException($"GetConfigBlock for channel {Name} failed with peer {peer.Name}.", e);
                     logger.Warn(lastException.Message);
                 }
             }
@@ -777,7 +777,7 @@ namespace Hyperledger.Fabric.SDK
         public Channel AddOrderer(Orderer orderer)
         {
             if (IsShutdown)
-                throw new InvalidArgumentException("Channel {name} has been shutdown.");
+                throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             if (null == orderer)
             {
                 throw new InvalidArgumentException("Orderer is invalid can not be null.");
@@ -854,7 +854,7 @@ namespace Hyperledger.Fabric.SDK
         public PeerOptions SetPeerOptions(Peer peer, PeerOptions peerOptions)
         {
             if (initialized)
-                throw new InvalidArgumentException("Channel {name} already initialized.");
+                throw new InvalidArgumentException($"Channel {Name} already initialized.");
             CheckPeer(peer);
             PeerOptions ret = GetPeersOptions(peer);
             RemovePeerInternal(peer);
@@ -879,7 +879,7 @@ namespace Hyperledger.Fabric.SDK
             logger.Debug($"Channel {Name} initialize shutdown {IsShutdown}");
 
             if (IsShutdown)
-                throw new InvalidArgumentException("Channel {name} has been shutdown.");
+                throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             if (string.IsNullOrEmpty(Name))
                 throw new InvalidArgumentException("Can not initialize channel without a valid name.");
             if (client == null)
@@ -895,7 +895,7 @@ namespace Hyperledger.Fabric.SDK
             }
             try
             {
-                logger.Debug("Eventque started {eventQueueThread}");
+                logger.Debug($"Eventque started");
                 foreach (EventHub eh in eventHubs)
                 {
                     //Connect all event hubs
@@ -1158,7 +1158,7 @@ namespace Hyperledger.Fabric.SDK
             logger.Trace($"getConfigurationBlock for channel {Name}");
             try
             {
-                logger.Trace("Last config index is {number}");
+                logger.Trace($"Last config index is {number}");
                 SeekSpecified seekSpecified = new SeekSpecified {Number = (ulong) number};
                 SeekPosition seekPosition = new SeekPosition {Specified = seekSpecified};
                 SeekInfo seekInfo = new SeekInfo {Start = seekPosition, Stop = seekPosition, Behavior = SeekInfo.Types.SeekBehavior.BlockUntilReady};
@@ -1188,7 +1188,7 @@ namespace Hyperledger.Fabric.SDK
 
         private async Task<int> SeekBlockAsync(SeekInfo seekInfo, List<DeliverResponse> deliverResponses, Orderer ordererIn, CancellationToken token = default(CancellationToken))
         {
-            logger.Trace("seekBlock for channel {name}");
+            logger.Trace($"seekBlock for channel {Name}");
             Stopwatch watch = new Stopwatch();
             watch.Start();
             int statusRC = 404;
@@ -1482,7 +1482,7 @@ namespace Hyperledger.Fabric.SDK
         private void CheckChannelState()
         {
             if (IsShutdown)
-                throw new InvalidArgumentException("Channel {name} has been shutdown.");
+                throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             if (!initialized)
                 throw new InvalidArgumentException($"Channel {Name} has not been initialized.");
             client.UserContext.UserContextCheck();
@@ -2422,7 +2422,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> QueryByChaincode(QueryByChaincodeRequest queryByChaincodeRequest, IEnumerable<Peer> peers)
         {
-            return Task.Run(async() => await QueryByChaincodeAsync(queryByChaincodeRequest, peers)).Result;
+            return QueryByChaincodeAsync(queryByChaincodeRequest, peers).RunAndUnwarp();
         }
         public Task<List<ProposalResponse>> QueryByChaincodeAsync(QueryByChaincodeRequest queryByChaincodeRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
         {
@@ -2729,7 +2729,7 @@ namespace Hyperledger.Fabric.SDK
                         if (peer.Channel != this)
                             issues.Append($"Peer {peer.Name} added to NOFEvents does not belong this channel. ");
                         else if (!eventingPeers.Contains(peer))
-                            issues.Append("Peer {peer.Name} added to NOFEvents is not a eventing Peer in this channel. ");
+                            issues.Append($"Peer {peer.Name} added to NOFEvents is not a eventing Peer in this channel. ");
                     });
                     nOfEvents.UnSeenEventHubs().ForEach(eventHub =>
                     {
@@ -2763,7 +2763,7 @@ namespace Hyperledger.Fabric.SDK
                 foreach (Orderer orderer in shuffeledOrderers)
                 {
                     if (failed != null)
-                        logger.Warn("Channel {name}  {failed} failed. Now trying {orderer}.");
+                        logger.Warn($"Channel {Name}  {failed} failed. Now trying {orderer}.");
                     failed = orderer;
                     try
                     {
@@ -3034,7 +3034,7 @@ namespace Hyperledger.Fabric.SDK
 
         private string RegisterTransactionListenerProcessor()
         {
-            logger.Debug("Channel {name} registerTransactionListenerProcessor starting");
+            logger.Debug($"Channel {Name} registerTransactionListenerProcessor starting");
             // Transaction listener is internal Block listener for transactions
             return RegisterBlockListener(TransactionBlockReceived);
         }
@@ -3139,7 +3139,7 @@ namespace Hyperledger.Fabric.SDK
         {
             bool ret;
             if (IsShutdown)
-                throw new InvalidArgumentException("Channel {name} has been shutdown.");
+                throw new InvalidArgumentException($"Channel {Name} has been shutdown.");
             CheckHandle(ChaincodeEventListenerEntry.CHAINCODE_EVENTS_TAG, handle);
             lock (chainCodeListeners)
             {
@@ -3604,7 +3604,7 @@ namespace Hyperledger.Fabric.SDK
             public virtual NOfEvents SetN(int n)
             {
                 if (n < 1)
-                    throw new IllegalArgumentException("N was {n} but needs to be greater than 0.");
+                    throw new IllegalArgumentException($"N was {n} but needs to be greater than 0.");
                 this.n = n;
                 return this;
             }
@@ -3781,13 +3781,13 @@ namespace Hyperledger.Fabric.SDK
 
             public static NOfEvents CreateNofEvents()
             {
-                return NofNoEvents;
+                return new NOfEvents();
             }
 
 
             public static NOfEvents CreateNoEvents()
             {
-                return new NoEvents();
+                return NofNoEvents;
             }
 
             public class NoEvents : NOfEvents

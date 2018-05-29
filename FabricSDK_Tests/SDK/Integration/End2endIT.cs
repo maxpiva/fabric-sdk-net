@@ -33,6 +33,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Hyperledger.Fabric_CA.SDK;
@@ -347,7 +348,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                         // on foo chain install from directory.
 
                         ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                        installProposalRequest.ChaincodeSourceLocation = Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH));
+                        installProposalRequest.ChaincodeSourceLocation = Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).Locate();
                     }
                     else
                     {
@@ -355,11 +356,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                         if (CHAIN_CODE_LANG == TransactionRequest.Type.GO_LANG)
                         {
-                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH, "src", CHAIN_CODE_PATH)), Path.Combine("src", CHAIN_CODE_PATH));
+                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH, "src", CHAIN_CODE_PATH).Locate(), Path.Combine("src", CHAIN_CODE_PATH));
                         }
                         else
                         {
-                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH)), "src");
+                            installProposalRequest.ChaincodeInputStream = Util.GenerateTarGzInputStream(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).Locate(), "src");
                         }
                     }
 
@@ -424,7 +425,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                   See README.md Chaincode endorsement policies section for more details.
                 */
                 ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
+                chaincodeEndorsementPolicy.FromYamlFile(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml").Locate());
                 instantiateProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
 
                 Util.COut("Sending instantiateProposalRequest to all peers with arguments: a and b set to 100 and {0} respectively", "" + (200 + delta));
@@ -775,7 +776,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Orderer anOrderer = orderers.First();
             orderers.Remove(anOrderer);
 
-            ChannelConfiguration channelConfiguration = new ChannelConfiguration(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH + "sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/" + name + ".tx")));
+            ChannelConfiguration channelConfiguration = new ChannelConfiguration(Path.Combine(TEST_FIXTURES_PATH + "sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/" + name + ".tx").Locate());
 
             //Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.
             Channel newChannel = client.NewChannel(name, anOrderer, channelConfiguration, client.GetChannelConfigurationSignature(channelConfiguration, sampleOrg.PeerAdmin));

@@ -267,25 +267,30 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             logger.Trace($"generateTarGz: sourceDirectory: {sourceDirectory}, pathPrefix: {pathPrefix}, chaincodeMetaInf: {chaincodeMetaInf}");
             string sourcePath = sourceDirectory;
+            string[] sfiles = Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories);
+            string[] mfiles = chaincodeMetaInf != null ? Directory.GetFiles(chaincodeMetaInf, "*", SearchOption.AllDirectories) : new string[0];
             using (MemoryStream bos = new MemoryStream())
-            using (var writer = WriterFactory.Open(bos, ArchiveType.Tar, CompressionType.GZip))
             {
-                writer.WriteAll(sourceDirectory, "*", SearchOption.AllDirectories);
-                if (null != chaincodeMetaInf)
-                    writer.WriteAll(chaincodeMetaInf, "*", SearchOption.AllDirectories);
-                bos.Flush();
+                using (var writer = WriterFactory.Open(bos, ArchiveType.Tar, CompressionType.GZip))
+                {
+                    foreach(string s in sfiles)
+                        writer.Write(Path.Combine(pathPrefix??"",s.Substring(sourcePath.Length+1)).Replace("\\","/"),s);
+                    foreach (string s in mfiles)
+                        writer.Write(Path.Combine("META-INF", s.Substring(chaincodeMetaInf.Length + 1)).Replace("\\","/"), s);
+                    bos.Flush();
+                }
                 return bos.ToArray();
             }
         }
 
 
 
-    /**
-     * Generate a v4 UUID
-     *
-     * @return String representation of {@link UUID}
-     */
-    public static string GenerateUUID()
+        /**
+         * Generate a v4 UUID
+         *
+         * @return String representation of {@link UUID}
+         */
+        public static string GenerateUUID()
     {
         return Guid.NewGuid().ToString().Replace("-", string.Empty);
     }

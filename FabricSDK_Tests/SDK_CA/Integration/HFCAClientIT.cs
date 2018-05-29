@@ -233,7 +233,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
                 return Convert.FromBase64String(base64part).ToUTF8String();
             }
 
-            Assert.Fail("Certificate failed to match expected pattern. Certificate:\n {pemFormat}");
+            Assert.Fail($"Certificate failed to match expected pattern. Certificate:\n {pemFormat}");
             return ret;
         }
 

@@ -28,6 +28,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Hyperledger.Fabric_CA.SDK;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -305,7 +306,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
                 installProposalRequest.ChaincodeID = chaincodeID;
                 ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                installProposalRequest.ChaincodeSourceLocation =Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH));
+                installProposalRequest.ChaincodeSourceLocation =Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).Locate();
  
                 installProposalRequest.ChaincodeVersion = CHAIN_CODE_VERSION_11;
                 installProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
@@ -368,7 +369,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 ChaincodeEndorsementPolicy chaincodeEndorsementPolicy;
 
                 chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
+                chaincodeEndorsementPolicy.FromYamlFile(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml").Locate());
 
                 upgradeProposalRequest.ChaincodeEndorsementPolicy = chaincodeEndorsementPolicy;
                 Dictionary<string, byte[]> tmap = new Dictionary<string, byte[]>();

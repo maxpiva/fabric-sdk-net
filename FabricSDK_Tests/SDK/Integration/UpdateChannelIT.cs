@@ -27,6 +27,7 @@ using System.Threading;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -140,7 +141,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 //certificate:  src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem
 
                 string sampleOrgName = sampleOrg.Name;
-                SampleUser ordererAdmin = sampleStore.GetMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP", Util.FindFileSk(Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/")), Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem"));
+                SampleUser ordererAdmin = sampleStore.GetMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP", Util.FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem").Locate());
 
                 client.UserContext = ordererAdmin;
 

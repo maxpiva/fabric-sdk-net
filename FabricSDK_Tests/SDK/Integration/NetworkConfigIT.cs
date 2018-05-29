@@ -40,6 +40,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 using Hyperledger.Fabric_CA.SDK;
 using Hyperledger.Fabric_CA.SDK.Requests;
@@ -393,7 +394,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 installProposalRequest.SetChaincodeID(chaincodeID);
 
                 ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                installProposalRequest.SetChaincodeSourceLocation(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/gocc/sample1")));
+                installProposalRequest.SetChaincodeSourceLocation(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/gocc/sample1").Locate());
 
                 installProposalRequest.SetChaincodeVersion(ccVersion);
 
@@ -451,7 +452,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                   See README.md Chaincode endorsement policies section for more details.
                 */
                 ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
-                chaincodeEndorsementPolicy.FromYamlFile(Path.GetFullPath(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml")));
+                chaincodeEndorsementPolicy.FromYamlFile(Path.Combine(TEST_FIXTURES_PATH, "sdkintegration/chaincodeendorsementpolicy.yaml").Locate());
                 instantiateProposalRequest.SetChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
 
                 Util.COut("Sending instantiateProposalRequest to all peers...");
@@ -493,7 +494,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             catch (System.Exception e)
             {
                 Util.COut("Caught an exception running channel {0}", channel.Name);
-                Assert.Fail("Test failed with error : {e.Message}");
+                Assert.Fail($"Test failed with error : {e.Message}");
             }
 
             return chaincodeID;

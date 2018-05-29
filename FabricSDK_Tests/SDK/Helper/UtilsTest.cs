@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.BouncyCastle.Crypto.Digests;
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
@@ -167,8 +168,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         {
             List<string> expect = new List<string> {"META-INF/statedb/couchdb/indexes/MockFakeIndex.json", "src/github.com/example_cc/example_cc.go"};
             expect.Sort();
-            string path = Path.GetFullPath(Path.Combine(SAMPLE_GO_CC, "/src/github.com/example_cc"));
-            string metainf = Path.GetFullPath("fixture/meta-infs/test1/META-INF");
+            string path = Path.Combine(SAMPLE_GO_CC, "/src/github.com/example_cc").Locate();
+            string metainf = "fixture/meta-infs/test1/META-INF".Locate();
             byte[] bytes = Utils.GenerateTarGz(path, "src/github.com/example_cc", metainf);
             Assert.IsNotNull(bytes, "generateTarGz() returned null bytes.");
             List<string> tarBytesToEntryArrayList = TestUtils.TestUtils.TarBytesToEntryArrayList(bytes);
@@ -180,7 +181,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         {
             List<string> expect = new List<string> {"src/github.com/example_cc/example_cc.go"};
 
-            string path = Path.GetFullPath(Path.Combine(SAMPLE_GO_CC, "/src/github.com/example_cc"));
+            string path = Path.Combine(SAMPLE_GO_CC, "/src/github.com/example_cc").Locate();
 
             byte[] bytes = Utils.GenerateTarGz(path, "src/github.com/", null);
             Assert.IsNotNull(bytes, "generateTarGz() returned null bytes.");

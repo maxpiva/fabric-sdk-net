@@ -128,7 +128,7 @@ namespace Hyperledger.Fabric.SDK
                 if (roleMap == null)
                 {
                     string str = (role == null) ? "null" : role.GetType().Name;
-                    throw new ChaincodeEndorsementPolicyParseException("In identities with key {key} value expected Map for role got {str}");
+                    throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} value expected Map for role got {str}");
                 }
 
                 object nameObj = roleMap.ContainsKey("name") ? roleMap["name"] : null;

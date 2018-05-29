@@ -15,6 +15,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Common;
@@ -79,7 +80,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Assert.AreEqual(channelName, testchannel.Name);
                 Assert.AreEqual(testchannel.client, hfclient);
                 Assert.AreEqual(testchannel.Orderers.Count, 0);
-                Assert.AreEqual(testchannel.Peers, 0);
+                Assert.AreEqual(testchannel.Peers.Count, 0);
                 Assert.AreEqual(testchannel.IsInitialized, false);
             }
             catch (InvalidArgumentException e)
@@ -305,7 +306,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelBadOrderer()
         {
             shutdownChannel.SendTransaction(null,(int?)null);
@@ -334,14 +335,14 @@ namespace Hyperledger.Fabric.Tests.SDK
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Peer peer1 not set for channel channel")]
-        public void TestChannelBadPeerDoesNotBelong2()
+         public void TestChannelBadPeerDoesNotBelong2()
         {
             Channel channel = CreateRunningChannel(null);
 
             Peer peer = channel.Peers.First();
 
             Channel channel2 = CreateRunningChannel("testChannelBadPeerDoesNotBelong2", null);
-            peer.Channel = channel2;
+            peer.intChannel = channel2;
 
             channel.SendInstantiationProposal(hfclient.NewInstantiationProposalRequest());
         }
@@ -470,7 +471,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "InstantiateProposalRequest is null")]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "InstallProposalRequest is null")]
         public void TestChannelsendInstallProposalNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -490,7 +491,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         //queryBlockByHash
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Upgradeproposal is null")]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "blockHash parameter is null.")]
         public void TestChannelQueryBlockByHashNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -561,7 +562,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Error bad bad bad")]
+        [ExpectedExceptionWithMessage(typeof(ProposalException), "Error bad bad bad")]
         public void TestQueryInstalledChaincodesERROR()
         {
             Channel channel = CreateRunningChannel(null);
@@ -587,9 +588,9 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
             installProposalBuilder.ChaincodePath("github.com/example_cc");
-            installProposalBuilder.ChaincodeSource(Path.GetFullPath(SAMPLE_GO_CC));
+            installProposalBuilder.ChaincodeSource(SAMPLE_GO_CC.Locate());
             installProposalBuilder.ChaincodeName("example_cc.go");
-            installProposalBuilder.ChaincodeMetaInfLocation(Path.GetFullPath("fixture/meta-infs/test1"));
+            installProposalBuilder.ChaincodeMetaInfLocation("fixture/meta-infs/test1".Locate());
             installProposalBuilder.ChaincodeVersion("1");
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithMetaInf");
@@ -620,7 +621,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
             installProposalBuilder.ChaincodePath("github.com/example_cc");
-            installProposalBuilder.ChaincodeSource(Path.GetFullPath(SAMPLE_GO_CC));
+            installProposalBuilder.ChaincodeSource(SAMPLE_GO_CC.Locate());
             installProposalBuilder.ChaincodeName("example_cc.go");
             installProposalBuilder.ChaincodeVersion("1");
 
@@ -651,10 +652,10 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
             installProposalBuilder.ChaincodePath("github.com/example_cc");
-            installProposalBuilder.ChaincodeSource(Path.GetFullPath(SAMPLE_GO_CC));
+            installProposalBuilder.ChaincodeSource(SAMPLE_GO_CC.Locate());
             installProposalBuilder.ChaincodeName("example_cc.go");
             installProposalBuilder.ChaincodeVersion("1");
-            installProposalBuilder.ChaincodeMetaInfLocation(Path.GetFullPath("fixture/meta-infs/test1/META-INF")); // points into which is not what's expected.
+            installProposalBuilder.ChaincodeMetaInfLocation("fixture/meta-infs/test1/META-INF".Locate()); // points into which is not what's expected.
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithNoMetaInfDir");
             TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
@@ -672,7 +673,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
             installProposalBuilder.ChaincodePath("github.com/example_cc");
-            installProposalBuilder.ChaincodeSource(Path.GetFullPath(SAMPLE_GO_CC));
+            installProposalBuilder.ChaincodeSource(SAMPLE_GO_CC.Locate());
             installProposalBuilder.ChaincodeName("example_cc.go");
             installProposalBuilder.ChaincodeVersion("1");
             installProposalBuilder.ChaincodeMetaInfLocation("/tmp/fdsjfksfj/fjksfjskd/fjskfjdsk/should never exist"); // points into which is not what's expected.
@@ -741,7 +742,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The META-INF directory")]
         public void TestProposalBuilderWithMetaInfEmpty()
         {
-            string emptyINF = Path.GetFullPath("fixture/meta-infs/emptyMetaInf/META-INF"); // make it cause git won't check in empty directory
+            string emptyINF = "fixture/meta-infs/emptyMetaInf/META-INF".Locate(); // make it cause git won't check in empty directory
             if (!Directory.Exists(emptyINF))
             {
                 Directory.CreateDirectory(emptyINF);
@@ -751,10 +752,10 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
             installProposalBuilder.ChaincodePath("github.com/example_cc");
-            installProposalBuilder.ChaincodeSource(Path.GetFullPath(SAMPLE_GO_CC));
+            installProposalBuilder.ChaincodeSource(SAMPLE_GO_CC.Locate());
             installProposalBuilder.ChaincodeName("example_cc.go");
             installProposalBuilder.ChaincodeVersion("1");
-            installProposalBuilder.ChaincodeMetaInfLocation(Path.GetFullPath("fixture/meta-infs/emptyMetaInf")); // points into which is not what's expected.
+            installProposalBuilder.ChaincodeMetaInfLocation("fixture/meta-infs/emptyMetaInf".Locate()); // points into which is not what's expected.
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithMetaInfEmpty");
             TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
@@ -799,7 +800,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
         private class MockEndorserClient : EndorserClient
         {
-            private readonly ProposalResponse returned;
+            private readonly Protos.Peer.FabricProposalResponse.ProposalResponse returned;
             private readonly System.Exception throwThis;
 
             public MockEndorserClient(System.Exception throwThis) : base(new Endpoint("grpc://loclhost:99", null))
@@ -808,28 +809,22 @@ namespace Hyperledger.Fabric.Tests.SDK
                 returned= null;
             }
 
-            public MockEndorserClient(ProposalResponse returned) : base(new Endpoint("grpc://loclhost:99", null))
+            public MockEndorserClient(Protos.Peer.FabricProposalResponse.ProposalResponse returned) : base(new Endpoint("grpc://loclhost:99", null))
             {
                 throwThis = null;
                 this.returned = returned;
             }
 
 
-            public new ProposalResponse SendProposal(SignedProposal proposal)
-            {
+            public override async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
+            { 
                 if (throwThis != null)
-                {
                     throw throwThis;
-                }
-
-                return returned;
+                return await Task.FromResult(returned);
             }
 
 
-            public new bool IsChannelActive()
-            {
-                return true;
-            }
+            public override bool IsChannelActive => true;
         }
     }
 }

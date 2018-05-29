@@ -14,6 +14,7 @@
 
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -78,7 +79,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [ExpectedException(typeof(PeerException))]
         public void TestSendAsyncNullProposal()
         {
-            peer.SendProposalAsync(null);
+            peer.SendProposalAsync(null).RunAndUnwarp();
         }
 
         [TestMethod]

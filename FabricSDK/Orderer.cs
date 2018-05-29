@@ -154,7 +154,7 @@ namespace Hyperledger.Fabric.SDK
             if (shutdown)
                 return;
             shutdown = true;
-            Channel = null;
+            base.Channel = null;
             if (ordererClient != null)
             {
                 OrdererClient torderClientDeliver = ordererClient;

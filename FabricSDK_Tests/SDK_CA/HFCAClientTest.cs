@@ -387,10 +387,10 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             Properties testprops = new Properties();
 
-            testprops.Set("pemFile", Path.GetFullPath("fixture/testPems/caBundled.pems") + "," + // has 3 certs
-                                     Path.GetFullPath("fixture/testPems/Org1MSP_CA.pem")); // has 1
+            testprops.Set("pemFile", ("fixture/testPems/caBundled.pems").Locate() + "," + // has 3 certs
+                                     ("fixture/testPems/Org1MSP_CA.pem").Locate()); // has 1
 
-            testprops.Set("pemBytes", File.ReadAllText(Path.GetFullPath("fixture/testPems/Org2MSP_CA.pem")));
+            testprops.Set("pemBytes", File.ReadAllText(("fixture/testPems/Org2MSP_CA.pem").Locate()));
 
             CryptoPrimitives crypto = new CryptoPrimitives();
             crypto.Init();

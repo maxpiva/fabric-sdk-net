@@ -126,7 +126,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         public static MockEnrollment GetMockEnrollment(string cert)
         {
-            return new MockEnrollment(new RSACng(), cert);
+            return new MockEnrollment(new RSACryptoServiceProvider(), cert);
         }
 
         public static MockEnrollment GetMockEnrollment(AsymmetricAlgorithm key, string cert)
@@ -141,16 +141,12 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             using (MemoryStream bos = new MemoryStream(bytes))
             using (var reader = ReaderFactory.Open(bos))
             {
-                bool end = false;
-                do
+                while (reader.MoveToNextEntry())
                 {
                     IEntry ta = reader.Entry;
                     Assert.IsTrue(!ta.IsDirectory, $"Tar entry {ta.Key} is not a file.");
                     ret.Add(ta.Key);
-                    end = !reader.MoveToNextEntry();
-                } while (!end);
-
-
+                }
                 return ret;
 
             }

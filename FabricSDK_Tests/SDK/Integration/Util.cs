@@ -22,6 +22,8 @@ using System.Threading.Tasks;
 using SharpCompress.Common;
 using SharpCompress.Writers;
 using System.Threading.Tasks;
+using Hyperledger.Fabric.Tests.Helper;
+
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
     public static class Util
@@ -65,7 +67,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         public static string FindFileSk(string directorys)
         {
-            string[] matches = Directory.EnumerateFiles(Path.GetFullPath(directorys)).Where(a => a.EndsWith("_sk")).ToArray();
+            string[] matches = Directory.EnumerateFiles(directorys.Locate()).Where(a => a.EndsWith("_sk")).ToArray();
             if (null == matches)
                 throw new System.Exception($"Matches returned null does {directorys} directory exist?");
             if (matches.Length != 1)

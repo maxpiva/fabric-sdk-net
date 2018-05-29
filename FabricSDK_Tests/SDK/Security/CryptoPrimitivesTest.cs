@@ -11,8 +11,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -75,7 +80,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             // TODO should do this in @BeforeClass. Need to find out how to get to
             // files from static junit method
 
-            testCACert = new X509Certificate2(Path.GetFullPath("Resources/ca.crt"));
+            testCACert = new X509Certificate2("Resources/ca.crt".Locate());
             crypto.AddCACertificateToTrustStore(testCACert, "ca");
 
             X509Certificate2 cert = GenerateFromCertAndPriv();
@@ -91,7 +96,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             X509CertificateEntry entry = null;
             AsymmetricCipherKeyPair privKey = null;
-            using (Stream ms = File.OpenRead(Path.GetFullPath("Resources/keypair-signed.crt")))
+            using (Stream ms = File.OpenRead("Resources/keypair-signed.crt".Locate()))
             {
                 PemReader pemReader = new PemReader(new StreamReader(ms));
                 object o;
@@ -104,7 +109,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 }
             }
 
-            using (Stream ms = File.OpenRead(Path.GetFullPath("Resources/keypair-signed.key")))
+            using (Stream ms = File.OpenRead("Resources/keypair-signed.key".Locate()))
             {
                 PemReader pemReader = new PemReader(new StreamReader(ms));
                 object o;
@@ -122,11 +127,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 using (MemoryStream ms = new MemoryStream())
                 {
                     Pkcs12Store store = new Pkcs12StoreBuilder().Build();
-                    store.SetKeyEntry("key", new AsymmetricKeyEntry(privKey.Private), new[] {entry});
+                    store.SetKeyEntry("key2", new AsymmetricKeyEntry(privKey.Private), new[] {entry});
                     store.Save(ms, "123456".ToCharArray(), new SecureRandom());
                     ms.Flush();
                     ms.Position = 0;
-                    return new X509Certificate2(ms.ToArray(), "123456");
+                    return new X509Certificate2(ms.ToArray(), "123456",X509KeyStorageFlags.Exportable|X509KeyStorageFlags.EphemeralKeySet);
                 }
             }
 
@@ -314,7 +319,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             try
             {
                 // Read the certificate data
-                string certData = File.ReadAllText(Path.GetFullPath("Resources/ca.crt"));
+                string certData = File.ReadAllText("Resources/ca.crt".Locate());
                 // Write this to a temp file
                 string newFile = Path.Combine(Path.GetFullPath(tempFolder), "temp.txt");
                 File.WriteAllText(newFile, certData);
@@ -480,7 +485,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                byte[] certBytes = File.ReadAllBytes(Path.GetFullPath("Resources/notsigned.crt"));
+                byte[] certBytes = File.ReadAllBytes("Resources/notsigned.crt".Locate());
 
                 Assert.IsFalse(crypto.ValidateCertificate(certBytes));
             }
@@ -523,7 +528,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                byte[] bytes = File.ReadAllBytes(Path.GetFullPath("Resources/tls-client.key"));
+                byte[] bytes = File.ReadAllBytes("Resources/tls-client.key".Locate());
                 AsymmetricAlgorithm pk = crypto.BytesToPrivateKey(bytes);
             }
             catch (System.Exception e)
@@ -537,7 +542,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                byte[] bytes = File.ReadAllBytes(Path.GetFullPath("Resources/tls-client-pk8.key"));
+                byte[] bytes = File.ReadAllBytes(("Resources/tls-client-pk8.key").Locate());
                 AsymmetricAlgorithm pk = crypto.BytesToPrivateKey(bytes);
             }
             catch (System.Exception e)
@@ -653,18 +658,32 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
         private AsymmetricAlgorithm FindRightKey()
         {
-            //TODO FIND THE RIGHT WAY
-            X509Certificate2 cert = crypto.GetTrustStore().Certificates[1];
+            X509Certificate2 certf = null;
+            foreach (X509Certificate2 cert in crypto.GetTrustStore().Certificates)
+            {
+                if (cert.HasPrivateKey && cert.FriendlyName == "key2")
+                {
+                    byte[] certidata = cert.Export(X509ContentType.Pkcs12,"123");
+                    Pkcs12Store store = new Pkcs12Store();
+                    store.Load(new MemoryStream(certidata),"123".ToCharArray());
+                    IEnumerator al=store.Aliases.GetEnumerator();
+                    al.MoveNext();
+                    al.MoveNext();
+                    string alias = (string)al.Current;
+                    AsymmetricKeyEntry entry = store.GetKey(alias);
+                    return crypto.GetAsymmetricAlgorithm(entry.Key);
+                }
 
-            cert = new X509Certificate2(cert.RawData, "123456");
-            AsymmetricAlgorithm key = cert.PrivateKey;
-            return key;
+            }
+
+            return null;
         }
 
         [TestMethod]
         public void TestSignValidData()
         {
             AsymmetricAlgorithm key = FindRightKey();
+            
             crypto.Sign(key, plainText);
             Assert.IsTrue(crypto.Sign(key, plainText).Length > 0);
         }
@@ -698,7 +717,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             {
                 AsymmetricAlgorithm key = FindRightKey();
                 signature = crypto.Sign(key, plainText);
-                byte[] cert = File.ReadAllBytes(Path.GetFullPath("Resources/keypair-signed.crt"));
+                byte[] cert = File.ReadAllBytes(("Resources/keypair-signed.crt").Locate());
                 Assert.IsTrue(crypto.Verify(cert, SIGNING_ALGORITHM, signature, plainText));
             }
             catch (System.Exception e)
@@ -781,9 +800,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         public void TestValidationOfCertWithFabicCAattributes()
         {
             ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
-            byte[] onceFailingPem = File.ReadAllBytes(Path.GetFullPath("Fixture/testPems/peerCert.pem"));
+            byte[] onceFailingPem = File.ReadAllBytes("Fixture/testPems/peerCert.pem".Locate());
             CryptoPrimitives cryptoPrimitives = (CryptoPrimitives) cryptoSuite;
-            cryptoPrimitives.AddCACertificatesToTrustStoreFromFile(Path.GetFullPath("fixture/testPems/caBundled.pems"));
+            cryptoPrimitives.AddCACertificatesToTrustStoreFromFile("fixture/testPems/caBundled.pems".Locate());
             Assert.IsTrue(cryptoPrimitives.ValidateCertificate(onceFailingPem));
         }
     }

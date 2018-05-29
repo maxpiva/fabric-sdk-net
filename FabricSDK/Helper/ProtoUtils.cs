@@ -131,7 +131,8 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
             };
             if (chaincodePath != null)
                 chaincodeID.Path=chaincodePath;
-
+            if (args==null)
+                args=new List<string>();
             // build chaincodeInput
             List<ByteString> argList = args.Select(ByteString.CopyFromUtf8).ToList();
             ChaincodeInput chaincodeInput = new ChaincodeInput();

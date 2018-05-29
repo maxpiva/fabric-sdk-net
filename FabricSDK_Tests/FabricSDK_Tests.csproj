@@ -1,141 +1,33 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.props" Condition="Exists('..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{A17AF82D-5332-4FC5-9C3C-5892A9387F33}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Hyperledger.Fabric.Tests</RootNamespace>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+
     <AssemblyName>Hyperledger.Fabric.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">15.0</VisualStudioVersion>
-    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
-    <ReferencePath>$(ProgramFiles)\Common Files\microsoft shared\VSTT\$(VisualStudioVersion)\UITestExtensionPackages</ReferencePath>
-    <IsCodedUITest>False</IsCodedUITest>
-    <TestProjectType>UnitTest</TestProjectType>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
+
+    <RootNamespace>Hyperledger.Fabric.Tests</RootNamespace>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="BouncyCastle.Crypto, Version=1.8.2.0, Culture=neutral, PublicKeyToken=0e99375e54769942, processorArchitecture=MSIL">
-      <HintPath>..\packages\Portable.BouncyCastle.1.8.2\lib\net40\BouncyCastle.Crypto.dll</HintPath>
-    </Reference>
-    <Reference Include="Google.Protobuf, Version=3.5.1.0, Culture=neutral, PublicKeyToken=a7d26565bac4d604, processorArchitecture=MSIL">
-      <HintPath>..\packages\Google.Protobuf.3.5.1\lib\net45\Google.Protobuf.dll</HintPath>
-    </Reference>
-    <Reference Include="Grpc.Core">
-      <HintPath>..\..\..\..\Users\mpiva\.nuget\packages\grpc.core\1.12.0\lib\netstandard1.5\Grpc.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\MSTest.TestFramework.1.3.0\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\MSTest.TestFramework.1.3.0\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpCompress, Version=0.21.1.0, Culture=neutral, PublicKeyToken=afb0a02973931d96, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpCompress.0.21.1\lib\net45\SharpCompress.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="YamlDotNet, Version=4.3.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\YamlDotNet.4.3.1\lib\net45\YamlDotNet.dll</HintPath>
-    </Reference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="1.2.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="1.2.1" />
+    <PackageReference Include="Google.Protobuf" Version="3.5.1" />
+    <PackageReference Include="Grpc.Core" Version="1.12.0" />
+    <PackageReference Include="LibLog" Version="5.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.8.2" />
+    <PackageReference Include="SharpCompress" Version="0.21.1" />
+    <PackageReference Include="System.Security.Cryptography.Cng" Version="4.3.0" />
+    <PackageReference Include="YamlDotNet" Version="4.3.1" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="Helper\ExpectedExceptionWithMessageAttribute.cs" />
-    <Compile Include="SDK\BlockEventTest.cs" />
-    <Compile Include="SDK\ChaincodeEndorsementPolicyTest.cs" />
-    <Compile Include="SDK\ChannelConfigurationTest.cs" />
-    <Compile Include="SDK\ChannelTest.cs" />
-    <Compile Include="SDK\ClientTest.cs" />
-    <Compile Include="SDK\EndpointTest.cs" />
-    <Compile Include="SDK\Exception\FabricExceptionsTest.cs" />
-    <Compile Include="SDK\Helper\ConfigTest.cs" />
-    <Compile Include="SDK\Helper\UtilsTest.cs" />
-    <Compile Include="SDK\Integration\End2endAndBackAgainIT.cs" />
-    <Compile Include="SDK\Integration\End2endAndBackAgainNodeIT.cs" />
-    <Compile Include="SDK\Integration\End2endIT.cs" />
-    <Compile Include="SDK\Integration\End2endNodeIT.cs" />
-    <Compile Include="SDK\Integration\NetworkConfigIT.cs" />
-    <Compile Include="SDK\Integration\SampleOrg.cs" />
-    <Compile Include="SDK\Integration\SampleStore.cs" />
-    <Compile Include="SDK\Integration\SampleUser.cs" />
-    <Compile Include="SDK\Integration\UpdateChannelIT.cs" />
-    <Compile Include="SDK\Integration\Util.cs" />
-    <Compile Include="SDK\NetworkConfigTest.cs" />
-    <Compile Include="SDK\OrdererTest.cs" />
-    <Compile Include="SDK\PeerTest.cs" />
-    <Compile Include="SDK\RequestTest.cs" />
-    <Compile Include="SDK\Security\CryptoPrimitivesTest.cs" />
-    <Compile Include="SDK\TestConfigHelper.cs" />
-    <Compile Include="SDK\TestHFClient.cs" />
-    <Compile Include="SDK\TestUtils\TestConfig.cs" />
-    <Compile Include="SDK\TestUtils\TestUtils.cs" />
-    <Compile Include="SDK\Transaction\InstallProposalBuilderTest.cs" />
-    <Compile Include="SDK\Transaction\InstantiateProposalBuilderTest.cs" />
-    <Compile Include="SDK\Transaction\JoinPeerProposalBuilderTest.cs" />
-    <Compile Include="SDK\Transaction\ProtoUtilsTest.cs" />
-    <Compile Include="SDK\Transaction\TransactionContextTest.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SDK_CA\AttributeTest.cs" />
-    <Compile Include="SDK_CA\EnrollmentRequestTest.cs" />
-    <Compile Include="SDK_CA\Exception\FabricCAExceptionsTest.cs" />
-    <Compile Include="SDK_CA\Helper\ConfigTest.cs" />
-    <Compile Include="SDK_CA\HFCAAffiliationTest.cs" />
-    <Compile Include="SDK_CA\HFCAClientTest.cs" />
-    <Compile Include="SDK_CA\HFCAIdentityTest.cs" />
-    <Compile Include="SDK_CA\Integration\HFCAClientIT.cs" />
-    <Compile Include="SDK_CA\MockHFCAClient.cs" />
-    <Compile Include="SDK_CA\RegistrationRequestTest.cs" />
-    <Compile Include="SDK_CA\RevocationRequestTest.cs" />
+    <ProjectReference Include="..\FabricSDK\FabricSDK.csproj" />
+    <ProjectReference Include="..\FabricSDK_CA\FabricSDK_CA.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\FabricSDK\FabricSDK.csproj">
-      <Project>{d7434055-9be6-43ed-9de9-da173e0a9e0d}</Project>
-      <Name>FabricSDK</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\FabrricSDK_CA\FabricSDK_CA.csproj">
-      <Project>{9288f1b3-04c6-4866-bd77-352c433b8a11}</Project>
-      <Name>FabricSDK_CA</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.props'))" />
-    <Error Condition="!Exists('..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets'))" />
-  </Target>
   <Target Name="AfterBuild">
     <ItemGroup>
       <RESOURCES Include="$(ProjectDir)Resources\**\*.*" />
@@ -144,13 +36,4 @@
     <Copy SourceFiles="@(RESOURCES)" DestinationFolder="$(TargetDir)\Resources\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(FIXTURE)" DestinationFolder="$(TargetDir)\Fixture\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
-  <Import Project="..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets" Condition="Exists('..\packages\MSTest.TestAdapter.1.3.0\build\net45\MSTest.TestAdapter.targets')" />
-  <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
-  </PropertyGroup>
 </Project>

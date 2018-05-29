@@ -53,10 +53,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
-using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Logging;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {

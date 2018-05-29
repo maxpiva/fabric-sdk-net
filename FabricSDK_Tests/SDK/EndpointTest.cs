@@ -17,6 +17,7 @@ using System.IO;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
@@ -112,7 +113,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "property of negotiationType has to be either TLS or plainText")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "property of negotiationType has to be either TLS or plainText")]
         public void TestEmptyPropertyNegotiationType()
         {
             Properties testprops = new Properties();
@@ -128,7 +129,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
@@ -137,12 +138,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
         public void TestNullPropertyClientKeyFile()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
@@ -152,12 +153,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null")]
         public void TestNullPropertyClientKeyBytes()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
@@ -167,12 +168,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
         public void TestNullPropertyClientCertFile()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
@@ -182,12 +183,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null")]
         public void TestNullPropertyClientCertBytes()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
@@ -197,33 +198,33 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Failed to parse TLS client private key")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Failed to parse TLS client private key")]
         public void TestBadClientKeyFile()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
-            testprops.Set("clientKeyFile", Path.GetFullPath("resources/bad-ca.crt"));
-            testprops.Set("clientCertFile", Path.GetFullPath("resources/tls-client.crt"));
+            testprops.Set("clientKeyFile", ("resources/bad-ca.crt").Locate());
+            testprops.Set("clientCertFile", ("resources/tls-client.crt").Locate());
 
             new Endpoint("grpcs://localhost:594", testprops);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Failed to parse TLS client private key")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Failed to parse TLS client key")]
         public void TestBadClientCertFile()
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
-            testprops.Set("clientKeyFile", Path.GetFullPath("/resources/tls-client.key"));
-            testprops.Set("clientCertFile", Path.GetFullPath("resources/bad-ca.crt"));
+            testprops.Set("clientKeyFile", ("/resources/tls-client.key").Locate());
+            testprops.Set("clientCertFile", ("resources/bad-ca.crt").Locate());
 
             new Endpoint("grpcs://localhost:594", testprops);
         }
@@ -233,12 +234,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Properties testprops = new Properties();
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
 
-            testprops.Set("clientKeyFile", Path.GetFullPath("resources/tls-client.key"));
+            testprops.Set("clientKeyFile", ("resources/tls-client.key").Locate());
             testprops.Set("clientKeyBytes", new string('\0', 100));
             try
             {
@@ -251,7 +252,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             testprops.Remove("clientKeyFile");
             testprops.Remove("clientKeyBytes");
-            testprops.Set("clientCertFile", Path.GetFullPath("resources/tls-client.crt"));
+            testprops.Set("clientCertFile", ("resources/tls-client.crt").Locate());
             testprops.Set("clientCertBytes", new string('\0', 100));
             try
             {
@@ -281,19 +282,19 @@ namespace Hyperledger.Fabric.Tests.SDK
             Properties testprops = new Properties();
 
             testprops.Set("trustServerCertificate", "true");
-            testprops.Set("pemFile", Path.GetFullPath("resources/keypair-signed.crt"));
+            testprops.Set("pemFile", ("resources/keypair-signed.crt").Locate());
             testprops.Set("sslProvider", "openSSL");
             testprops.Set("hostnameOverride", "override");
             testprops.Set("negotiationType", "TLS");
-            testprops.Set("clientKeyFile", Path.GetFullPath("resources/tls-client.key"));
-            testprops.Set("clientCertFile", Path.GetFullPath("resources/tls-client.crt"));
+            testprops.Set("clientKeyFile", ("resources/tls-client.key").Locate());
+            testprops.Set("clientCertFile", ("resources/tls-client.crt").Locate());
             Endpoint endpoint = new Endpoint("grpcs://localhost:594", testprops);
 
             byte[] ckb = null, ccb = null;
             try
             {
-                ckb = File.ReadAllBytes(Path.GetFullPath("resources/tls-client.key"));
-                ccb = File.ReadAllBytes(Path.GetFullPath("resources/tls-client.crt"));
+                ckb = File.ReadAllBytes(("resources/tls-client.key").Locate());
+                ccb = File.ReadAllBytes(("resources/tls-client.crt").Locate());
             }
             catch (System.Exception e)
             {
@@ -312,10 +313,10 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Properties testprops = new Properties();
 
-            testprops.Set("pemFile", Path.GetFullPath("fixture/testPems/caBundled.pems") + ", " + // has 3 certs
-                                     Path.GetFullPath("src/test/fixture/testPems/Org1MSP_CA.pem")); // has 1
+            testprops.Set("pemFile", ("fixture/testPems/caBundled.pems").Locate() + ", " + // has 3 certs
+                                     ("fixture/testPems/Org1MSP_CA.pem").Locate()); // has 1
 
-            testprops.Set("pemBytes", File.ReadAllText(Path.GetFullPath("fixture/testPems/Org2MSP_CA.pem"), Encoding.UTF8)); //Can have pem bytes too. 1 cert
+            testprops.Set("pemBytes", File.ReadAllText(("fixture/testPems/Org2MSP_CA.pem").Locate(), Encoding.UTF8)); //Can have pem bytes too. 1 cert
 
 
             Endpoint endpoint = new Endpoint("grpcs://localhost:594", testprops);
@@ -327,7 +328,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             foreach (X509Certificate2 cert in certs)
             {
-                BigInteger serialNumber = new BigInteger(cert.SerialNumber);
+                BigInteger serialNumber = new BigInteger(cert.SerialNumber.FromHexString());
                 Assert.IsTrue(expected.Contains(serialNumber), $"Missing certificate {serialNumber}");
             }
 
@@ -340,8 +341,8 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Properties testprops = new Properties();
 
-            testprops.Set("pemFile", Path.GetFullPath("fixture/testPems/caBundled.pems") + "," + // has 3 certs
-                                     "fixture/testPems/IMBAD" + "," + Path.GetFullPath("fixture/testPems/Org1MSP_CA.pem")); // has 1
+            testprops.Set("pemFile", ("fixture/testPems/caBundled.pems").Locate() + "," + // has 3 certs
+                                     "fixture/testPems/IMBAD" + "," + ("fixture/testPems/Org1MSP_CA.pem").Locate()); // has 1
 
             Endpoint endpoint = new Endpoint("grpcs://localhost:594", testprops);
         }

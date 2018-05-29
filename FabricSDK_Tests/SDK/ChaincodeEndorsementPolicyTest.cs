@@ -20,6 +20,7 @@ using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK
@@ -59,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestPolicyCtorValidFile()
         {
-            string policyFile = Path.GetFullPath("Resources/policyBitsAdmin");
+            string policyFile = ("Resources/policyBitsAdmin").Locate();
             ChaincodeEndorsementPolicy policy = new ChaincodeEndorsementPolicy();
             policy.FromFile(policyFile);
             byte[] policyBits = File.ReadAllBytes(policyFile);
@@ -87,7 +88,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestSDKIntegrationYaml()
         {
             ChaincodeEndorsementPolicy itTestPolicy = new ChaincodeEndorsementPolicy();
-            itTestPolicy.FromYamlFile(Path.GetFullPath("Fixture/sdkintegration/chaincodeendorsementpolicy.yaml"));
+            itTestPolicy.FromYamlFile("Fixture/sdkintegration/chaincodeendorsementpolicy.yaml".Locate());
             SignaturePolicyEnvelope sigPolEnv = SignaturePolicyEnvelope.Parser.ParseFrom(itTestPolicy.ChaincodeEndorsementPolicyAsBytes);
             List<MSPPrincipal> identitiesList = sigPolEnv.Identities.ToList();
             foreach (MSPPrincipal ident in identitiesList)
@@ -112,7 +113,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             try
             {
                 ChaincodeEndorsementPolicy itTestPolicy = new ChaincodeEndorsementPolicy();
-                itTestPolicy.FromYamlFile(Path.GetFullPath("fixture/sample_chaincode_endorsement_policies/badusertestCCEPPolicy.yaml"));
+                itTestPolicy.FromYamlFile("fixture/sample_chaincode_endorsement_policies/badusertestCCEPPolicy.yaml".Locate());
 
                 Assert.Fail("Expected ChaincodeEndorsementPolicyParseException");
             }

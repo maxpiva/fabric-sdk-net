@@ -141,7 +141,7 @@ namespace Hyperledger.Fabric.SDK.Builders
                 throw  new IllegalArgumentException($"The META-INF directory does not exist in {chaincodeMetaInfLocation}");
             }
 
-            string[] files = Directory.EnumerateFiles(metainf).ToArray();
+            string[] files = Directory.GetFileSystemEntries(metainf).ToArray();
             /*
             if (files == null) {
                 throw new IllegalArgumentException("null for listFiles on: " + chaincodeMetaInfLocation.getAbsolutePath());

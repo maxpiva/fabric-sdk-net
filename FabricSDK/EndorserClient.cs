@@ -75,7 +75,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        public async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken)) 
+        public virtual async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken)) 
         {
             if (shutdown)
             {
@@ -92,10 +92,13 @@ namespace Hyperledger.Fabric.SDK
             return ecl.ProcessProposal(proposal);
         }
 
-        public bool IsChannelActive()
+        public virtual bool IsChannelActive
         {
-            Grpc.Core.Channel lchannel = managedChannel;
-            return lchannel != null && lchannel.State!=ChannelState.Shutdown && lchannel.State!=ChannelState.TransientFailure;
+            get
+            {
+                Grpc.Core.Channel lchannel = managedChannel;
+                return lchannel != null && lchannel.State != ChannelState.Shutdown && lchannel.State != ChannelState.TransientFailure;
+            }
         }
 
         ~EndorserClient()

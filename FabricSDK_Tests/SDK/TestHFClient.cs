@@ -18,6 +18,7 @@ using System.IO;
 using System.Linq;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
 using Hyperledger.Fabric.Tests.SDK.TestUtils;
 
@@ -58,7 +59,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             //src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
 
             //SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG");
-            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), Path.GetFullPath("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem"));
+            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem").Locate());
             someTestUSER.MspId = "testMSPID?";
 
             hfclient.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
@@ -68,7 +69,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         static string FindFileSk(string directorys)
         {
 
-            string[] matches = Directory.EnumerateFiles(Path.GetFullPath(directorys)).Where(a => a.EndsWith("_sk")).ToArray();
+            string[] matches = Directory.EnumerateFiles(directorys.Locate()).Where(a => a.EndsWith("_sk")).ToArray();
 
             if (null == matches)
                 throw new System.Exception($"Matches returned null does {directorys} directory exist?");

@@ -203,7 +203,7 @@ namespace Hyperledger.Fabric.SDK
                     if (shutdown)
                     {
                         //IF we're shutdown don't try anything more.
-                        logger.Trace("${Name} was shutdown.");
+                        logger.Trace($"{Name} was shutdown.");
                         finishLatch.Signal();
                     }
                     else
@@ -234,7 +234,7 @@ namespace Hyperledger.Fabric.SDK
                 if (!reconnection && !finishLatch.Wait((int) EVENTHUB_CONNECTION_WAIT_TIME))
                     logger.Warn($"EventHub {Name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
                 else
-                    logger.Trace("Eventhub {name} Done waiting for reply!");
+                    logger.Trace($"Eventhub {Name} Done waiting for reply!");
             }
             catch (Exception e)
             {
@@ -304,7 +304,7 @@ namespace Hyperledger.Fabric.SDK
             lastBlockEvent = null;
             lastBlockNumber = 0;
             IsConnected = false;
-            Channel = null;
+            base.Channel = null;
             sender?.Dispose();
             sender = null;
             Grpc.Core.Channel lmanagedChannel = managedChannel;

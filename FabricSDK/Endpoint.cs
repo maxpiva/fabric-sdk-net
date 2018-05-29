@@ -243,8 +243,8 @@ namespace Hyperledger.Fabric.SDK
                     }
                     else if (properties.Contains("clientKeyBytes") || properties.Contains("clientCertBytes"))
                     {
-                        ckb = properties["clientKeyBytes"].ToBytes();
-                        ccb = properties["clientCertBytes"].ToBytes();
+                        ckb = properties["clientKeyBytes"]?.ToBytes();
+                        ccb = properties["clientCertBytes"]?.ToBytes();
                         if (ckb == null || ccb == null)
                         {
                             throw new IllegalArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
@@ -257,11 +257,11 @@ namespace Hyperledger.Fabric.SDK
                         try
                         {
                             logger.Trace("client TLS private key bytes size:" + ckb.Length);
-                            //clientKey = cp.BytesToPrivateKey(ckb);
+                            cp.BytesToPrivateKey(ckb);
                             logger.Trace("converted TLS key.");
                             what = "certificate";
                             logger.Trace("client TLS certificate bytes:" + ccb.ToHexString());
-                            //clientCert = new X509Certificate2[] {(X509Certificate2) cp.BytesToCertificate(ccb)};
+                            cp.BytesToCertificate(ccb);
                             logger.Trace("converted client TLS certificate.");
                             tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
                         }
@@ -290,14 +290,17 @@ namespace Hyperledger.Fabric.SDK
             try
             {
                 List<ChannelOption> options = new List<ChannelOption>();
-                foreach (string str in properties)
+                if (properties != null)
                 {
-                    if (str.StartsWith("grpc."))
+                    foreach (string str in properties)
                     {
-                        if (int.TryParse(properties[str], out int value))
-                            options.Add(new ChannelOption(str,value));
-                        else
-                            options.Add(new ChannelOption(str,properties[str]));
+                        if (str.StartsWith("grpc."))
+                        {
+                            if (int.TryParse(properties[str], out int value))
+                                options.Add(new ChannelOption(str, value));
+                            else
+                                options.Add(new ChannelOption(str, properties[str]));
+                        }
                     }
                 }
 
@@ -447,7 +450,10 @@ namespace Hyperledger.Fabric.SDK
 
         }
                 */
-        public Grpc.Core.Channel BuildChannel() => new Grpc.Core.Channel(Host,Port,Credentials,ChannelOptions);
+        public Grpc.Core.Channel BuildChannel()
+        {
+            return new Grpc.Core.Channel(Host, Port, Credentials ?? ChannelCredentials.Insecure, ChannelOptions);
+        }
 
         public string Host { get; }
 

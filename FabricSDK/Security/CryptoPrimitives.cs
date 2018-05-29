@@ -27,8 +27,10 @@ using Hyperledger.Fabric.SDK.Logging;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Ocsp;
 using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Asn1.X9;
+using Org.BouncyCastle.Bcpg.OpenPgp;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Agreement.JPake;
 using Org.BouncyCastle.Crypto.Digests;
@@ -38,12 +40,15 @@ using Org.BouncyCastle.Crypto.Prng;
 using Org.BouncyCastle.Crypto.Signers;
 using Org.BouncyCastle.Crypto.Tls;
 using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Math.EC;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
 using Org.BouncyCastle.Utilities.IO.Pem;
 using Org.BouncyCastle.X509;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
+using ECCurve = System.Security.Cryptography.ECCurve;
+using ECPoint = System.Security.Cryptography.ECPoint;
 using HashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
 
@@ -281,45 +286,22 @@ namespace Hyperledger.Fabric.SDK.Security
 
 
 
-
-        /**
-         * Return PrivateKey  from pem bytes.
-         *
-         * @param pemKey pem-encoded private key
-         * @return
-         */
-        public AsymmetricAlgorithm BytesToPrivateKey(byte[] pemKey)
+        public AsymmetricAlgorithm GetAsymmetricAlgorithm(AsymmetricKeyParameter privKey)
         {
-            AsymmetricCipherKeyPair privKey = null;
-            using (MemoryStream ms = new MemoryStream(pemKey))
-            {
-                PemReader pemReader = new PemReader(new StreamReader(ms));
-                object o;
-                while ((o = pemReader.ReadObject()) != null)
-                {
-                    if (o is AsymmetricCipherKeyPair)
-                    {
-                        privKey = (AsymmetricCipherKeyPair) o;
-                        break;
-                    }
-                }
-            }
 
-
-
-            if (privKey?.Private == null)
+            if (privKey == null)
                 throw new CryptoException("Invalid Private Key");
-            if (privKey.Private is RsaKeyParameters)
+            if (privKey is RsaKeyParameters)
             {
                 RSACryptoServiceProvider sv = new RSACryptoServiceProvider();
-                sv.ImportParameters(DotNetUtilities.ToRSAParameters((RsaKeyParameters) privKey.Private));
+                sv.ImportParameters(DotNetUtilities.ToRSAParameters((RsaKeyParameters)privKey));
                 return sv;
             }
 
-            if (privKey.Private is DsaPrivateKeyParameters)
+            if (privKey is DsaPrivateKeyParameters)
             {
                 DSACryptoServiceProvider sv = new DSACryptoServiceProvider();
-                DsaPrivateKeyParameters kp = (DsaPrivateKeyParameters) privKey.Private;
+                DsaPrivateKeyParameters kp = (DsaPrivateKeyParameters)privKey;
                 DSAParameters p = new DSAParameters();
                 p.G = kp.Parameters.G.ToByteArrayUnsigned();
                 p.P = kp.Parameters.P.ToByteArrayUnsigned();
@@ -331,8 +313,54 @@ namespace Hyperledger.Fabric.SDK.Security
                 return sv;
             }
 
+            if (privKey is ECPrivateKeyParameters)
+            {
+                ECPrivateKeyParameters or = (ECPrivateKeyParameters)privKey;
+                //TODO HACK - Mapping maybe?
+                string bouncyclass = or.Parameters.Curve.GetType().Name;
+                int idx = bouncyclass.LastIndexOf(".");
+                string name = bouncyclass.Substring(idx + 1).Replace("Curve", "").ToLowerInvariant();
+                //
+                ECParameters q = new ECParameters();
+                q.Curve = ECCurve.CreateFromFriendlyName(name);
+                q.Q.X = or.Parameters.G.X.GetEncoded();
+                q.Q.Y = or.Parameters.G.Y.GetEncoded();
+                q.D = or.D.ToByteArrayUnsigned();
+                q.Validate();
+                return ECDsa.Create(q);
+
+            }
             throw new CryptoException("Unsupported private key");
         }
+        /**
+         * Return PrivateKey  from pem bytes.
+         *
+         * @param pemKey pem-encoded private key
+         * @return
+         */
+        public AsymmetricAlgorithm BytesToPrivateKey(byte[] pemKey)
+        {
+            if (pemKey == null || pemKey.Length == 0)
+                throw new CryptoException("private key cannot be null");
+            AsymmetricKeyParameter privKey = null;
+            using (MemoryStream ms = new MemoryStream(pemKey))
+            {
+                PemReader pemReader = new PemReader(new StreamReader(ms));
+                object o;
+                while ((o = pemReader.ReadObject()) != null)
+                {
+                    if (o is AsymmetricKeyParameter)
+                    {
+                        privKey = (AsymmetricKeyParameter) o;
+                        break;
+                    }
+                }
+            }
+
+            return GetAsymmetricAlgorithm(privKey);
+            
+        }
+
 
         public bool Verify(byte[] pemCertificate, string signatureAlgorithm, byte[] signature, byte[] plainText)
         {
@@ -373,7 +401,7 @@ namespace Hyperledger.Fabric.SDK.Security
                             HashAlgorithm hs = HashAlgorithm.Create(signatureAlgorithm);
                             if (hs == null)
                             {
-                                CryptoException ex = new CryptoException("Cannot verify. Signature algorithm {signatureAlgorithm} is invalid.");
+                                CryptoException ex = new CryptoException($"Cannot verify. Signature algorithm {signatureAlgorithm} is invalid.");
                                 logger.ErrorException(ex.Message, ex);
                                 throw ex;
                             }
@@ -802,13 +830,19 @@ namespace Hyperledger.Fabric.SDK.Security
         {
             try
             {
-                X9ECParameters pars = ECNamedCurveTable.GetByName(curveName);
-                BigInteger curveN = pars.N;
-                ECDsa ecdsa = (ECDsa) privateKey;
-                byte[] signature = ecdsa.SignData(data, (HashAlgorithmName) Enum.Parse(typeof(HashAlgorithmName), DEFAULT_SIGNATURE_ALGORITHM));
-                BigInteger[] sigs = DecodeECDSASignature(signature);
-
-                sigs = PreventMalleability(sigs, curveN);
+      
+                ECDsa ecdsa = (ECDsa)privateKey;
+                ECParameters q = ecdsa.ExportParameters(true);
+                X9ECParameters par = SecNamedCurves.GetByName(q.Curve.Oid.FriendlyName);
+                BigInteger X = new BigInteger(q.Q.X);
+                BigInteger Y = new BigInteger(q.Q.Y);
+                Org.BouncyCastle.Math.EC.ECPoint g = par.Curve.CreatePoint(X, Y);
+                ECDomainParameters domain = new ECDomainParameters(par.Curve, g, par.N);
+                ECDsaSigner signer = new ECDsaSigner(new HMacDsaKCalculator(DigestUtilities.GetDigest(DEFAULT_SIGNATURE_ALGORITHM.Replace("withECDSA", ""))));
+                ECPrivateKeyParameters privkey = new ECPrivateKeyParameters(new BigInteger(1, q.D), domain);
+                signer.Init(true, privkey);
+                BigInteger[] sigs = signer.GenerateSignature(data);
+                sigs = PreventMalleability(sigs, par.N);
                 using (MemoryStream ms = new MemoryStream())
                 {
                     DerSequenceGenerator seq = new DerSequenceGenerator(ms);

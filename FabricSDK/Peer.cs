@@ -74,6 +74,10 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
+        internal Channel intChannel
+        {
+            set => base.Channel = value;
+        }
         [IgnoreDataMember]
         public long LastConnectTime { get; set; }
 
@@ -134,7 +138,7 @@ namespace Hyperledger.Fabric.SDK
 
             EndorserClient localEndorserClient = endorserClent; //work off thread local copy.
 
-            if (null == localEndorserClient || !localEndorserClient.IsChannelActive())
+            if (null == localEndorserClient || !localEndorserClient.IsChannelActive)
             {
                 endorserClent = new EndorserClient(new Endpoint(Url, Properties));
                 localEndorserClient = endorserClent;

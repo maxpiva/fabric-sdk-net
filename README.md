@@ -20,11 +20,8 @@ Rename bugs as features.
 
 ```STAGE 2```
 
-Upgrade to C# Naming conventions.
 
-Do a .NET CORE SHIM. (Fabric contracts .NET support)
+.NET CORE SHIM. (chain code contracts .NET support) (to be added in fabric)
 
 
-```STAGE 3 (Not really planned)```
 
-Add Async

@@ -35,9 +35,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             {
                 Timestamp ts = new Timestamp {Seconds = start / 1000, Nanos = (int) (start % 1000 * 1000000)};
 
-                DateTime dateFromTimestamp = ts.ToDateTime();
+                DateTimeOffset dateFromTimestamp = ts.ToDateTime();
                 //    System.out.println(dateFromTimestamp);
-                DateTime expectedDate = new DateTime(start);
+                DateTimeOffset expectedDate = DateTimeOffset.FromUnixTimeMilliseconds(start);
                 //Test various formats to make sure...
                 Assert.AreEqual(expectedDate, dateFromTimestamp);
                 Assert.AreEqual(expectedDate.TimeOfDay, dateFromTimestamp.TimeOfDay);

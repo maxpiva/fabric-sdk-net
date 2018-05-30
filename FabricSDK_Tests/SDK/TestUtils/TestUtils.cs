@@ -53,6 +53,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
@@ -73,10 +74,10 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         public class MockEnrollment : IEnrollment
         {
-            public AsymmetricAlgorithm Key { get; }
+            public string Key { get; }
             public string Cert { get; }
 
-            public MockEnrollment(AsymmetricAlgorithm key, string cert)
+            public MockEnrollment(string key, string cert)
             {
                 Key = key;
                 Cert = cert;
@@ -126,10 +127,10 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         public static MockEnrollment GetMockEnrollment(string cert)
         {
-            return new MockEnrollment(new RSACryptoServiceProvider(), cert);
+            return new MockEnrollment(Factory.Instance.GetCryptoSuite().KeyGen().Pem, cert);
         }
 
-        public static MockEnrollment GetMockEnrollment(AsymmetricAlgorithm key, string cert)
+        public static MockEnrollment GetMockEnrollment(string key, string cert)
         {
             return new MockEnrollment(key, cert);
         }

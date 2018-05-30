@@ -170,12 +170,9 @@ namespace Hyperledger.Fabric.SDK
         public void Shutdown(bool force)
         {
             if (shutdown)
-            {
                 return;
-            }
-
             shutdown = true;
-            Channel = null;
+            base.Channel = null;
             LastBlockEvent = null;
             lastBlockNumber = 0;
 
@@ -185,20 +182,14 @@ namespace Hyperledger.Fabric.SDK
 
             endorserClent = null;
 
-            if (lendorserClent != null)
-            {
-                lendorserClent.Shutdown(force);
-            }
+            lendorserClent?.Shutdown(force);
 
             PeerEventServiceClient lpeerEventingClient = peerEventingClient;
             peerEventingClient = null;
 
-            if (null != lpeerEventingClient)
-            {
-                // PeerEventServiceClient peerEventingClient1 = peerEventingClient;
+            // PeerEventServiceClient peerEventingClient1 = peerEventingClient;
 
-                lpeerEventingClient.Shutdown(force);
-            }
+            lpeerEventingClient?.Shutdown(force);
         }
 
         ~Peer()

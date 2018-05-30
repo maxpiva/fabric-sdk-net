@@ -89,7 +89,7 @@ namespace Hyperledger.Fabric.SDK.Requests
             get => chaincodeSourceLocation;
             set
             {
-                if (string.IsNullOrEmpty(chaincodeSourceLocation))
+                if (string.IsNullOrEmpty(value))
                     throw new InvalidArgumentException("Chaincode source location may not be null.");
                 if (chaincodeInputStream != null)
                     throw new InvalidArgumentException("Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.");

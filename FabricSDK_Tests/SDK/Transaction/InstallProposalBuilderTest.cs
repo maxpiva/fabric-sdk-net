@@ -126,7 +126,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests for a chaincode source path which is a file and not a directory
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory is not a directory")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory")]
         public void TestBuildSourceNotDirectory()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -138,15 +138,15 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             string filepath = Path.Combine(folderpath, dummyFileName);
             File.WriteAllText(filepath, string.Empty);
 
-            builder.ChaincodePath(folderpath);
-            builder.ChaincodeSource(filepath);
+            builder.ChaincodePath(dummyFileName);
+            builder.ChaincodeSource(folderpath);
 
             builder.Build();
         }
 
         // Tests for an IOException on the stream
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "IO Error")]
+        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Chaincode input stream was empty")]
         public void TestBuildInvalidSource()
         {
             // A mock InputStream that throws an IOException

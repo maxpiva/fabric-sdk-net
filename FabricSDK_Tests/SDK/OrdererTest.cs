@@ -60,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "setChannel Channel can not be null")]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel can not be null")]
         public void TestSetNullChannel()
         {
             orderer.Channel = null;
@@ -82,7 +82,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Invalid name for orderer")]
+        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Invalid name")]
         public void TestNullOrdererName()
         {
             new Orderer(null, "url", null);
@@ -123,7 +123,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(System.Exception))]
+        [ExpectedException(typeof(IllegalArgumentException))]
         public void TestSendNullTransactionThrowsException()
         {
             try

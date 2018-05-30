@@ -211,9 +211,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 sampleUser.MspId = mspId;
                 string certificate = File.ReadAllText(certificateFile, Encoding.UTF8);
 
-                AsymmetricAlgorithm privateKey = GetPrivateKeyFromBytes(File.ReadAllBytes(privateKeyFile));
+                KeyPair pair=KeyPair.Create(File.ReadAllText(privateKeyFile));
 
-                sampleUser.Enrollment = new SampleStoreEnrollement(privateKey, certificate);
+                sampleUser.Enrollment = new SampleStoreEnrollement(pair.Pem, certificate);
 
                 sampleUser.SaveState();
 
@@ -232,10 +232,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
 
-        private static AsymmetricAlgorithm GetPrivateKeyFromBytes(byte[] data)
+        private static KeyPair GetPrivateKeyFromBytes(byte[] data)
         {
             CryptoPrimitives prim = new CryptoPrimitives();
-            return prim.BytesToPrivateKey(data);
+            return KeyPair.Create(data.ToUTF8String());
         }
 
 
@@ -280,13 +280,13 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         [Serializable]
         private class SampleStoreEnrollement : IEnrollment
         {
-            public SampleStoreEnrollement(AsymmetricAlgorithm privateKey, string certificate)
+            public SampleStoreEnrollement(string key, string certificate)
             {
-                Key = privateKey;
+                Key = key;
                 Cert = certificate;
             }
-
-            public AsymmetricAlgorithm Key { get; }
+            
+            public string Key { get; }
             public string Cert { get; }
         }
     }

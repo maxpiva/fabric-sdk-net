@@ -107,11 +107,11 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public static string ToHexString(this byte[] data)
         {
-            return BitConverter.ToString(data).Replace("-", string.Empty);
+            return BitConverter.ToString(data).Replace("-", string.Empty).ToLowerInvariant();
         }
         public static string ToHexString(this ByteString data)
         {
-            return BitConverter.ToString(data.ToByteArray()).Replace("-", string.Empty);
+            return BitConverter.ToString(data.ToByteArray()).Replace("-", string.Empty).ToLowerInvariant();
         }
         public static string ToUTF8String(this byte[] data)
         {

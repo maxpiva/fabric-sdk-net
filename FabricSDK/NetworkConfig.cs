@@ -61,13 +61,13 @@ namespace Hyperledger.Fabric.SDK
             this.jsonConfig = jsonConfig;
 
             // Extract the main details
-            string configName = jsonConfig["name"].Value<string>();
+            string configName = jsonConfig["name"]?.Value<string>();
             if (string.IsNullOrEmpty(configName))
             {
                 throw new InvalidArgumentException("Network config must have a name");
             }
 
-            string configVersion = jsonConfig["version"].Value<string>();
+            string configVersion = jsonConfig["version"]?.Value<string>();
             if (string.IsNullOrEmpty(configVersion))
             {
                 throw new InvalidArgumentException("Network config must have a version");
@@ -84,7 +84,7 @@ namespace Hyperledger.Fabric.SDK
 
             // Validate the organization for this client
             JToken jsonClient = jsonConfig["client"];
-            string orgName = jsonClient == null ? null : jsonClient["organization"].Value<string>();
+            string orgName = jsonClient == null ? null : jsonClient["organization"]?.Value<string>();
             if (string.IsNullOrEmpty(orgName))
             {
                 throw new InvalidArgumentException("A client organization must be specified");
@@ -275,12 +275,12 @@ namespace Hyperledger.Fabric.SDK
             }
 
             var r = new StreamReader(configStream);
-            var deserializer = new Deserializer(namingConvention: new CamelCaseNamingConvention());
+            var deserializer = new Deserializer();
             var yamlObject = deserializer.Deserialize(r);
             var serializer = new JsonSerializer();
             var w = new StringWriter();
             serializer.Serialize(w, yamlObject);
-            return FromJsonObject(JObject.Parse(serializer.ToString()));
+            return FromJsonObject(JObject.Parse(w.ToString()));
         }
 
         /**
@@ -488,7 +488,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (jsonOrderers != null)
             {
-                foreach (JProperty prop in jsonOrderers.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in jsonOrderers.Children<JProperty>())
                 {
                     string ordererName = prop.Name;
                     JToken jsonOrderer = prop.Value;
@@ -531,7 +531,7 @@ namespace Hyperledger.Fabric.SDK
             //out("Peers: " + (jsonPeers == null ? "null" : jsonPeers.toString()));
             if (jsonPeers != null)
             {
-                foreach (JProperty prop in jsonPeers.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in jsonPeers.Children<JProperty>())
                 {
                     string peerName = prop.Name;
 
@@ -567,7 +567,7 @@ namespace Hyperledger.Fabric.SDK
             JToken jsonCertificateAuthorities = jsonConfig["certificateAuthorities"];
             if (null != jsonCertificateAuthorities)
             {
-                foreach (JProperty prop in jsonCertificateAuthorities.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in jsonCertificateAuthorities.Children<JProperty>())
                 {
                     string name = prop.Name;
 
@@ -600,7 +600,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (jsonOrganizations != null)
             {
-                foreach (JProperty prop in jsonOrganizations.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in jsonOrganizations.Children<JProperty>())
                 {
                     string orgName = prop.Name;
 
@@ -659,7 +659,7 @@ namespace Hyperledger.Fabric.SDK
                 //out("Peers: " + (peers == null ? "null" : peers.toString()));
                 if (jsonPeers != null)
                 {
-                    foreach (JProperty prop in jsonPeers.Children<JObject>().Select(a => a.Properties().First()))
+                    foreach (JProperty prop in jsonPeers.Children<JProperty>())
                     {
                         string peerName = prop.Name;
 
@@ -758,7 +758,7 @@ namespace Hyperledger.Fabric.SDK
             //            return  null;
             //        }
 
-            string url = jsonNode[urlPropName].Value<string>();
+            string url = jsonNode[urlPropName]?.Value<string>();
             if (string.IsNullOrEmpty(url))
             {
                 return null;
@@ -805,8 +805,8 @@ namespace Hyperledger.Fabric.SDK
             JToken jsonTlsCaCerts = jsonOrderer["tlsCACerts"];
             if (jsonTlsCaCerts != null)
             {
-                string pemFilename = jsonTlsCaCerts["path"].Value<string>();
-                string pemBytes = jsonTlsCaCerts["pem"].Value<string>();
+                string pemFilename = jsonTlsCaCerts["path"]?.Value<string>();
+                string pemBytes = jsonTlsCaCerts["pem"]?.Value<string>();
 
                 if (!string.IsNullOrEmpty(pemFilename))
                 {
@@ -826,7 +826,7 @@ namespace Hyperledger.Fabric.SDK
         {
             string msgPrefix = $"Organization {orgName}";
 
-            string mspId = jsonOrg["mspid"].Value<string>();
+            string mspId = jsonOrg["mspid"]?.Value<string>();
 
             OrgInfo org = new OrgInfo(orgName, mspId);
 
@@ -872,11 +872,11 @@ namespace Hyperledger.Fabric.SDK
 
             if (!string.IsNullOrEmpty(adminPrivateKeyString) && !string.IsNullOrEmpty(signedCert))
             {
-                AsymmetricAlgorithm privateKey = null;
+                KeyPair privateKey = null;
 
                 try
                 {
-                    privateKey = GetPrivateKeyFromString(adminPrivateKeyString);
+                    privateKey = KeyPair.Create(adminPrivateKeyString);
                 }
                 catch (IOException ioe)
                 {
@@ -885,17 +885,13 @@ namespace Hyperledger.Fabric.SDK
 
 
                 org.PeerAdmin = new UserInfo(mspId, "PeerAdmin_" + mspId + "_" + orgName, null);
-                org.PeerAdmin.Enrollment = new Enrollment(privateKey, signedCert);
+                org.PeerAdmin.Enrollment = new Enrollment(privateKey.Pem, signedCert);
             }
 
             return org;
         }
 
-        private static AsymmetricAlgorithm GetPrivateKeyFromString(string data)
-        {
-            CryptoPrimitives cr = new CryptoPrimitives();
-            return cr.BytesToPrivateKey(Encoding.UTF8.GetBytes(data));
-        }
+
 
         // Returns the PEM (as a String) from either a path or a pem field
         private static string ExtractPemString(JToken json, string fieldName, string msgPrefix)
@@ -906,8 +902,8 @@ namespace Hyperledger.Fabric.SDK
             JToken jsonField = json[fieldName];
             if (jsonField != null)
             {
-                path = jsonField["path"].Value<string>();
-                pemString = jsonField["pem"].Value<string>();
+                path = jsonField["path"]?.Value<string>();
+                pemString = jsonField["pem"]?.Value<string>();
             }
 
             if (path != null && pemString != null)
@@ -940,27 +936,30 @@ namespace Hyperledger.Fabric.SDK
         // Creates a new CAInfo instance from a JSON object
         private CAInfo CreateCA(string name, JToken jsonCA, OrgInfo org)
         {
-            string url = jsonCA["url"].Value<string>();
+            string url = jsonCA["url"]?.Value<string>();
             Properties httpOptions = ExtractProperties(jsonCA, "httpOptions");
 
             string enrollId = null;
             string enrollSecret = null;
-
-            List<JToken> registrars = jsonCA["registar"].Children<JToken>().ToList();
             List<UserInfo> regUsers = new List<UserInfo>();
-            if (registrars != null)
+            JToken registrar = jsonCA["registar"];
+            if (registrar != null)
             {
-                foreach (JToken reg in registrars)
+                List<JToken> registrars = jsonCA["registar"].Children<JToken>().ToList();
+                if (registrars != null)
                 {
-                    enrollId = reg["enrollId"].Value<string>();
-                    enrollSecret = reg["enrollSecret"].Value<string>();
-                    regUsers.Add(new UserInfo(org.MspId, enrollId, enrollSecret));
+                    foreach (JToken reg in registrars)
+                    {
+                        enrollId = reg["enrollId"]?.Value<string>();
+                        enrollSecret = reg["enrollSecret"]?.Value<string>();
+                        regUsers.Add(new UserInfo(org.MspId, enrollId, enrollSecret));
+                    }
                 }
             }
 
             CAInfo caInfo = new CAInfo(name, org.MspId, url, regUsers, httpOptions);
 
-            string caName = jsonCA["caName"].Value<string>();
+            string caName = jsonCA["caName"]?.Value<string>();
             if (!string.IsNullOrEmpty(caName))
             {
                 caInfo.CAName = caName;
@@ -987,10 +986,10 @@ namespace Hyperledger.Fabric.SDK
             JToken options = json[fieldName];
             if (options != null)
             {
-                foreach (JProperty prop in options.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in options.Children<JProperty>())
                 {
                     string key = prop.Name;
-                    props[key] = prop.Value<string>();
+                    props[key] = prop.Value.Value<string>();
                 }
             }
 
@@ -1116,7 +1115,7 @@ namespace Hyperledger.Fabric.SDK
             JToken channels = jsonConfig["channels"];
             if (channels != null)
             {
-                foreach (JProperty prop in channels.Children<JObject>().Select(a => a.Properties().First()))
+                foreach (JProperty prop in channels.Children<JProperty>())
                 {
                     ret.Add(prop.Name);
                 }

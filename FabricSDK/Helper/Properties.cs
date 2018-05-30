@@ -14,7 +14,7 @@ namespace Hyperledger.Fabric.SDK.Helper
     public class Properties : IEnumerable<string>
     {
         private string filename;
-        private Dictionary<string, string> list=new Dictionary<string, string>();
+        private Dictionary<string, string> list=new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
         public Properties()
         {
@@ -90,7 +90,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         public void Load(string filename)
         {
             this.filename = filename;
-            list = new Dictionary<string, string>();
+            list = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
             if (File.Exists(filename))
                 LoadFromFile(filename);

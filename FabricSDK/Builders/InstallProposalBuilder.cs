@@ -251,7 +251,9 @@ namespace Hyperledger.Fabric.SDK.Builders
         } else {
             logger.Info($"Installing '{chaincodeID}' language {dplang} chaincode chaincodePath:'{chaincodePath}' from input stream");
             data = chaincodeInputStream.ToByteArray();
-                
+            if (data.Length == 0)
+                throw new IllegalArgumentException("Chaincode input stream was empty");
+
             if (null != diagnosticFileDumper)
             {
                 logger.Trace($"Installing '{chaincodeID}' language {dplang} chaincode from input stream tar file dump {diagnosticFileDumper.CreateDiagnosticTarFile(data)}");

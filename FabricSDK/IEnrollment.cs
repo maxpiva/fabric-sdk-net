@@ -13,7 +13,10 @@
  */
 
 using System;
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
+using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK
 { /*
@@ -38,7 +41,7 @@ import static java.lang.String.format;
          *
          * @return private key.
          */
-        AsymmetricAlgorithm Key { get; }
+        string Key { get; }
 
         /**
          * Get the user's signed certificate.
@@ -48,16 +51,27 @@ import static java.lang.String.format;
         string Cert { get; }
 
     }
-
     public class Enrollment : IEnrollment
     {
-        public AsymmetricAlgorithm Key { get; }
+        public string Key { get; }
         public string Cert { get; }
 
-        public Enrollment(AsymmetricAlgorithm key, string cert)
+        public Enrollment(string key, string cert)
         {
             Key = key;
             Cert = cert;
+        }
+    }
+
+    public static class EnrollmentExtensions
+    {
+        private static WeakDictionary<string, KeyPair> cache= new WeakDictionary<string, KeyPair>(KeyPair.Create);
+
+        public static KeyPair GetKeyPair(this IEnrollment enrolment)
+        {
+            if (string.IsNullOrEmpty(enrolment.Key))
+                return null;
+            return cache.Get(enrolment.Key);
         }
     }
 }

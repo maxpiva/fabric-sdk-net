@@ -106,6 +106,8 @@ namespace Hyperledger.Fabric.SDK
         {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
+            if (transaction==null)
+                throw new IllegalArgumentException("Unable to send a null transaction");
             logger.Debug($"Order.sendTransaction name: {Name}, url: {Url}");
             OrdererClient localOrdererClient = ordererClient;
             if (localOrdererClient == null || !localOrdererClient.IsChannelActive())

@@ -129,8 +129,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         private readonly string url;
 
-        private X509Store caStore;
-        private CryptoPrimitives cryptoPrimitives = null;
+        private KeyStore caStore;
 
         /**
          * HFCAClient constructor
@@ -220,7 +219,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             try
             {
-                return Create(caInfo, HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+                return Create(caInfo, Factory.Instance.GetCryptoSuite());
             }
             catch (Exception e)
             {
@@ -340,7 +339,7 @@ namespace Hyperledger.Fabric_CA.SDK
             try
             {
                 string pem = req.CSR;
-                AsymmetricAlgorithm keypair = req.KeyPair;
+                KeyPair keypair = req.KeyPair;
                 if (null != pem && keypair == null)
                     throw new InvalidArgumentException("If certificate signing request is supplied the key pair needs to be supplied too.");
                 if (keypair == null)
@@ -375,7 +374,7 @@ namespace Hyperledger.Fabric_CA.SDK
                     logger.Info(message);
                 }
                 logger.Debug("Enrollment done.");
-                return new HFCAEnrollment(keypair, signedPem);
+                return new HFCAEnrollment(keypair.Pem, signedPem);
             }
             catch (EnrollmentException ee)
             {
@@ -480,12 +479,9 @@ namespace Hyperledger.Fabric_CA.SDK
             try
             {
                 SetUpSSL();
-                AsymmetricAlgorithm pub = CryptoSuite.BytesToCertificate(user.Enrollment.Cert.ToBytes()).PublicKey.Key;
-                AsymmetricAlgorithm priv = user.Enrollment.Key;
                 // generate CSR
 
-                string pem = CryptoSuite.GenerateCertificationRequest(user.Name, pub, priv);
-
+                string pem = CryptoSuite.GenerateCertificationRequest(user.Name, user.Enrollment.GetKeyPair());
                 // build request body
                 req.CSR = pem;
                 if (!string.IsNullOrEmpty(CAName))
@@ -503,7 +499,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 logger.Debug($"[HFCAClient] re-enroll returned pem:[{signedPem}]");
 
                 logger.Debug($"reenroll user {user.Name} done.");
-                return new HFCAEnrollment(priv, signedPem);
+                return new HFCAEnrollment(user.Enrollment.Key, signedPem);
             }
             catch (EnrollmentException ee)
             {
@@ -569,8 +565,7 @@ namespace Hyperledger.Fabric_CA.SDK
             {
                 SetUpSSL();
                 // get cert from to-be-revoked enrollment
-                X509Certificate2 certificate = CryptoSuite.BytesToCertificate(enrollment.Cert.ToBytes());
-                Org.BouncyCastle.X509.X509Certificate ncert = DotNetUtilities.FromX509Certificate(certificate);
+                Org.BouncyCastle.X509.X509Certificate ncert = Certificate.PEMToX509Certificate(enrollment.Cert);
                 // get its serial number
                 string serial = ncert.SerialNumber.ToByteArray().ToHexString();
                 // get its aki
@@ -925,12 +920,11 @@ namespace Hyperledger.Fabric_CA.SDK
 
         internal void SetUpSSL()
         {
-            if (cryptoPrimitives == null)
+            if (CryptoSuite == null)
             {
                 try
                 {
-                    cryptoPrimitives = new CryptoPrimitives();
-                    cryptoPrimitives.Init();
+                    CryptoSuite = Factory.GetCryptoSuite();
                 }
                 catch (Exception e)
                 {
@@ -946,9 +940,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 {
                     if (properties.Contains("pemBytes"))
                     {
-                        byte[] permbytes = properties["pemBytes"].ToBytes();
-                        X509Certificate2 cert2 = cryptoPrimitives.BytesToCertificate(permbytes);
-                        cryptoPrimitives.AddCACertificateToTrustStore(cert2);
+                        CryptoSuite.Store.AddCertificate(properties["pemBytes"]);
                     }
                     if (properties.Contains("pemFile"))
                     {
@@ -964,9 +956,7 @@ namespace Hyperledger.Fabric_CA.SDK
                                     string fname = Path.GetFullPath(pem);
                                     try
                                     {
-                                        byte[] pembytes = File.ReadAllBytes(fname);
-                                        List<X509Certificate2> certs = cryptoPrimitives.BytesToCertificates(pembytes);
-                                        certs.ForEach(a => cryptoPrimitives.AddCACertificateToTrustStore(a));
+                                        CryptoSuite.Store.AddCertificate(File.ReadAllText(fname));
                                     }
                                     catch (IOException e)
                                     {
@@ -977,7 +967,7 @@ namespace Hyperledger.Fabric_CA.SDK
                         }
                     }
 
-                    caStore = cryptoPrimitives.GetTrustStore();
+                    caStore = CryptoSuite.Store;
                 }
                 catch (Exception e)
                 {
@@ -993,12 +983,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 return true;
             if (caStore == null)
                 return false;
-            foreach (X509Certificate2 cert in caStore.Certificates)
-            {
-                if (certificate.Subject == cert.Subject && certificate.Issuer == cert.Issuer && certificate.GetCertHashString() == cert.GetCertHashString())
-                    return true;
-            }
-            return false;
+            return caStore.Validate(Certificate.Create(new X509Certificate2(certificate)));
         }
 
         /**
@@ -1157,7 +1142,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 if (errors != null && errors.Count > 0)
                 {
                     JObject jo = (JObject) errors.First;
-                    string errorMsg = $"[HTTP Status Code: {respStatusCode}] - {type} request to {url} failed request body {body} error message: [Error Code {jo["code"].Value<int>()}] - {jo["message"].Value<string>()}";
+                    string errorMsg = $"[HTTP Status Code: {respStatusCode}] - {type} request to {url} failed request body {body} error message: [Error Code {jo["code"]?.Value<int>()}] - {jo["message"].Value<string>()}";
                     logger.Error(errorMsg);
                 }
                 return job;
@@ -1165,7 +1150,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (errors != null && errors.Count > 0)
             {
                 JObject jo = (JObject) errors.First;
-                HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} error message: [Error Code {jo["code"].Value<int>()}] - {jo["message"].Value<string>()}", respStatusCode);
+                HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} error message: [Error Code {jo["code"]?.Value<int>()}] - {jo["message"].Value<string>()}", respStatusCode);
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
@@ -1205,7 +1190,7 @@ namespace Hyperledger.Fabric_CA.SDK
             string cert = Convert.ToBase64String(enrollment.Cert.ToBytes());
             body = Convert.ToBase64String(body.ToBytes());
             string signString = body + "." + cert;
-            byte[] signature = CryptoSuite.Sign(enrollment.Key, signString.ToBytes());
+            byte[] signature = CryptoSuite.Sign(enrollment.GetKeyPair(), signString.ToBytes());
             return cert + "." + Convert.ToBase64String(signature);
         }
 

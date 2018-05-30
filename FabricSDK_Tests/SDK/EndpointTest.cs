@@ -14,6 +14,7 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Hyperledger.Fabric.SDK;
@@ -321,8 +322,9 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             Endpoint endpoint = new Endpoint("grpcs://localhost:594", testprops);
             CryptoPrimitives cp = new CryptoPrimitives();
+            cp.Store.AddCertificate(endpoint.creds.RootCertificates);
 
-            List<X509Certificate2> certs = cp.GetX509Certificates(endpoint.creds.RootCertificates.ToBytes());
+            List<X509Certificate2> certs = cp.Store.Certificates.Select(a=>a.X509Certificate2).ToList();
 
             HashSet<BigInteger> expected = new HashSet<BigInteger>() {new BigInteger("4804555946196630157804911090140692961"), new BigInteger("127556113420528788056877188419421545986539833585"), new BigInteger("704500179517916368023344392810322275871763581896"), new BigInteger("70307443136265237483967001545015671922421894552"), new BigInteger("276393268186007733552859577416965113792")};
 

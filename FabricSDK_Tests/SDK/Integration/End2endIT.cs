@@ -152,7 +152,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             //Create instance of client.
             HFClient client = HFClient.Create();
 
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
             ////////////////////////////
             //Construct and run the channels
@@ -210,7 +210,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 string orgName = sampleOrg.Name;
                 string mspid = sampleOrg.MSPID;
-                ca.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+                ca.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
                 if (testConfig.IsRunningFabricTLS())
                 {
@@ -221,8 +221,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     enrollmentRequestTLS.Profile = "tls";
                     IEnrollment enroll = ca.Enroll("admin", "adminpw", enrollmentRequestTLS);
                     string tlsCertPEM = enroll.Cert;
-                    string tlsKeyPEM = GetPEMStringFromPrivateKey(enroll.Key).ToUTF8String();
-
+                    string tlsKeyPEM = enroll.Key;
+                    
                     Properties tlsProperties = new Properties();
 
                     tlsProperties["clientKeyBytes"] = tlsKeyPEM;

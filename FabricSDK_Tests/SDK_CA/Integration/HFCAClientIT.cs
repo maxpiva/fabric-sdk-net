@@ -76,7 +76,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 
             TestUtils.ResetConfig();
 
-            crypto = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            crypto = Factory.Instance.GetCryptoSuite();
         }
 
         [TestInitialize]
@@ -374,8 +374,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // verify
             string cert = user.Enrollment.Cert;
 
-            X509Certificate2 certificat = ((CryptoPrimitives) crypto).BytesToCertificate(user.Enrollment.Cert.ToBytes());
-            X509Certificate ncert = DotNetUtilities.FromX509Certificate(certificat);
+            X509Certificate ncert = Certificate.Create(user.Enrollment.Cert).X509Certificate;
 
             // get its serial number
             string serial = ncert.SerialNumber.ToByteArray().ToHexString();
@@ -1170,7 +1169,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to enroll user")]
         public void TestEnrollUnknownClient()
         {
-            ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ICryptoSuite cryptoSuite = Factory.Instance.GetCryptoSuite();
 
             // This client does not exist
             string clientName = "test CA client";
@@ -1276,7 +1275,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         {
             try
             {
-                X509Certificate2 certificate = crypto.BytesToCertificate(cert.ToBytes());
+                X509Certificate2 certificate = Certificate.PEMToX509Certificate2(cert);
 
 
                 // check Subject Alternative Names

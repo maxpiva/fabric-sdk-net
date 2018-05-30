@@ -195,7 +195,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private static HFClient GetTheClient()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
             IUser peerAdmin = GetAdminUser(TEST_ORG);
             client.UserContext = peerAdmin;

@@ -57,13 +57,14 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          */
         Properties GetProperties();
 
+        
         /**
          * Set the Certificate Authority certificates to be used when validating a certificate chain of trust
          *
          * @param certificates A collection of {@link java.security.cert.Certificate}s
          * @throws CryptoException
          */
-        void LoadCACertificates(List<X509Certificate2> certificates);
+        //void LoadCACertificates(List<X509Certificate2> certificates);
 
         /**
          * Set the Certificate Authority certificates to be used when validating a certificate chain of trust.
@@ -71,7 +72,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @param certificates a collection of certificates in PEM format
          * @throws CryptoException
          */
-        void LoadCACertificatesAsBytes(List<byte[]> certificates);
+        //void LoadCACertificatesAsBytes(List<byte[]> certificates);
 
         /**
          * Generate a key.
@@ -79,7 +80,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @return the generated key.
          * @throws CryptoException
          */
-        AsymmetricAlgorithm KeyGen();
+        KeyPair KeyGen();
 
         /**
          * Sign the specified byte string.
@@ -89,7 +90,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @return the signed data.
          * @throws CryptoException
          */
-        byte[] Sign(AsymmetricAlgorithm key, byte[] plainText);
+         byte[] Sign(KeyPair key, byte[] plainText);
 
         /**
          * Verify the specified signature
@@ -102,6 +103,9 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @throws CryptoException
          */
         bool Verify(byte[] certificate, string signatureAlgorithm,  byte[] signature, byte[] plainText);
+
+
+        KeyStore Store { get; set; }
 
         /**
          * Hash the specified text byte data.
@@ -119,8 +123,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @return String in PEM format for certificate request.
          * @throws InvalidIllegalArgumentException
          */
-        string GenerateCertificationRequest(string user, AsymmetricAlgorithm publickey, AsymmetricAlgorithm privatekey);
-        string GenerateCertificationRequest(string user, AsymmetricAlgorithm keypair);
+         string GenerateCertificationRequest(string user, KeyPair keypair);
 
         /**
          * Convert bytes in PEM format to Certificate.
@@ -129,7 +132,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          * @return Certificate
          * @throws CryptoException
          */
-        X509Certificate2 BytesToCertificate(byte[] certBytes);
+        //X509Certificate2 BytesToCertificate(byte[] certBytes);
 
         /**
          * The CryptoSuite factory. Currently {@link #getCryptoSuite} will always
@@ -158,7 +161,7 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
 
         public static ICryptoSuite GetCryptoSuite()
         {
-            return HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            return Factory.Instance.GetCryptoSuite();
 
         }
 
@@ -178,9 +181,30 @@ import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
          */
         public static ICryptoSuite GetCryptoSuite(Properties properties)
         {
-            return HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite(properties);
+            return Factory.Instance.GetCryptoSuite(properties);
 
         }
 
+        private static ICryptoSuiteFactory _instance;
+        public static ICryptoSuiteFactory Instance => _instance ?? (_instance = new HLSDKJCryptoSuiteFactory());
+
+        private static ICryptoSuiteFactory theFACTORY = null; // one and only factory.
+
+        private static ICryptoSuiteFactory Default
+        {
+            get
+            {
+                lock (theFACTORY)
+                {
+                    if (theFACTORY == null)
+                    {
+                        theFACTORY = Instance;
+                    }
+
+                    return theFACTORY;
+                }
+            }
+
+        }
     }
 }

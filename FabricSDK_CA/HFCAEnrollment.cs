@@ -17,6 +17,7 @@ using System;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric_CA.SDK
 {
@@ -25,13 +26,13 @@ namespace Hyperledger.Fabric_CA.SDK
     public class HFCAEnrollment : IEnrollment
     {
         [DataMember(Name="key")]
-        public AsymmetricAlgorithm Key { get; }
+        public string Key { get; }
         [DataMember(Name="cert")]
         public string Cert { get; }
 
-        public HFCAEnrollment(AsymmetricAlgorithm privateKey, string signedPem)
+        public HFCAEnrollment(string key, string signedPem)
         {
-            Key= privateKey;
+            Key= key;
             Cert = signedPem;
         }
     }

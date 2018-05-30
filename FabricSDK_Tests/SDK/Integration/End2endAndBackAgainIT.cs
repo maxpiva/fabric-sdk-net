@@ -210,7 +210,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             //Create instance of client.
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
             ////////////////////////////
             //Reconstruct and run the channels

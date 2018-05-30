@@ -117,16 +117,6 @@ namespace Hyperledger.Fabric.SDK
             {
                 if ("grpcs".Equals(Protocol, StringComparison.InvariantCultureIgnoreCase))
                 {
-                    CryptoPrimitives cp;
-                    try
-                    {
-                        cp = new CryptoPrimitives();
-                    }
-                    catch (Exception e)
-                    {
-                        throw;
-                    }
-
                     using (MemoryStream bis = new MemoryStream())
                     {
                         try
@@ -184,7 +174,7 @@ namespace Hyperledger.Fabric.SDK
                                 CN_CACHE.TryGetValue(cnKey, out cn);
                                 if (cn == null)
                                 {
-                                    X509Certificate2 cert = cp.BytesToCertificate(pemBytes);
+                                    X509Certificate2 cert = Certificate.PEMToX509Certificate2(cnKey);
                                     cn = cert.GetNameInfo(X509NameType.DnsName, false);
                                     CN_CACHE.TryAdd(cnKey, cn);
                                 }
@@ -257,11 +247,11 @@ namespace Hyperledger.Fabric.SDK
                         try
                         {
                             logger.Trace("client TLS private key bytes size:" + ckb.Length);
-                            cp.BytesToPrivateKey(ckb);
+                            KeyPair.PEMToAsymmetricCipherKeyPairAndCert(ckb.ToUTF8String());
                             logger.Trace("converted TLS key.");
                             what = "certificate";
                             logger.Trace("client TLS certificate bytes:" + ccb.ToHexString());
-                            cp.BytesToCertificate(ccb);
+                            Certificate.PEMToX509Certificate(ccb.ToUTF8String());
                             logger.Trace("converted client TLS certificate.");
                             tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
                         }

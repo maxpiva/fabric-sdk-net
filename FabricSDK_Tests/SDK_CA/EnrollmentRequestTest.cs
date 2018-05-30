@@ -14,6 +14,7 @@
 
 using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric_CA.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -28,7 +29,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         private static readonly string csr = "11436845810603";
         private static readonly string profile = "test profile";
         private static readonly string label = "test label";
-        private static readonly AsymmetricAlgorithm keyPair = null;
+        private static readonly KeyPair keyPair = null;
 
         [TestMethod]
         public void TestNewInstanceEmpty()

@@ -16,6 +16,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Grpc.Core;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -91,7 +92,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestLoadFromConfigFileYamlBasic()
         {
-            string f = ("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f = RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             Assert.IsNotNull(config);
             List<string> channelNames = config.GetChannelNames();
@@ -102,7 +103,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestLoadFromConfigFileJsonBasic()
         {
-            string f=("fixture/sdkintegration/network_configs/network-config.json").Locate();
+            string f= RelocateFilePathsJSON("fixture/sdkintegration/network_configs/network-config.json".Locate());
             NetworkConfig config = NetworkConfig.FromJsonFile(f);
             Assert.IsNotNull(config);
         }
@@ -111,12 +112,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYaml()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f=("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f=RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             Assert.IsNotNull(config);
 
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
             Channel channel = client.LoadChannelFromConfig("foo", config);
@@ -127,7 +128,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileJson()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the JSON configuration
-            string f = ("fixture/sdkintegration/network_configs/network-config.json").Locate();
+            string f = RelocateFilePathsJSON("fixture/sdkintegration/network_configs/network-config.json".Locate());
             NetworkConfig config = NetworkConfig.FromJsonFile(f);
             Assert.IsNotNull(config);
 
@@ -135,13 +136,54 @@ namespace Hyperledger.Fabric.Tests.SDK
             //Assert.Assert.IsNotNull(client);
 
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
             Channel channel = client.LoadChannelFromConfig("mychannel", config);
             Assert.IsNotNull(channel);
         }
 
+
+        private string RelocateFilePathsJSON(string filename)
+        {
+            return RelocateFilePaths(filename, ".json", "\"path\":\\s?\"(.*?)\"");
+        }
+        private string RelocateFilePathsYAML(string filename)
+        {
+            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)\r");
+        }
+        private string RelocateFilePaths(string filename, string ext, string regex)
+        {
+            string tempfile = Path.GetTempFileName() + ext;
+            string json = File.ReadAllText(filename);
+            MatchCollection matches = new Regex(regex).Matches(json);
+            foreach (Match m in matches)
+            {
+                if (m.Success)
+                {
+                    bool replace = false;
+                    string path = m.Groups[1].Value;
+                    if (path.StartsWith("\"") && path.EndsWith("\""))
+                        path = path.Substring(1, path.Length - 2);
+                    string orgpath = path;
+                    if (path.StartsWith("/"))
+                        path = path.Substring(1);
+                    if (path.StartsWith("src/test"))
+                    {
+                        replace = true;
+                        path = path.Substring(9);
+                    }
+
+                    if (replace)
+                    {
+                        path = path.Locate().Replace("\\","/");
+                        json = json.Replace(orgpath, path);
+                    }
+                }
+            }
+            File.WriteAllText(tempfile,json);
+            return tempfile;
+        }
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "client organization must be specified")]
         public void TestLoadFromConfigNoOrganization()
@@ -187,14 +229,14 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestGetChannelNotExists()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f = ("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f = RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             //HFClient client = HFClient.loadFromConfig(f);
             Assert.IsNotNull(config);
 
 
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
             client.LoadChannelFromConfig("MissingChannel", config);
@@ -265,13 +307,13 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlNOOverrides()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f = ("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f = RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             //HFClient client = HFClient.loadFromConfig(f);
             Assert.IsNotNull(config);
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
             Channel channel = client.LoadChannelFromConfig("foo", config);
@@ -294,14 +336,14 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlNOOverridesButSet()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f = ("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f = RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             //HFClient client = HFClient.loadFromConfig(f);
             Assert.IsNotNull(config);
 
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
 
@@ -326,7 +368,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYamlOverrides()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f = ("fixture/sdkintegration/network_configs/network-config.yaml").Locate();
+            string f = RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
 
             foreach (string peerName in config.PeerNames)
@@ -353,7 +395,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsNotNull(config);
 
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
             Channel channel = client.LoadChannelFromConfig("foo", config);
@@ -632,7 +674,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         private static JArray CreateJsonArray(params object[] elements)
         {
             JArray j = new JArray();
-            foreach (string s in elements)
+            foreach (object s in elements)
                 j.Add(s);
             return j;
         }

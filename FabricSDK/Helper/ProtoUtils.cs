@@ -184,29 +184,10 @@ import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
 
             if (isDebugLevel)
             {
-                string cert = user.Enrollment.Cert;
+                
+                string cert = transactionContext.CryptoPrimitives.Hash(Certificate.Create(user.Enrollment.Cert).ExtractDER()).ToHexString();
+                
                 // logger.debug(format(" User: %s Certificate:\n%s", user.getName(), cert));
-
-                if (null == suite) {
-
-                    try
-                    {
-                        suite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
-                    } catch (Exception e) {
-                        //best try.
-                    }
-
-                }
-                if (null != suite && suite is CryptoPrimitives) {
-
-                    CryptoPrimitives cp = (CryptoPrimitives) suite;
-                    byte[] der = cp.CertificateToDER(cert);
-                    if (null != der && der.Length > 0)
-                    {
-                        cert = suite.Hash(der).ToHexString();
-                    }
-
-                }
 
                 logger.Debug($"SignatureHeader: nonce: {transactionContext.Nonce.ToHexString()}, User:{user.Name}, MSPID: {user.MspId}, idBytes: {cert}");
 

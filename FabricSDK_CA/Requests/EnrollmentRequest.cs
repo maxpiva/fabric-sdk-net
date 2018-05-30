@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -55,7 +56,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
          * @param label
          * @param keypair Keypair used to sign or create the certificate if needed.
          */
-        public EnrollmentRequest(string profile, string label, AsymmetricAlgorithm keypair)
+        public EnrollmentRequest(string profile, string label, KeyPair keypair)
         {
             Profile = profile;
             Label = label;
@@ -75,7 +76,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
  *
  * @param keypair
  */
-        public AsymmetricAlgorithm KeyPair { get; set; }
+        public KeyPair KeyPair { get; set; }
 
         public string CAName { get; set; }
 

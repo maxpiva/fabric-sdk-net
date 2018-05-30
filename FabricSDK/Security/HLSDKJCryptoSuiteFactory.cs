@@ -43,7 +43,7 @@ namespace Hyperledger.Fabric.SDK.Security
         private readonly int SECURITY_LEVEL = Config.Instance.GetSecurityLevel();
         private readonly String HASH_ALGORITHM = Config.Instance.GetHashAlgorithm();
 
-        private HLSDKJCryptoSuiteFactory()
+        internal HLSDKJCryptoSuiteFactory()
         {
 
         }
@@ -91,6 +91,7 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     throw new CryptoException(e.Message, e);
                 }
+                cache[properties]= ret;
             }
 
             return ret;
@@ -107,27 +108,7 @@ namespace Hyperledger.Fabric.SDK.Security
             return GetCryptoSuite(properties);
         }
 
-        private static HLSDKJCryptoSuiteFactory _instance;
-        public static HLSDKJCryptoSuiteFactory Instance => _instance ?? (_instance = new HLSDKJCryptoSuiteFactory());
-
-        private static ICryptoSuiteFactory theFACTORY = null; // one and only factory.
-
-        private static ICryptoSuiteFactory Default
-        {
-            get
-            {
-                lock (theFACTORY)
-                {
-                    if (theFACTORY == null)
-                    {
-                        theFACTORY = Instance;
-                    }
-
-                    return theFACTORY;
-                }
-            }
-
-        }
+    
 
         /*
         if (null == theFACTORY) {
@@ -135,7 +116,7 @@ namespace Hyperledger.Fabric.SDK.Security
             String cf = config.getDefaultCryptoSuiteFactory();
             if (null == cf || cf.isEmpty() || cf.equals(Security.HLSDKJCryptoSuiteFactory.class.getName())) { // Use this class as the factory.
 
-                theFACTORY = Security.HLSDKJCryptoSuiteFactory.instance();
+                theFACTORY = Security.Factory.Instance.);
 
             } else {
 

@@ -596,7 +596,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Channel channel = hfclient.NewChannel("testProposalBuilderWithMetaInf");
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser("rick", "rickORG");
-            TransactionContext transactionContext = new TransactionContext(channel, mockUser, HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+            TransactionContext transactionContext = new TransactionContext(channel, mockUser, Factory.Instance.GetCryptoSuite());
             installProposalBuilder.Context(transactionContext);
 
             Proposal proposal = installProposalBuilder.Build(); // Build it get the proposal. Then unpack it to see if it's what we expect.
@@ -626,7 +626,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             installProposalBuilder.ChaincodeVersion("1");
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithOutMetaInf");
-            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), Factory.Instance.GetCryptoSuite());
 
             installProposalBuilder.Context(transactionContext);
 
@@ -658,7 +658,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             installProposalBuilder.ChaincodeMetaInfLocation("fixture/meta-infs/test1/META-INF".Locate()); // points into which is not what's expected.
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithNoMetaInfDir");
-            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), Factory.Instance.GetCryptoSuite());
 
             installProposalBuilder.Context(transactionContext);
 
@@ -678,7 +678,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             installProposalBuilder.ChaincodeVersion("1");
             installProposalBuilder.ChaincodeMetaInfLocation("/tmp/fdsjfksfj/fjksfjskd/fjskfjdsk/should never exist"); // points into which is not what's expected.
             Channel channel = hfclient.NewChannel("testProposalBuilderWithMetaInfExistsNOT");
-            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), Factory.Instance.GetCryptoSuite());
 
             installProposalBuilder.Context(transactionContext);
 
@@ -758,7 +758,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             installProposalBuilder.ChaincodeMetaInfLocation("fixture/meta-infs/emptyMetaInf".Locate()); // points into which is not what's expected.
 
             Channel channel = hfclient.NewChannel("testProposalBuilderWithMetaInfEmpty");
-            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite());
+            TransactionContext transactionContext = new TransactionContext(channel, TestUtils.TestUtils.GetMockUser("rick", "rickORG"), Factory.Instance.GetCryptoSuite());
 
             installProposalBuilder.Context(transactionContext);
 

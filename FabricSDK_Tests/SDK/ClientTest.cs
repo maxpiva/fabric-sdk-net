@@ -125,7 +125,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestGoodMockUser()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             client.UserContext = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
             Orderer orderer = hfclient.NewOrderer("justMockme", "grpc://localhost:99"); // test mock should work.
             Assert.IsNotNull(orderer);
@@ -136,7 +136,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadUserContextNull()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
             client.UserContext = null;
         }
@@ -146,7 +146,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadUserNameNull()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(null, USER_MSP_ID);
 
@@ -158,7 +158,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadUserNameEmpty()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser("", USER_MSP_ID);
@@ -171,7 +171,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadUserMSPIDNull()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, null);
@@ -184,7 +184,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadUserMSPIDEmpty()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, "");
@@ -198,7 +198,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadEnrollmentNull()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
@@ -211,7 +211,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadEnrollmentBadCert()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
@@ -226,7 +226,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestBadEnrollmentBadKey()
         {
             HFClient client = HFClient.Create();
-            client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
             ;
 
 
@@ -249,7 +249,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 HFClient client = HFClient.Create();
 
-                client.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+                client.CryptoSuite = Factory.Instance.GetCryptoSuite();
                 ;
 
                 TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);

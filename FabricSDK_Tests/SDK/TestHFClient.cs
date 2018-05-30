@@ -62,7 +62,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem").Locate());
             someTestUSER.MspId = "testMSPID?";
 
-            hfclient.CryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            hfclient.CryptoSuite = Factory.Instance.GetCryptoSuite();
             hfclient.UserContext = someTestUSER;
         }
 

@@ -938,10 +938,10 @@ namespace Hyperledger.Fabric.SDK
                     logger.Debug($"loading certificates for MSP {msp.ID}: ");
                     certList = msp.RootCerts.ToList();
                     if (certList.Count > 0)
-                        client.CryptoSuite.LoadCACertificatesAsBytes(certList);
+                        certList.ForEach(a=> client.CryptoSuite.Store.AddCertificate(a.ToUTF8String()));
                     certList = msp.IntermediateCerts.ToList();
                     if (certList.Count > 0)
-                        client.CryptoSuite.LoadCACertificatesAsBytes(certList);
+                        certList.ForEach(a => client.CryptoSuite.Store.AddCertificate(a.ToUTF8String()));
                     // not adding admin certs. Admin certs should be signed by the CA
                 }
                 logger.Debug($"Channel {Name} loadCACertificates completed ");
@@ -2876,7 +2876,7 @@ namespace Hyperledger.Fabric.SDK
 
         private Envelope CreateTransactionEnvelope(Payload transactionPayload, IUser user)
         {
-            return new Envelope {Payload = transactionPayload.ToByteString(), Signature = ByteString.CopyFrom(client.CryptoSuite.Sign(user.Enrollment.Key, transactionPayload.ToByteArray()))};
+            return new Envelope {Payload = transactionPayload.ToByteString(), Signature = ByteString.CopyFrom(client.CryptoSuite.Sign(user.Enrollment.GetKeyPair(), transactionPayload.ToByteArray()))};
         }
 
         public byte[] GetChannelConfigurationSignature(ChannelConfiguration channelConfiguration, IUser signer)

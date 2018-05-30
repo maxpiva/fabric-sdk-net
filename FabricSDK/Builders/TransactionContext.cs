@@ -120,7 +120,7 @@ namespace Hyperledger.Fabric.SDK.Builders
 
         byte[] Sign(byte[] b)
         {
-            return cryptoPrimitives.Sign(User.Enrollment.Key, b);
+            return cryptoPrimitives.Sign(User.Enrollment.GetKeyPair(), b);
         }
 
         public ByteString SignByteString(byte[] b) 
@@ -172,7 +172,7 @@ namespace Hyperledger.Fabric.SDK.Builders
             ByteString[] ret = new ByteString[users.Length];
             int ii = -1;
             foreach (IUser user in users) {
-                ret[++ii] = ByteString.CopyFrom(cryptoPrimitives.Sign(user.Enrollment.Key, signbytes));
+                ret[++ii] = ByteString.CopyFrom(cryptoPrimitives.Sign(user.Enrollment.GetKeyPair(), signbytes));
             }
             return ret;
         }

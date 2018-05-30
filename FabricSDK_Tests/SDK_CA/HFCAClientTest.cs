@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Hyperledger.Fabric.SDK;
@@ -286,7 +287,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to enroll user admin")]
         public void TestEnrollmentNoServerResponse()
         {
-            ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ICryptoSuite cryptoSuite = Factory.Instance.GetCryptoSuite();
 
             EnrollmentRequest req = new EnrollmentRequest("profile 1", "label 1", null);
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -299,7 +300,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to enroll user admin")]
         public void TestEnrollmentNoKeyPair()
         {
-            ICryptoSuite cryptoSuite = HLSDKJCryptoSuiteFactory.Instance.GetCryptoSuite();
+            ICryptoSuite cryptoSuite = Factory.Instance.GetCryptoSuite();
 
             EnrollmentRequest req = new EnrollmentRequest("profile 1", "label 1", null);
             req.CSR = "abc";
@@ -330,13 +331,13 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(RevocationException), "Error while revoking cert")]
+        [ExpectedExceptionWithMessage(typeof(RevocationException), "Error while revoking")]
         public void TestRevoke1Exception()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
             client.CryptoSuite = crypto;
-            AsymmetricAlgorithm keypair = crypto.KeyGen();
-            IEnrollment enrollment = new HFCAEnrollment(keypair, "abc");
+            KeyPair keypair = crypto.KeyGen();
+            IEnrollment enrollment = new HFCAEnrollment(keypair.Pem, "abc");
 
             client.Revoke(admin, enrollment, "keyCompromise");
         }
@@ -348,8 +349,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
             client.CryptoSuite = crypto;
-            AsymmetricAlgorithm keypair = crypto.KeyGen();
-            IEnrollment enrollment = new HFCAEnrollment(keypair, "abc");
+            KeyPair keypair = crypto.KeyGen();
+            IEnrollment enrollment = new HFCAEnrollment(keypair.Pem, "abc");
 
             client.Revoke(null, enrollment, "keyCompromise");
         }
@@ -399,9 +400,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
             client.CryptoSuite = crypto;
             client.SetUpSSL();
             int count = 0;
-            X509Store trustStore = ((CryptoPrimitives) client.CryptoSuite).GetTrustStore();
+            KeyStore trustStore = client.CryptoSuite.Store;
             List<BigInteger> expected = new List<BigInteger> {new BigInteger("4804555946196630157804911090140692961"), new BigInteger("127556113420528788056877188419421545986539833585"), new BigInteger("704500179517916368023344392810322275871763581896"), new BigInteger("70307443136265237483967001545015671922421894552"), new BigInteger("276393268186007733552859577416965113792")};
-            foreach (X509Certificate2 cert in trustStore.Certificates)
+            foreach (X509Certificate2 cert in trustStore.Certificates.Select(a=>a.X509Certificate2))
             {
                 BigInteger serialNumber = new BigInteger(cert.SerialNumber.FromHexString());
                 Assert.IsTrue(expected.Contains(serialNumber), $"Missing certifiate with serial no. {serialNumber.ToString()}");

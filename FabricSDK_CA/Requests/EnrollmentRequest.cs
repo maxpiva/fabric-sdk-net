@@ -94,7 +94,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
         // Convert the enrollment request to a JSON string
         public string ToJson()
         {
-            return ToJsonObject().ToString(Formatting.None);
+            return ToJsonObject().ToString();
         }
 
         // Convert the enrollment request to a JSON object
@@ -110,7 +110,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
             if (CAName != null)
                 f.Add(HFCAClient.FABRIC_CA_REQPROP, CAName);
             f.Add("certificate_request", CSR);
-            if (attrreqs != null && attrreqs.Count > 0)
+            if (attrreqs != null)
             {
                 JArray ja = new JArray();
                 foreach (AttrReq atr in attrreqs.Values)

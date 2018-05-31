@@ -1,24 +1,32 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Org.BouncyCastle.Asn1;
+using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Operators;
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Tls;
 using Org.BouncyCastle.Math;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Utilities.IO.Pem;
+using Org.BouncyCastle.X509;
+using Org.BouncyCastle.X509.Extension;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
 using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
 using PemWriter = Org.BouncyCastle.OpenSsl.PemWriter;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
+using X509Extension = System.Security.Cryptography.X509Certificates.X509Extension;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
@@ -102,15 +110,16 @@ namespace Hyperledger.Fabric.SDK.Security
                     throw new CryptoException("Unable to generate csr, private key not found");
                 if (PublicKey == null)
                     throw new CryptoException("Unable to generate csr, public key not found");
-                IDictionary attrs = new Hashtable();
-                attrs.Add(X509Name.CN, "Requested Test Certificate");
-                ISignatureFactory sf = new Asn1SignatureFactory(signaturealgorithm, PrivateKey);
-                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(new ArrayList(attrs.Keys), attrs), PublicKey, null, PrivateKey);
-                PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", csr.GetEncoded());
+                var extensions = new Dictionary<DerObjectIdentifier, Org.BouncyCastle.Asn1.X509.X509Extension>();
+                extensions.Add(X509Extensions.SubjectKeyIdentifier, new Org.BouncyCastle.Asn1.X509.X509Extension(false, new DerOctetString(new SubjectKeyIdentifierStructure(PublicKey))));
+                DerSet exts = new DerSet(new AttributePkcs(PkcsObjectIdentifiers.Pkcs9AtExtensionRequest, new DerSet(new X509Extensions(extensions))));
+                var attributes = new Dictionary<DerObjectIdentifier, string> {{X509Name.CN, subject}};
+                ISignatureFactory sf = new Asn1SignatureFactory(signaturealgorithm, PrivateKey,new SecureRandom());
+                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(attributes.Keys.ToList(),attributes),publicKey, exts, PrivateKey);
                 using (StringWriter str = new StringWriter())
                 {
                     PemWriter pemWriter = new PemWriter(str);
-                    pemWriter.WriteObject(pemCSR);
+                    pemWriter.WriteObject(csr);
                     str.Flush();
                     return str.ToString();
                 }
@@ -125,9 +134,9 @@ namespace Hyperledger.Fabric.SDK.Security
         {
             try
             {
-                X9ECParameters pars = ECNamedCurveTable.GetByName(curveName);
+                DerObjectIdentifier doi = SecNamedCurves.GetOid(curveName);
                 ECKeyPairGenerator g = new ECKeyPairGenerator(encryptionName);
-                g.Init(new ECKeyGenerationParameters(new ECDomainParameters(pars.Curve, pars.G, pars.N), new SecureRandom()));
+                g.Init(new ECKeyGenerationParameters(doi, new SecureRandom()));
                 return Create(g.GenerateKeyPair());
             }
             catch (Exception exp)

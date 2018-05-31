@@ -36,6 +36,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
+using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 {
@@ -128,7 +129,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                     {
                         Match match = orgPat.Match(key);
 
-                        if (match.Success && match.Groups.Count == 1)
+                        if (match.Success && match.Groups.Count >= 1)
                         {
                             string orgName = match.Groups[1].Value.Trim();
                             sampleOrgs[orgName] = new SampleOrg(orgName, val.Trim());

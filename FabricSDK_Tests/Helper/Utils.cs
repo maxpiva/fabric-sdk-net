@@ -5,11 +5,11 @@ using System.Text;
 
 namespace Hyperledger.Fabric.Tests.Helper
 {
-    public static class TestDataFinder
+    public static class Utils
     {
         public static string TestDataDirectory { get; set; }
 
-        static TestDataFinder()
+        static Utils()
         {
             string CurrentDir = Directory.GetCurrentDirectory();
             while (CurrentDir != null)
@@ -27,6 +27,27 @@ namespace Hyperledger.Fabric.Tests.Helper
         public static string Locate(this string path)
         {
             return Path.Combine(TestDataDirectory, path);
+        }
+        public static int IndexOf(this byte[] data, byte[] search)
+        {
+            int pos = 0;
+            int fcount = 0;
+            while (pos < data.Length)
+            {
+                if (data[pos] == search[fcount])
+                    fcount++;
+                else
+                    fcount = 0;
+                if (fcount == search.Length)
+                    return pos - fcount + 1;
+                pos++;
+            }
+            return -1;
+        }
+
+        public static bool Contains(this byte[] data, byte[] search)
+        {
+            return IndexOf(data, search) != -1;
         }
     }
 }

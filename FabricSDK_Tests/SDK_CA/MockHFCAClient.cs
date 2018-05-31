@@ -14,6 +14,8 @@
 
 
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -36,18 +38,18 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
         }
 
-        public override string HttpPost(string url, string body, NetworkCredential credentials)
+        public override async Task<string> HttpPostAsync(string url, string body, NetworkCredential credentials, CancellationToken token=default(CancellationToken))
         {
-            return httpPostResponse ?? base.HttpPost(url, body, credentials);
+            return httpPostResponse ?? await base.HttpPostAsync(url, body, credentials, token);
         }
 
-        public override JObject HttpPost(string url, string body, IUser admin)
+        public override async Task<JObject> HttpPostAsync(string url, string body, IUser admin, CancellationToken token = default(CancellationToken))
         {
             JObject response;
 
             if (httpPostResponse == null)
             {
-                response = base.HttpPost(url, body, admin);
+                response = await base.HttpPostAsync(url, body, admin, token);
             }
             else
             {

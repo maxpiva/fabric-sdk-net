@@ -13,10 +13,14 @@
  *  limitations under the License.
  *
  */
+
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
 using Newtonsoft.Json.Linq;
@@ -44,22 +48,16 @@ namespace Hyperledger.Fabric_CA.SDK
         public HFCAIdentity(string enrollmentID, HFCAClient client)
         {
             if (string.IsNullOrEmpty(enrollmentID))
-            {
                 throw new InvalidArgumentException("EnrollmentID cannot be null or empty");
-            }
-
             if (client.CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Client's crypto primitives not set");
-            }
-
             EnrollmentId = enrollmentID;
             this.client = client;
         }
 
         public HFCAIdentity(JObject result)
         {
-            EnrollmentId = result["id"].Value<string>();
+            EnrollmentId = result["id"]?.Value<string>();
             GetHFCAIdentity(result);
         }
 
@@ -93,7 +91,7 @@ namespace Hyperledger.Fabric_CA.SDK
          * @return The identity max enrollment.
          */
 
-        public int? MaxEnrollments { get; set; } = null;
+        public int? MaxEnrollments { get; set; }
 
         /**
          * The affiliation of the identity
@@ -140,41 +138,38 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws IdentityException    if retrieving an identity fails.
          * @throws InvalidArgumentException Invalid (null) argument specified
          */
-
         public int Read(IUser registrar)
         {
+            return ReadAsync(registrar).RunAndUnwarp();
+        }
+        public async Task<int> ReadAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string readIdURL = "";
             try
             {
                 readIdURL = HFCA_IDENTITY + "/" + EnrollmentId;
                 logger.Debug($"identity  url: {readIdURL}, registrar: {registrar.Name}");
-
-                JObject result = client.HttpGet(readIdURL, registrar);
-
-                statusCode = result["statusCode"].Value<int>();
+                JObject result = await client.HttpGetAsync(readIdURL, registrar, token);
+                statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {
-                    Type = result["type"].Value<string>();
-                    MaxEnrollments = result["max_enrollments"].Value<int>();
-                    Affiliation = result["affiliation"].Value<string>();
+                    Type = result["type"]?.Value<string>();
+                    MaxEnrollments = result["max_enrollments"]?.Value<int>() ?? 0;
+                    Affiliation = result["affiliation"]?.Value<string>();
                     JArray attributes = result["attrs"] as JArray;
                     List<Attribute> attrs = new List<Attribute>();
                     if (attributes != null && attributes.Count > 0)
                     {
                         foreach (JToken attribute in attributes)
                         {
-                            Attribute attr = new Attribute(attribute["name"].Value<string>(), attribute["value"].Value<string>(), attribute["cert"]?.Value<bool>() ?? false);
+                            Attribute attr = new Attribute(attribute["name"]?.Value<string>(), attribute["value"]?.Value<string>(), attribute["cert"]?.Value<bool>() ?? false);
                             attrs.Add(attr);
                         }
                     }
 
                     Attributes = attrs;
-
                     logger.Debug($"identity  url: {readIdURL}, registrar: {registrar} done.");
                 }
 
@@ -205,28 +200,24 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws IdentityException    if creating an identity fails.
          * @throws InvalidArgumentException Invalid (null) argument specified
          */
-
         public int Create(IUser registrar)
         {
+            return CreateAsync(registrar).RunAndUnwarp();
+        }
+        public async Task<int> CreateAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (IsDeleted)
-            {
                 throw new IdentityException("Identity has been deleted");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string createURL = "";
             try
             {
                 createURL = client.GetURL(HFCA_IDENTITY);
                 logger.Debug($"identity  url: {createURL}, registrar: {registrar.Name}");
-
                 string body = client.ToJson(IdToJsonObject());
-                JObject result = client.HttpPost(createURL, body, registrar);
-                statusCode = result["statusCode"].Value<int>();
+                JObject result = await client.HttpPostAsync(createURL, body, registrar, token);
+                statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode >= 400)
                 {
                     GetHFCAIdentity(result);
@@ -260,28 +251,24 @@ namespace Hyperledger.Fabric_CA.SDK
         * @throws IdentityException    if adding an identity fails.
         * @throws InvalidArgumentException Invalid (null) argument specified
         */
-
         public int Update(IUser registrar)
         {
+            return UpdateAsync(registrar).RunAndUnwarp();
+        }
+        public async Task<int> UpdateAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (IsDeleted)
-            {
                 throw new IdentityException("Identity has been deleted");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string updateURL = "";
             try
             {
                 updateURL = client.GetURL(HFCA_IDENTITY + "/" + EnrollmentId);
                 logger.Debug($"identity  url: {updateURL}, registrar: {registrar.Name}");
                 string body = client.ToJson(IdToJsonObject());
-                JObject result = client.HttpPut(updateURL, body, registrar);
-
-                statusCode = result["statusCode"].Value<int>();
+                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token);
+                statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {
                     GetHFCAIdentity(result);
@@ -314,27 +301,23 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws IdentityException    if adding an identity fails.
          * @throws InvalidArgumentException Invalid (null) argument specified
          */
-
         public int Delete(IUser registrar)
         {
+            return DeleteAsync(registrar).RunAndUnwarp();
+        }
+        public async Task<int> DeleteAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
             if (IsDeleted)
-            {
                 throw new IdentityException("Identity has been deleted");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string deleteURL = "";
             try
             {
                 deleteURL = client.GetURL(HFCA_IDENTITY + "/" + EnrollmentId);
                 logger.Debug($"identity  url: {deleteURL}, registrar: {registrar.Name}");
-
-                JObject result = client.HttpDelete(deleteURL, registrar);
-                statusCode = result["statusCode"].Value<int>();
+                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token);
+                statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {
                     GetHFCAIdentity(result);
@@ -362,18 +345,18 @@ namespace Hyperledger.Fabric_CA.SDK
 
         private void GetHFCAIdentity(JObject result)
         {
-            Type = result["type"].Value<string>();
+            Type = result["type"]?.Value<string>();
             if (result.ContainsKey("secret"))
                 Secret = result["secret"].Value<string>();
-            MaxEnrollments = result["max_enrollments"].Value<int>();
-            Affiliation = result["affiliation"].Value<string>();
+            MaxEnrollments = result["max_enrollments"]?.Value<int>() ?? 0;
+            Affiliation = result["affiliation"]?.Value<string>();
             JArray attributes = result["attrs"] as JArray;
             List<Attribute> attrs = new List<Attribute>();
             if (attributes != null && attributes.Count > 0)
             {
                 foreach (JToken attribute in attributes)
                 {
-                    Attribute attr = new Attribute(attribute["name"].Value<string>(), attribute["value"].Value<string>(), attribute["cert"]?.Value<bool>() ?? false);
+                    Attribute attr = new Attribute(attribute["name"]?.Value<string>(), attribute["value"]?.Value<string>(), attribute["cert"]?.Value<bool>() ?? false);
                     attrs.Add(attr);
                 }
             }
@@ -388,32 +371,17 @@ namespace Hyperledger.Fabric_CA.SDK
             ob.Add(new JProperty("id", EnrollmentId));
             ob.Add(new JProperty("type", Type));
             if (null != MaxEnrollments)
-            {
                 ob.Add(new JProperty("max_enrollments", MaxEnrollments.Value));
-            }
-
             if (Affiliation != null)
-            {
                 ob.Add(new JProperty("affiliation", Affiliation));
-            }
-
             JArray ab = new JArray();
             foreach (Attribute attr in Attributes)
-            {
                 ab.Add(attr.ToJsonObject());
-            }
-
             ob.Add(new JProperty("attrs", ab));
             if (Secret != null)
-            {
                 ob.Add(new JProperty("secret", Secret));
-            }
-
             if (client.CAName != null)
-            {
                 ob.Add(new JProperty(HFCAClient.FABRIC_CA_REQPROP, client.CAName));
-            }
-
             return ob;
         }
 
@@ -423,9 +391,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (ids != null && ids.Count > 0)
             {
                 foreach (JToken id in ids)
-                {
                     ret.Add(new HFCAIdentity((JObject) id));
-                }
             }
 
             return ret;

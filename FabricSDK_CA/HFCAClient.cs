@@ -23,7 +23,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Security;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -41,7 +40,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.X509;
-using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
 
 namespace Hyperledger.Fabric_CA.SDK
@@ -160,6 +158,7 @@ namespace Hyperledger.Fabric_CA.SDK
                     throw new IllegalArgumentException("HFCAClient url needs host");
                 throw;
             }
+
             string proto = purl.Scheme;
             if (!"http".Equals(proto) && !"https".Equals(proto))
                 throw new IllegalArgumentException("HFCAClient only supports http or https not " + proto);
@@ -167,7 +166,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (string.IsNullOrEmpty(host))
                 throw new IllegalArgumentException("HFCAClient url needs host");
             string path = purl.LocalPath;
-            if (!string.IsNullOrEmpty(path) && path!="/")
+            if (!string.IsNullOrEmpty(path) && path != "/")
                 throw new IllegalArgumentException("HFCAClient url does not support path portion in url remove path: '" + path + "'.");
             string query = purl.Query;
             if (!string.IsNullOrEmpty(query))
@@ -261,6 +260,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return RegisterAsync(request, registrar).RunAndUnwarp();
         }
+
         public async Task<string> RegisterAsync(RegistrationRequest request, IUser registrar, CancellationToken token = default(CancellationToken))
         {
             if (CryptoSuite == null)
@@ -275,7 +275,7 @@ namespace Hyperledger.Fabric_CA.SDK
             {
                 string body = request.ToJson();
                 JObject resp = await HttpPostAsync(url + HFCA_REGISTER, body, registrar, token);
-                string secret = resp["secret"].Value<string>();
+                string secret = resp["secret"]?.Value<string>();
                 if (secret == null)
                 {
                     throw new Exception("secret was not found in response");
@@ -305,7 +305,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return Enroll(user, secret, new EnrollmentRequest());
         }
-        
+
         public Task<IEnrollment> EnrollAsync(string user, string secret, CancellationToken token = default(CancellationToken))
         {
             return EnrollAsync(user, secret, new EnrollmentRequest(), token);
@@ -349,6 +349,7 @@ namespace Hyperledger.Fabric_CA.SDK
                     keypair = CryptoSuite.KeyGen();
                     logger.Debug("[HFCAClient.enroll] Generating keys...done!");
                 }
+
                 if (pem == null)
                     req.CSR = CryptoSuite.GenerateCertificationRequest(user, keypair);
                 if (!string.IsNullOrEmpty(CAName))
@@ -357,22 +358,23 @@ namespace Hyperledger.Fabric_CA.SDK
                 string responseBody = await HttpPostAsync(url + HFCA_ENROLL, body, new NetworkCredential(user, secret), token);
                 logger.Debug("response:" + responseBody);
                 JObject jsonst = JObject.Parse(responseBody);
-                bool success = jsonst["success"].Value<bool>();
+                bool success = jsonst["success"]?.Value<bool>() ?? false;
                 logger.Debug($"[HFCAClient] enroll success:[{success}]");
                 if (!success)
                     throw new EnrollmentException($"FabricCA failed enrollment for user {user} response success is false.");
                 JObject result = jsonst["result"] as JObject;
                 if (result == null)
                     throw new EnrollmentException($"FabricCA failed enrollment for user {user} - response did not contain a result");
-                string signedPem = Convert.FromBase64String(result["Cert"].Value<string>()).ToUTF8String();
+                string signedPem = Convert.FromBase64String(result["Cert"]?.Value<string>() ?? "").ToUTF8String();
                 logger.Debug($"[HFCAClient] enroll returned pem:[{signedPem}]");
                 JArray messages = jsonst["messages"] as JArray;
                 if (messages != null && messages.Count > 0)
                 {
                     JToken jo = messages[0];
-                    string message = $"Enroll request response message [code {jo["code"].Value<int>()}]: {jo["message"].Value<string>()}";
+                    string message = $"Enroll request response message [code {jo["code"]?.Value<int>() ?? 0}]: {jo["message"]?.Value<string>() ?? ""}";
                     logger.Info(message);
                 }
+
                 logger.Debug("Enrollment done.");
                 return new HFCAEnrollment(keypair.Pem, signedPem);
             }
@@ -401,6 +403,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return InfoAsync().RunAndUnwarp();
         }
+
         public async Task<HFCAInfo> InfoAsync(CancellationToken token = default(CancellationToken))
         {
             logger.Debug($"info url:{url}");
@@ -415,15 +418,15 @@ namespace Hyperledger.Fabric_CA.SDK
                 string responseBody = await HttpPostAsync(url + HFCA_INFO, body.ToString(), (NetworkCredential) null, token);
                 logger.Debug("response:" + responseBody);
                 JObject jsonst = JObject.Parse(responseBody);
-                bool success = jsonst["success"].Value<bool>();
+                bool success = jsonst["success"]?.Value<bool>() ?? false;
                 logger.Debug($"[HFCAClient] enroll success:[{success}]");
                 if (!success)
                     throw new EnrollmentException($"FabricCA failed info {url}");
                 JObject result = jsonst["result"] as JObject;
                 if (result == null)
                     throw new InfoException($"FabricCA info error  - response did not contain a result url {url}");
-                string caNames = result["CAName"].Value<string>();
-                string caChain = result["CAChain"].Value<string>();
+                string caNames = result["CAName"]?.Value<string>();
+                string caChain = result["CAChain"]?.Value<string>();
                 string version = null;
                 if (result.ContainsKey("Version"))
                     version = result["Version"].Value<string>();
@@ -449,6 +452,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return Reenroll(user, new EnrollmentRequest());
         }
+
         public Task<IEnrollment> ReenrollAsync(IUser user, CancellationToken token = default(CancellationToken))
         {
             return ReenrollAsync(user, new EnrollmentRequest(), token);
@@ -467,6 +471,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return ReenrollAsync(user, req).RunAndUnwarp();
         }
+
         public async Task<IEnrollment> ReenrollAsync(IUser user, EnrollmentRequest req, CancellationToken token = default(CancellationToken))
         {
             if (CryptoSuite == null)
@@ -495,7 +500,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 JObject result = await HttpPostAsync(url + HFCA_REENROLL, body, user, token);
 
                 // get new cert from response
-                string signedPem = Convert.FromBase64String(result["Cert"].Value<string>()).ToUTF8String();
+                string signedPem = Convert.FromBase64String(result["Cert"]?.Value<string>() ?? "").ToUTF8String();
                 logger.Debug($"[HFCAClient] re-enroll returned pem:[{signedPem}]");
 
                 logger.Debug($"reenroll user {user.Name} done.");
@@ -547,6 +552,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return RevokeAsync(revoker, enrollment, reason, genCRL).RunAndUnwarp();
         }
+
         public Task<string> RevokeAsync(IUser revoker, IEnrollment enrollment, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
         {
             return RevokeInternalAsync(revoker, enrollment, reason, genCRL, token);
@@ -571,7 +577,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 // get its aki
                 // 2.5.29.35 : AuthorityKeyIdentifier
                 Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier.Id);
-                string aki = AuthorityKeyIdentifier.GetInstance(akiOc.GetOctets()).GetKeyIdentifier().ToHexString();
+                string aki = AuthorityKeyIdentifier.GetInstance(Asn1Sequence.GetInstance(akiOc.GetOctets())).GetKeyIdentifier().ToHexString();
                 // build request body
                 RevocationRequest req = new RevocationRequest(CAName, null, serial, aki, reason, genCRL);
                 string body = req.ToJson();
@@ -584,7 +590,7 @@ namespace Hyperledger.Fabric_CA.SDK
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
                     if (!resp.ContainsKey("CRL"))
                         throw new RevocationException("Failed to return CRL");
-                    return resp["CRL"].Value<string>();
+                    return resp["CRL"]?.Value<string>();
                 }
 
                 return null;
@@ -620,6 +626,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             RevokeAsync(revoker, revokee, reason).RunAndUnwarp();
         }
+
         public Task RevokeAsync(IUser revoker, string revokee, string reason, CancellationToken token = default(CancellationToken))
         {
             return RevokeInternalAsync(revoker, revokee, reason, false, token);
@@ -639,6 +646,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return RevokeAsync(revoker, revokee, reason, genCRL).RunAndUnwarp();
         }
+
         public Task<string> RevokeAsync(IUser revoker, string revokee, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
         {
             return RevokeInternalAsync(revoker, revokee, reason, genCRL, token);
@@ -668,8 +676,9 @@ namespace Hyperledger.Fabric_CA.SDK
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
                     if (!resp.ContainsKey("CRL"))
                         throw new RevocationException("Failed to return CRL");
-                    return resp["CRL"].Value<string>();
+                    return resp["CRL"]?.Value<string>();
                 }
+
                 return null;
             }
             catch (Exception e)
@@ -693,6 +702,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             RevokeAsync(revoker, serial, aki, reason).RunAndUnwarp();
         }
+
         public Task RevokeAsync(IUser revoker, string serial, string aki, string reason, CancellationToken token = default(CancellationToken))
         {
             return RevokeInternalAsync(revoker, serial, aki, reason, false, token);
@@ -713,6 +723,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return RevokeAsync(revoker, serial, aki, reason, genCRL).RunAndUnwarp();
         }
+
         public Task<string> RevokeAsync(IUser revoker, string serial, string aki, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
         {
             return RevokeInternalAsync(revoker, serial, aki, reason, genCRL, token);
@@ -745,8 +756,9 @@ namespace Hyperledger.Fabric_CA.SDK
                         throw new RevocationException("Failed to return CRL, revoke response is empty");
                     if (!resp.ContainsKey("CRL"))
                         throw new RevocationException("Failed to return CRL");
-                    return resp["CRL"].Value<string>();
+                    return resp["CRL"]?.Value<string>();
                 }
+
                 return null;
             }
             catch (CertificateException e)
@@ -802,7 +814,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 //---------------------------------------
                 // send revoke request
                 JObject ret = await HttpPostAsync(url + HFCA_GENCRL, body, registrar, token);
-                return ret["CRL"].Value<string>();
+                return ret["CRL"]?.Value<string>();
             }
             catch (Exception e)
             {
@@ -942,6 +954,7 @@ namespace Hyperledger.Fabric_CA.SDK
                     {
                         CryptoSuite.Store.AddCertificate(properties["pemBytes"]);
                     }
+
                     if (properties.Contains("pemFile"))
                     {
                         string pemFile = (string) properties["pemFile"];
@@ -996,31 +1009,38 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws Exception
          */
 
-        public virtual string HttpPost(string url, string body, NetworkCredential credentials)
+        public string HttpPost(string murl, string body, NetworkCredential credentials)
         {
-            return HttpPostAsync(url, body, credentials).RunAndUnwarp();
+            return HttpPostAsync(murl, body, credentials).RunAndUnwarp();
         }
 
-        public async Task<string> HttpPostAsync(string url, string body, NetworkCredential credentials, CancellationToken token = default(CancellationToken))
+        public virtual async Task<string> HttpPostAsync(string murl, string body, NetworkCredential credentials, CancellationToken token = default(CancellationToken))
         {
-            logger.Debug($"httpPost {url}, body:{body}");
+            logger.Debug($"httpPost {murl}, body:{body}");
             HttpClientHandler handler = new HttpClientHandler();
             handler.ServerCertificateCustomValidationCallback += ValidateServerCertificate;
-            if (credentials != null)
-                handler.Credentials = credentials;
+            handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+
             using (HttpClient client = new HttpClient(handler, true))
             {
-                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = new StringContent(body, Encoding.UTF8);
-                request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-                logger.Trace($"httpPost {url}  sending...");
+                //url = url.Replace("localhost", "localhost.fiddler");
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, murl);
+                if (credentials!=null)
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials.UserName + ":" + credentials.Password)));
+                if (!string.IsNullOrEmpty(body))
+                {
+                    request.Content = new StringContent(body, Encoding.UTF8);
+                    request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
+                }
+
+                logger.Trace($"httpPost {murl}  sending...");
                 HttpResponseMessage msg = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, token);
-                string result = msg.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                logger.Trace($"httpPost {url}  responseBody {result}");
+                string result = await msg.Content.ReadAsStringAsync();
+                logger.Trace($"httpPost {murl}  responseBody {result}");
                 int status = (int) msg.StatusCode;
                 if (status >= 400)
                 {
-                    Exception e = new Exception($"POST request to {url}  with request body: {body}, failed with status code: {status}. Response: {result ?? msg.ReasonPhrase}");
+                    Exception e = new Exception($"POST request to {murl}  with request body: {body??""}, failed with status code: {status}. Response: {result ?? msg.ReasonPhrase}");
                     logger.ErrorException(e.Message, e);
                     throw e;
                 }
@@ -1030,22 +1050,23 @@ namespace Hyperledger.Fabric_CA.SDK
             }
         }
 
-        public virtual JObject HttpPost(string url, string body, IUser registrar)
+        public JObject HttpPost(string murl, string body, IUser registrar)
         {
-            return HttpPostAsync(url, body, registrar).RunAndUnwarp();
+            return HttpPostAsync(murl, body, registrar).RunAndUnwarp();
         }
 
-        public Task<JObject> HttpPostAsync(string url, string body, IUser registrar, CancellationToken token = default(CancellationToken))
+        public virtual Task<JObject> HttpPostAsync(string murl, string body, IUser registrar, CancellationToken token = default(CancellationToken))
         {
-            return HttpVerbAsync(url, "POST", body, registrar, token);
+            return HttpVerbAsync(murl, "POST", body, registrar, token);
         }
 
-        private async Task<JObject> HttpVerbAsync(string url, string verb, string body, IUser registrar, CancellationToken token)
+        private async Task<JObject> HttpVerbAsync(string murl, string verb, string body, IUser registrar, CancellationToken token)
         {
             string authHTTPCert = GetHTTPAuthCertificate(registrar.Enrollment, body);
-            logger.Debug($"http{verb} {url}, body:{body}, authHTTPCert: {authHTTPCert}");
+            logger.Debug($"http{verb} {murl}, body:{body}, authHTTPCert: {authHTTPCert}");
             HttpClientHandler handler = new HttpClientHandler();
             handler.ServerCertificateCustomValidationCallback += ValidateServerCertificate;
+            handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
             using (HttpClient client = new HttpClient(handler, true))
             {
                 HttpMethod method;
@@ -1067,9 +1088,10 @@ namespace Hyperledger.Fabric_CA.SDK
                         method = new HttpMethod(verb);
                         break;
                 }
+                //url = url.Replace("localhost", "localhost.fiddler");
 
-                HttpRequestMessage request = new HttpRequestMessage(method, url);
-                request.Headers.Add("Authorization", authHTTPCert);
+                HttpRequestMessage request = new HttpRequestMessage(method, murl);
+                request.Headers.TryAddWithoutValidation("Authorization", authHTTPCert);
                 if (!string.IsNullOrEmpty(body))
                 {
                     request.Content = new StringContent(body, Encoding.UTF8);
@@ -1081,32 +1103,36 @@ namespace Hyperledger.Fabric_CA.SDK
             }
         }
 
-        public JObject HttpGet(string url, IUser registrar)
+        public JObject HttpGet(string murl, IUser registrar)
         {
-            return HttpGetAsync(url, registrar).RunAndUnwarp();
+            murl = GetURL(murl);
+            return HttpGetAsync(murl, registrar).RunAndUnwarp();
         }
 
-        public Task<JObject> HttpGetAsync(string url, IUser registrar, CancellationToken token = default(CancellationToken))
+        public Task<JObject> HttpGetAsync(string murl, IUser registrar, CancellationToken token = default(CancellationToken))
         {
-            return HttpVerbAsync(url, "GET", "", registrar, token);
+            murl = GetURL(murl);
+            return HttpVerbAsync(murl, "GET", "", registrar, token);
         }
 
-        public JObject HttpPut(string url, string body, IUser registrar)
+        public JObject HttpPut(string murl, string body, IUser registrar)
         {
-            return HttpPutAsync(url, body, registrar).RunAndUnwarp();
-        }
-        public Task<JObject> HttpPutAsync(string url, string body, IUser registrar, CancellationToken token = default(CancellationToken))
-        {
-            return HttpVerbAsync(url, "PUT", body, registrar, token);
+            return HttpPutAsync(murl, body, registrar).RunAndUnwarp();
         }
 
-        public JObject HttpDelete(string url, IUser registrar)
+        public Task<JObject> HttpPutAsync(string murl, string body, IUser registrar, CancellationToken token = default(CancellationToken))
         {
-            return HttpDeleteAsync(url, registrar).RunAndUnwarp();
+            return HttpVerbAsync(murl, "PUT", body, registrar, token);
         }
-        public Task<JObject> HttpDeleteAsync(string url, IUser registrar, CancellationToken token = default(CancellationToken))
+
+        public JObject HttpDelete(string murl, IUser registrar)
         {
-            return HttpVerbAsync(url, "DELETE", "", registrar, token);
+            return HttpDeleteAsync(murl, registrar).RunAndUnwarp();
+        }
+
+        public Task<JObject> HttpDeleteAsync(string murl, IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return HttpVerbAsync(murl, "DELETE", "", registrar, token);
         }
 
         private async Task<JObject> GetResultAsync(HttpResponseMessage response, string body, string type)
@@ -1124,12 +1150,14 @@ namespace Hyperledger.Fabric_CA.SDK
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
+
             if (responseBody == null)
             {
                 HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} with null response body returned.", respStatusCode);
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
+
             logger.Debug("Status: " + respStatusCode);
             JObject jobj = JObject.Parse(responseBody);
             JObject job = new JObject();
@@ -1145,16 +1173,19 @@ namespace Hyperledger.Fabric_CA.SDK
                     string errorMsg = $"[HTTP Status Code: {respStatusCode}] - {type} request to {url} failed request body {body} error message: [Error Code {jo["code"]?.Value<int>()}] - {jo["message"].Value<string>()}";
                     logger.Error(errorMsg);
                 }
+
                 return job;
             }
+
             if (errors != null && errors.Count > 0)
             {
                 JObject jo = (JObject) errors.First;
-                HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} error message: [Error Code {jo["code"]?.Value<int>()}] - {jo["message"].Value<string>()}", respStatusCode);
+                HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} error message: [Error Code {jo["code"]?.Value<int>() ?? 0}] - {jo["message"]?.Value<string>() ?? ""}", respStatusCode);
                 logger.ErrorException(e.Message, e);
                 throw e;
             }
-            bool success = jobj["success"].Value<bool>();
+
+            bool success = jobj["success"]?.Value<bool>() ?? false;
             if (!success)
             {
                 HTTPException e = new HTTPException($"{type} request to {url} failed request body {body} Body of response did not contain success", respStatusCode);
@@ -1174,7 +1205,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (messages != null && messages.Count > 0)
             {
                 JObject jo = (JObject) messages.First;
-                string message = $"{type} request to {url} failed request body {body} response message: [Error Code {jo["code"].Value<int>()}] - {jo["message"].Value<string>()}";
+                string message = $"{type} request to {url} failed request body {body} response message: [Error Code {jo["code"]?.Value<int>() ?? 0}] - {jo["message"]?.Value<string>() ?? ""}";
                 logger.Info(message);
             }
 
@@ -1217,16 +1248,16 @@ namespace Hyperledger.Fabric_CA.SDK
         public string GetURL(string endpoint, Dictionary<string, string> queryMap)
         {
             SetUpSSL();
-            string url = this.url + endpoint;
+            string murl = this.url + endpoint;
             if (CAName != null)
-                url = AddQueryValue(url, "ca", CAName);
+                murl = AddQueryValue(murl, "ca", CAName);
             if (queryMap != null)
             {
                 foreach (string key in queryMap.Keys)
-                    url = AddQueryValue(url, key, queryMap[key]);
+                    murl = AddQueryValue(murl, key, queryMap[key]);
             }
 
-            return url;
+            return murl;
         }
 
         // Convert the identity request to a JSON string

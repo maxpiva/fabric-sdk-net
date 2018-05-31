@@ -40,8 +40,11 @@ import static java.lang.String.format;
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
 using Newtonsoft.Json.Linq;
@@ -70,10 +73,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             ValidateAffiliationNames(name);
             if (client.CryptoSuite == null)
-            {
                 throw new InvalidArgumentException("Crypto primitives not set.");
-            }
-
             Name = name;
             this.client = client;
         }
@@ -109,20 +109,14 @@ namespace Hyperledger.Fabric_CA.SDK
             get
             {
                 if (deleted)
-                {
                     throw new AffiliationException("Affiliation has been deleted");
-                }
-
                 return updateName;
             }
 
             set
             {
                 if (deleted)
-                {
                     throw new AffiliationException("Affiliation has been deleted");
-                }
-
                 updateName = value;
             }
         }
@@ -140,10 +134,7 @@ namespace Hyperledger.Fabric_CA.SDK
             get
             {
                 if (deleted)
-                {
                     throw new AffiliationException("Affiliation has been deleted");
-                }
-
                 return childHFCAAffiliations;
             }
         }
@@ -161,10 +152,7 @@ namespace Hyperledger.Fabric_CA.SDK
             get
             {
                 if (deleted)
-                {
                     throw new AffiliationException("Affiliation has been deleted");
-                }
-
                 return identities;
             }
         }
@@ -180,10 +168,7 @@ namespace Hyperledger.Fabric_CA.SDK
         public HFCAAffiliation CreateDecendent(string name)
         {
             if (deleted)
-            {
                 throw new AffiliationException("Affiliation has been deleted");
-            }
-
             ValidateAffiliationNames(name);
             return new HFCAAffiliation(Name + "." + name, client);
         }
@@ -199,19 +184,13 @@ namespace Hyperledger.Fabric_CA.SDK
         public HFCAAffiliation GetChild(string name)
         {
             if (deleted)
-            {
                 throw new AffiliationException("Affiliation has been deleted");
-            }
-
             ValidateSingleAffiliationName(name);
             foreach (HFCAAffiliation childAff in childHFCAAffiliations)
             {
                 if (childAff.Name.Equals(Name + "." + name))
-                {
                     return childAff;
-                }
             }
-
             return null;
         }
 
@@ -233,22 +212,20 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException if getting an affiliation fails.
          * @throws InvalidArgumentException
          */
-
         public int Read(IUser registrar)
         {
+            return ReadAsync(registrar).RunAndUnwarp();
+        }
+        public async Task<int> ReadAsync(IUser registrar, CancellationToken token=default(CancellationToken))
+        {
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string readAffURL = "";
             try
             {
                 readAffURL = HFCA_AFFILIATION + "/" + Name;
                 logger.Debug($"affiliation  url: {readAffURL}, registrar: {registrar.Name}");
-
-                JObject result = client.HttpGet(readAffURL, registrar);
-
+                JObject result = await client.HttpGetAsync(readAffURL, registrar, token);
                 logger.Debug($"affiliation  url: {readAffURL}, registrar: {registrar} done.");
                 HFCAAffiliationResp resp = GetResponse(result);
                 childHFCAAffiliations = resp.Children;
@@ -280,10 +257,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException    if adding an affiliation fails.
          * @throws InvalidArgumentException
          */
-
         public HFCAAffiliationResp Create(IUser registrar)
         {
-            return Create(registrar, false);
+            return CreateAsync(registrar).RunAndUnwarp();
+        }
+        public Task<HFCAAffiliationResp> CreateAsync(IUser registrar, CancellationToken token=default(CancellationToken))
+        {
+            return CreateAsync(registrar, false,token);
         }
 
         /**
@@ -295,24 +275,19 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException    if adding an affiliation fails.
          * @throws InvalidArgumentException
          */
-        public HFCAAffiliationResp Create(IUser registrar, bool force)
+        public async Task<HFCAAffiliationResp> CreateAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
         {
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string createURL = "";
             try
             {
-                createURL = client.GetURL(HFCA_AFFILIATION);
                 logger.Debug($"affiliation  url: {createURL}, registrar: {registrar.Name}");
-
                 Dictionary<string, string> queryParm = new Dictionary<string, string>();
                 queryParm.Add("force", force.ToString());
+                createURL = client.GetURL(HFCA_AFFILIATION,queryParm); //TODO Report bug into the JAVA version, force was never sent.
                 string body = client.ToJson(AffToJsonObject());
-                JObject result = client.HttpPost(createURL, body, registrar);
-
+                JObject result = await client.HttpPostAsync(createURL, body, registrar, token);
                 logger.Debug($"identity  url: {createURL}, registrar: {registrar.Name} done.");
                 deleted = false;
                 return GetResponse(result);
@@ -341,10 +316,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException If updating an affiliation fails
          * @throws InvalidArgumentException
          */
-
         public HFCAAffiliationResp Update(IUser registrar)
         {
             return Update(registrar, false);
+        }
+        public Task<HFCAAffiliationResp> UpdateAsync(IUser registrar, CancellationToken token=default(CancellationToken))
+        {
+            return UpdateAsync(registrar, false, token);
         }
 
         /**
@@ -358,32 +336,25 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliationResp Update(IUser registrar, bool force)
         {
+            return UpdateAsync(registrar,force).RunAndUnwarp();
+        }
+        public async Task<HFCAAffiliationResp> UpdateAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
+        {
             if (deleted)
-            {
                 throw new AffiliationException("Affiliation has been deleted");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             if (string.IsNullOrEmpty(Name))
-            {
                 throw new InvalidArgumentException("Affiliation name cannot be null or empty");
-            }
-
             string updateURL = "";
             try
             {
                 Dictionary<string, string> queryParm = new Dictionary<string, string>();
                 queryParm.Add("force", force.ToString());
                 updateURL = client.GetURL(HFCA_AFFILIATION + "/" + Name, queryParm);
-
                 logger.Debug($"affiliation  url: {updateURL}, registrar: {registrar.Name}");
-
                 string body = client.ToJson(AffToJsonObject());
-                JObject result = client.HttpPut(updateURL, body, registrar);
+                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token);
                 GenerateResponse(result);
                 logger.Debug($"identity  url: {updateURL}, registrar: {registrar.Name} done.");
                 HFCAAffiliationResp resp = GetResponse(result);
@@ -415,10 +386,13 @@ namespace Hyperledger.Fabric_CA.SDK
          * @throws AffiliationException    if deleting an affiliation fails.
          * @throws InvalidArgumentException
          */
-
         public HFCAAffiliationResp Delete(IUser registrar)
         {
-            return Delete(registrar, false);
+            return Delete(registrar,false);
+        }
+        public Task<HFCAAffiliationResp> DeleteAsync(IUser registrar, CancellationToken token = default(CancellationToken))
+        {
+            return DeleteAsync(registrar, false,token);
         }
 
         /**
@@ -432,27 +406,22 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliationResp Delete(IUser registrar, bool force)
         {
+            return DeleteAsync(registrar, force).RunAndUnwarp();
+        }
+        public async Task<HFCAAffiliationResp> DeleteAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
+        {
             if (deleted)
-            {
                 throw new AffiliationException("Affiliation has been deleted");
-            }
-
             if (registrar == null)
-            {
                 throw new InvalidArgumentException("Registrar should be a valid member");
-            }
-
             string deleteURL = "";
             try
             {
                 Dictionary<string, string> queryParm = new Dictionary<string, string>();
                 queryParm.Add("force", force.ToString());
                 deleteURL = client.GetURL(HFCA_AFFILIATION + "/" + Name, queryParm);
-
                 logger.Debug($"affiliation  url: {deleteURL}, registrar: {registrar.Name}");
-
-                JObject result = client.HttpDelete(deleteURL, registrar);
-
+                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token);
                 logger.Debug($"identity  url: {deleteURL}, registrar: {registrar.Name} done.");
                 deleted = true;
                 return GetResponse(result);
@@ -479,40 +448,26 @@ namespace Hyperledger.Fabric_CA.SDK
             if (affiliations != null && affiliations.Count > 0)
             {
                 foreach (JToken aff in affiliations)
-                {
                     ret.Add(new HFCAAffiliation((JObject) aff));
-                }
             }
-
             return ret;
         }
 
         private HFCAAffiliationResp GetResponse(JObject result)
         {
             if (result.ContainsKey("name"))
-            {
                 Name = result["name"].Value<string>();
-            }
-
             return new HFCAAffiliationResp(result);
         }
 
         private void GenerateResponse(JObject result)
         {
             if (result.ContainsKey("name"))
-            {
                 Name = result["name"].Value<string>();
-            }
-
             if (result.ContainsKey("affiliations"))
-            {
                 childHFCAAffiliations.AddRange(FromJArray(result["affiliations"] as JArray));
-            }
-
             if (result.ContainsKey("identities"))
-            {
                 identities.AddRange(HFCAIdentity.FromJArray(result["identities"] as JArray));
-            }
         }
 
         // Convert the affiliation request to a JSON object
@@ -520,20 +475,14 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             JObject ob = new JObject();
             if (client.CAName != null)
-            {
                 ob.Add(new JProperty(HFCAClient.FABRIC_CA_REQPROP, client.CAName));
-            }
-
             if (updateName != null)
             {
                 ob.Add(new JProperty("name", updateName));
                 updateName = null;
             }
             else
-            {
                 ob.Add(new JProperty("name", Name));
-            }
-
             return ob;
         }
 
@@ -547,15 +496,9 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             CheckFormat(name);
             if (name.StartsWith("."))
-            {
                 throw new InvalidArgumentException("Affiliation name cannot start with a dot '.'");
-            }
-
             if (name.EndsWith("."))
-            {
                 throw new InvalidArgumentException("Affiliation name cannot end with a dot '.'");
-            }
-
             for (int i = 0; i < name.Length; i++)
             {
                 if (name[i] == '.' && name[i] == name[i - 1])
@@ -575,22 +518,15 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             CheckFormat(name);
             if (name.Contains("."))
-            {
                 throw new InvalidArgumentException("Single affiliation name cannot contain any dots '.'");
-            }
         }
 
         public static void CheckFormat(string name)
         {
             if (string.IsNullOrEmpty(name))
-            {
                 throw new InvalidArgumentException("Affiliation name cannot be null or empty");
-            }
-
             if (name.Contains(" ") || name.Contains("\t"))
-            {
                 throw new InvalidArgumentException("Affiliation name cannot contain an empty space or tab");
-            }
         }
 
         /**
@@ -600,25 +536,15 @@ namespace Hyperledger.Fabric_CA.SDK
         public class HFCAAffiliationResp
         {
             // Affiliations affected by this affiliation request
-
             // Identities affected by this affiliation request
-
-            private HFCAAffiliation parent;
-
-
             public HFCAAffiliationResp(JObject result)
             {
                 if (result.ContainsKey("affiliations"))
                     Children.AddRange(FromJArray(result["affiliations"] as JArray));
                 if (result.ContainsKey("identities"))
-                {
                     Identities.AddRange(HFCAIdentity.FromJArray(result["identities"] as JArray));
-                }
-
                 if (result.ContainsKey("statusCode"))
-                {
                     StatusCode = result["statusCode"].Value<int>();
-                }
             }
 
 

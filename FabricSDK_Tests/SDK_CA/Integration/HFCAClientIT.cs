@@ -11,6 +11,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -104,8 +105,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests attributes
-        [TestMethod]
-        public void TestRegisterAttributes()
+        [TestMethod][DoNotParallelize]
+
+        public void T01estRegisterAttributes()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -134,12 +136,12 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 
             IEnrollment enrollment = user.Enrollment;
             string cert = enrollment.Cert;
-            string certdec = GetStringCert(cert);
-
-            Assert.IsTrue(certdec.Contains("\"testattr2\":\"mrAttributesValue2\""), $"Missing testattr2 in certficate decoded: {certdec}");
+            byte[] certdec = GetCertAsBytes(cert);
+       
+            Assert.IsTrue(certdec.Contains("\"testattr2\":\"mrAttributesValue2\"".ToBytes()), $"Missing testattr2 in certficate decoded: {certdec}");
             //Since request had specific attributes don't expect defaults.
-            Assert.IsFalse(certdec.Contains("\"testattrDEFAULTATTR\"") || certdec.Contains("\"mrAttributesValueDEFAULTATTR\""), $"Contains testattrDEFAULTATTR in certificate decoded: {certdec}");
-            Assert.IsFalse(certdec.Contains("\"testattr1\"") || certdec.Contains("\"mrAttributesValue1\""), $"Contains testattr1 in certificate decoded: {certdec}");
+            Assert.IsFalse(certdec.Contains("\"testattrDEFAULTATTR\"".ToBytes()) || certdec.Contains("\"mrAttributesValueDEFAULTATTR\"".ToBytes()), $"Contains testattrDEFAULTATTR in certificate decoded: {certdec}");
+            Assert.IsFalse(certdec.Contains("\"testattr1\"".ToBytes()) || certdec.Contains("\"mrAttributesValue1\"".ToBytes()), $"Contains testattr1 in certificate decoded: {certdec}");
         }
 
         /**
@@ -147,8 +149,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
          *
          * @throws Exception
          */
-        [TestMethod]
-        public void TestRegisterAttributesDefault()
+        [TestMethod][DoNotParallelize]
+        public void T02estRegisterAttributesDefault()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -175,13 +177,13 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             IEnrollment enrollment = user.Enrollment;
             string cert = enrollment.Cert;
 
-            string certdec = GetStringCert(cert);
+            byte[] certdec = GetCertAsBytes(cert);
 
-            Assert.IsTrue(certdec.Contains("\"testattrDEFAULTATTR\":\"mrAttributesValueDEFAULTATTR\""), $"Missing testattrDEFAULTATTR in certficate decoded:{certdec}");
+            Assert.IsTrue(certdec.Contains("\"testattrDEFAULTATTR\":\"mrAttributesValueDEFAULTATTR\"".ToBytes()), $"Missing testattrDEFAULTATTR in certficate decoded:{certdec}");
             //Since request and no attribute requests at all defaults should be in certificate.
 
-            Assert.IsFalse(certdec.Contains("\"testattr1\"") || certdec.Contains("\"mrAttributesValue1\""), $"Contains testattr1 in certificate decoded: {certdec}");
-            Assert.IsFalse(certdec.Contains("\"testattr2\"") || certdec.Contains("\"mrAttributesValue2\""), $"Contains testattr2 in certificate decoded: {certdec}");
+            Assert.IsFalse(certdec.Contains("\"testattr1\"".ToBytes()) || certdec.Contains("\"mrAttributesValue1\"".ToBytes()), $"Contains testattr1 in certificate decoded: {certdec}");
+            Assert.IsFalse(certdec.Contains("\"testattr2\"".ToBytes()) || certdec.Contains("\"mrAttributesValue2\"".ToBytes()), $"Contains testattr2 in certificate decoded: {certdec}");
         }
 
         /**
@@ -189,8 +191,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
          *
          * @throws Exception
          */
-        [TestMethod]
-        public void TestRegisterAttributesNONE()
+        [TestMethod][DoNotParallelize]
+        public void T03estRegisterAttributesNONE()
         {
             SampleUser user = new SampleUser("mrAttributesNone", TEST_ADMIN_ORG, sampleStore);
 
@@ -215,31 +217,30 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             IEnrollment enrollment = user.Enrollment;
             string cert = enrollment.Cert;
 
-            string certdec = GetStringCert(cert);
+            byte[] certdec = GetCertAsBytes(cert);
 
-            Assert.IsFalse(certdec.Contains("\"testattrDEFAULTATTR\"") || certdec.Contains("\"mrAttributesValueDEFAULTATTR\""), $"Contains testattrDEFAULTATTR in certificate decoded: {certdec}");
-            Assert.IsFalse(certdec.Contains("\"testattr1\"") || certdec.Contains("\"mrAttributesValue1\""), $"Contains testattr1 in certificate decoded: {certdec}");
-            Assert.IsFalse(certdec.Contains("\"testattr2\"") || certdec.Contains("\"mrAttributesValue2\""), $"Contains testattr2 in certificate decoded: {certdec}");
+            Assert.IsFalse(certdec.Contains("\"testattrDEFAULTATTR\"".ToBytes()) || certdec.Contains("\"mrAttributesValueDEFAULTATTR\"".ToBytes()), $"Contains testattrDEFAULTATTR in certificate decoded: {certdec.ToHexString()}");
+            Assert.IsFalse(certdec.Contains("\"testattr1\"".ToBytes()) || certdec.Contains("\"mrAttributesValue1\"".ToBytes()), $"Contains testattr1 in certificate decoded: {certdec.ToHexString()}");
+            Assert.IsFalse(certdec.Contains("\"testattr2\"".ToBytes()) || certdec.Contains("\"mrAttributesValue2\"".ToBytes()), $"Contains testattr2 in certificate decoded: {certdec.ToHexString()}");
         }
 
-        private static string GetStringCert(string pemFormat)
+        private static byte[] GetCertAsBytes(string pemFormat)
         {
-            string ret = null;
-
+           
             Match matcher = compile.Match(pemFormat);
             if (matcher.Success)
             {
                 string base64part = matcher.Groups[1].Value.Replace("\n", "");
-                return Convert.FromBase64String(base64part).ToUTF8String();
+                return Convert.FromBase64String(base64part);
             }
 
             Assert.Fail($"Certificate failed to match expected pattern. Certificate:\n {pemFormat}");
-            return ret;
+            return null;
         }
 
         // Tests re-enrolling a user that has had an enrollment revoked
-        [TestMethod]
-        public void TestReenrollAndRevoke()
+        [TestMethod][DoNotParallelize]
+        public void T04estReenrollAndRevoke()
         {
             SampleUser user = GetTestUser(TEST_ADMIN_ORG);
 
@@ -283,9 +284,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests attempting to re-enroll a revoked user
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to re-enroll user")]
-        public void TestUserRevoke()
+        public void T05estUserRevoke()
         {
 //        Calendar calendar = Calendar.Instance; // gets a calendar using the default time zone and locale.
             //      Date revokedTinyBitAgoTime = calendar.Time; //avoid any clock skewing.
@@ -345,8 +346,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests revoking a certificate
-        [TestMethod]
-        public void TestCertificateRevoke()
+        [TestMethod][DoNotParallelize]
+        public void T06estCertificateRevoke()
         {
             SampleUser user = GetTestUser(TEST_USER1_ORG);
 
@@ -382,9 +383,12 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // get its aki
             // 2.5.29.35 : AuthorityKeyIdentifier
 
-
+            
             Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier.Id);
-            string aki = AuthorityKeyIdentifier.GetInstance(akiOc.GetOctets()).GetKeyIdentifier().ToHexString();
+            string aki = AuthorityKeyIdentifier.GetInstance(Asn1Sequence.GetInstance(akiOc.GetOctets())).GetKeyIdentifier().ToHexString();
+
+                
+               // AuthorityKeyIdentifier.GetInstance(akiOc.GetOctets()).GetKeyIdentifier().ToHexString();
 
 
             int startedWithRevokes = -1;
@@ -407,9 +411,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests attempting to revoke a user with Null reason
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to re-enroll user")]
-        public void TestUserRevokeNullReason()
+        public void T07estUserRevokeNullReason()
         {
 //        Calendar calendar = Calendar.Instance; // gets a calendar using the default time zone and locale.
             //      calendar.add(Calendar.SECOND, -1);
@@ -467,9 +471,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests revoking a user with genCRL using the revoke API
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to re-enroll user")]
-        public void TestUserRevokeGenCRL()
+        public void T08estUserRevokeGenCRL()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -541,24 +545,24 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             Assert.AreEqual("CRL not requested, CRL should be empty", "", crl2);
         }
 
-        private List<CrlEntry> GetRevokes(DateTime? r)
+        private List<X509CrlEntry> GetRevokes(DateTime? r)
         {
             string crl = client.GenerateCRL(admin, r, null, null, null);
 
             return ParseCRL(crl);
         }
 
-        private List<CrlEntry> ParseCRL(string crl)
+        private List<X509CrlEntry> ParseCRL(string crl)
         {
             byte[] decode = Convert.FromBase64String(crl);
             PemReader pem = new PemReader(new StreamReader(new MemoryStream(decode)));
             X509Crl holder = (X509Crl) pem.ReadObject();
-            return holder.GetRevokedCertificates().Cast<CrlEntry>().ToList();
+            return holder.GetRevokedCertificates()?.Cast<X509CrlEntry>().ToList() ?? new List<X509CrlEntry>();
         }
 
         // Tests getting an identity
-        [TestMethod]
-        public void TestCreateAndGetIdentity()
+        [TestMethod][DoNotParallelize]
+        public void T09estCreateAndGetIdentity()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -593,8 +597,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests getting an identity that does not exist
-        [TestMethod]
-        public void TestGetIdentityNotExist()
+        [TestMethod][DoNotParallelize]
+        public void T10estGetIdentityNotExist()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -614,8 +618,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests getting all identities for a caller
-        [TestMethod]
-        public void TestGetAllIdentity()
+        [TestMethod][DoNotParallelize]
+        public void T11estGetAllIdentity()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -647,8 +651,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests modifying an identity
-        [TestMethod]
-        public void TestModifyIdentity()
+        [TestMethod][DoNotParallelize]
+        public void T12estModifyIdentity()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -670,9 +674,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an identity
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Failed to get User")]
-        public void TestDeleteIdentity()
+        public void T13estDeleteIdentity()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -691,9 +695,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an identity and making sure it can't update after deletion
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Identity has been deleted")]
-        public void TestDeleteIdentityFailUpdate()
+        public void T14estDeleteIdentityFailUpdate()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -710,9 +714,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an identity and making sure it can't delete again
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Identity has been deleted")]
-        public void TestDeleteIdentityFailSecondDelete()
+        public void T15estDeleteIdentityFailSecondDelete()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -729,9 +733,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an identity on CA that does not allow identity removal
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Identity removal is disabled")]
-        public void TestDeleteIdentityNotAllowed()
+        [TestMethod][DoNotParallelize]
+        [ExpectedExceptionWithMessage(typeof(IdentityException), "Identity removal is disabled")]
+        public void T16estDeleteIdentityNotAllowed()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -759,8 +763,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests getting an affiliation
-        [TestMethod]
-        public void TestGetAffiliation()
+        [TestMethod][DoNotParallelize]
+        public void T17estGetAffiliation()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -776,8 +780,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests getting all affiliation
-        [TestMethod]
-        public void TestGetAllAffiliation()
+        [TestMethod][DoNotParallelize]
+        public void T18estGetAllAffiliation()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -821,8 +825,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests adding an affiliation
-        [TestMethod]
-        public void TestCreateAffiliation()
+        [TestMethod][DoNotParallelize]
+        public void T19estCreateAffiliation()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -840,8 +844,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests updating an affiliation
-        [TestMethod]
-        public void TestUpdateAffiliation()
+        [TestMethod][DoNotParallelize]
+        public void T20estUpdateAffiliation()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -917,8 +921,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests updating an affiliation that doesn't require force option
-        [TestMethod]
-        public void TestUpdateAffiliationNoForce()
+        [TestMethod][DoNotParallelize]
+        public void T21estUpdateAffiliationNoForce()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -936,9 +940,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 
         // Trying to update affiliations with child affiliations and identities
         // should fail if not using 'force' option.
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Need to use 'force' to remove identities and affiliation")]
-        public void TestUpdateAffiliationInvalid()
+        [TestMethod][DoNotParallelize]
+        [ExpectedExceptionWithMessage(typeof(AffiliationException), "Need to use 'force' to remove identities and affiliation")]
+        public void T22estUpdateAffiliationInvalid()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -962,9 +966,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an affiliation
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Affiliation has been deleted")]
-        public void TestDeleteAffiliation()
+        [TestMethod][DoNotParallelize]
+        [ExpectedExceptionWithMessage(typeof(AffiliationException), "Affiliation has been deleted")]
+        public void T23estDeleteAffiliation()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1031,8 +1035,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an affiliation that doesn't require force option
-        [TestMethod]
-        public void TestDeleteAffiliationNoForce()
+        [TestMethod][DoNotParallelize]
+        public void T24estDeleteAffiliationNoForce()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1049,9 +1053,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 
         // Trying to delete affiliation with child affiliations and identities should result
         // in an error without force option.
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Authorization failure")]
-        public void TestForceDeleteAffiliationInvalid()
+        [TestMethod][DoNotParallelize]
+        [ExpectedExceptionWithMessage(typeof(AffiliationException), "Authorization failure")]
+        public void T25estForceDeleteAffiliationInvalid()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1075,9 +1079,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests deleting an affiliation on CA that does not allow affiliation removal
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(System.Exception), "Authorization failure")]
-        public void TestDeleteAffiliationNotAllowed()
+        [TestMethod][DoNotParallelize]
+        [ExpectedExceptionWithMessage(typeof(AffiliationException), "Authorization failure")]
+        public void T26estDeleteAffiliationNotAllowed()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1102,8 +1106,8 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests getting server/ca information
-        [TestMethod]
-        public void TestGetInfo()
+        [TestMethod][DoNotParallelize]
+        public void T27estGetInfo()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1121,9 +1125,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             }
         }
 
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to enroll user")]
-        public void TestEnrollNoKeyPair()
+        public void T28estEnrollNoKeyPair()
         {
             SampleUser user = GetEnrolledUser(TEST_ADMIN_ORG);
 
@@ -1132,17 +1136,17 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             client.Enroll(user.Name, user.EnrollmentSecret, req);
         }
 
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(RevocationException), "Error while revoking the user")]
-        public void TestRevokeNotAuthorized()
+        public void T29estRevokeNotAuthorized()
         {
             // See if a normal user can revoke the admin...
             SampleUser user = GetEnrolledUser(TEST_ADMIN_ORG);
             client.Revoke(user, admin.Name, "revoke admin");
         }
 
-        [TestMethod]
-        public void TestEnrollSameUser()
+        [TestMethod][DoNotParallelize]
+        public void T30estEnrollSameUser()
         {
             // [ExpectedExceptionWithMessage(typeof(RevocationException),"does not have attribute 'hf.Revoker'")]
 
@@ -1165,9 +1169,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // Tests enrolling a user to an unknown CA client
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "Failed to enroll user")]
-        public void TestEnrollUnknownClient()
+        public void T31estEnrollUnknownClient()
         {
             ICryptoSuite cryptoSuite = Factory.Instance.GetCryptoSuite();
 
@@ -1181,16 +1185,16 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         // revoke2: revoke(User revoker, String revokee, String reason)
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(RevocationException), "Error while revoking")]
-        public void TestRevoke2UnknownUser()
+        public void T32estRevoke2UnknownUser()
         {
             client.Revoke(admin, "unknownUser", "remove user2");
         }
 
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "failed enrollment for user")]
-        public void TestMockEnrollSuccessFalse()
+        public void T33estMockEnrollSuccessFalse()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
@@ -1202,9 +1206,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         [Ignore]
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "failed enrollment for user")]
-        public void TestMockEnrollNoCert()
+        public void T34estMockEnrollNoCert()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
@@ -1215,9 +1219,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             mockClient.Enroll(user.Name, user.EnrollmentSecret);
         }
 
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "response did not contain a result")]
-        public void TestMockEnrollNoResult()
+        public void T35estMockEnrollNoResult()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
@@ -1228,21 +1232,21 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             mockClient.Enroll(user.Name, user.EnrollmentSecret);
         }
 
-        [TestMethod]
-        public void TestMockEnrollWithMessages()
+        [TestMethod][DoNotParallelize]
+        public void T36estMockEnrollWithMessages()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
 
             SampleUser user = GetEnrolledUser(TEST_ADMIN_ORG);
 
-            mockClient.SetHttpPostResponse("{\"success\":true, \"result\":{\"Cert\":\"abc\"}, \"messages\":[{\"code\":123, \"message\":\"test message\"}]}");
+            mockClient.SetHttpPostResponse("{\"success\":true, \"result\":{\"Cert\":\"YWJj\"}, \"messages\":[{\"code\":123, \"message\":\"test message\"}]}");
             mockClient.Enroll(user.Name, user.EnrollmentSecret);
         }
 
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "failed")]
-        public void TestMockReenrollNoResult()
+        public void T37estMockReenrollNoResult()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
@@ -1254,9 +1258,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         }
 
         [Ignore]
-        [TestMethod]
+        [TestMethod][DoNotParallelize]
         [ExpectedExceptionWithMessage(typeof(EnrollmentException), "failed re-enrollment for user")]
-        public void TestMockReenrollNoCert()
+        public void T38estMockReenrollNoCert()
         {
             MockHFCAClient mockClient = MockHFCAClient.Create(testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CALocation, testConfig.GetIntegrationTestsSampleOrg(TEST_WITH_INTEGRATION_ORG).CAProperties);
             mockClient.CryptoSuite = crypto;
@@ -1275,12 +1279,13 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         {
             try
             {
-                X509Certificate2 certificate = Certificate.PEMToX509Certificate2(cert);
+                X509Certificate certificate = Certificate.PEMToX509Certificate(cert);
+
+                ICollection altNames=certificate.GetSubjectAlternativeNames();
 
 
                 // check Subject Alternative Names
-                List<string> altNames = ParseSujectAlternativeNames(certificate).ToList();
-                if (altNames.Count == 0)
+                if (altNames==null || altNames.Count == 0)
                 {
                     if (req.Hosts != null && req.Hosts.Count > 0)
                     {
@@ -1291,14 +1296,16 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
                 }
 
                 List<string> subAltList = req.Hosts.ToList();
-                foreach (string s in altNames)
+                foreach (IList list in altNames)
                 {
-                    if (req.Hosts.Contains(s))
+                    int type = (int)list[0];
+                    if (type == 2)
                     {
-                        subAltList.Remove(s);
+                        string host = (string) list[1];
+                        if (subAltList.Contains(host))
+                            subAltList.Remove(host);
                     }
                 }
-
                 if (subAltList.Count > 0)
                 {
                     Assert.Fail("Subject Alternative Names not matched the host names specified in enrollment request");
@@ -1310,14 +1317,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             }
         }
 
-        public static IEnumerable<string> ParseSujectAlternativeNames(X509Certificate2 cert)
-        {
-            Regex sanRex = new Regex(@"^DNS Name=(.*)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-            var sanList = cert.Extensions.Cast<X509Extension>().Where(ext => ext.Oid.FriendlyName.Equals("Subject Alternative Name", StringComparison.Ordinal)).Select(ext => new {ext, data = new AsnEncodedData(ext.Oid, ext.RawData)}).Select(@t => new {@t, text = @t.data.Format(true)}).SelectMany(@t => @t.text.Split(new char[] {'\r', '\n'}, StringSplitOptions.RemoveEmptyEntries), (@t, line) => new {@t, line}).Select(@t => new {@t, match = sanRex.Match(@t.line)}).Where(@t => @t.match.Success && @t.match.Groups.Count > 0 && !string.IsNullOrEmpty(@t.match.Groups[1].Value)).Select(@t => @t.match.Groups[1].Value);
-
-            return sanList;
-        }
 
         // Returns a new (unique) user for use in a single test
         private SampleUser GetTestUser(string org)

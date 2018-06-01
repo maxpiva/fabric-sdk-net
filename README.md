@@ -4,20 +4,23 @@
 
 WIP, do not even think about it.
 
-SDK Porting from JAVA done.
-Both sdk compiled ok.
-Unit testing SDK_CA passing.
-Unit testing SDK_CA_Integration passing
-Unit testing SDK passing.
-Unit testing SDK_Integration (NOT PASSING)
+
+* SDK Porting from JAVA done.
+* Both sdk compiled ok.
+* Unit testing SDK_CA passing.
+* Unit testing SDK_CA_Integration passing
+* Unit testing SDK passing.
+* Unit testing SDK_Integration (**NOT PASSING**)
+
 
 [.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net)
 
+
 **TODO**
 
-Fix bugs.
-Add .NET chaincode upload (source and/or compiled)
-Cleanup, and .NET Design Guidelines.
+- Fix bugs.
+- Add .NET chaincode upload (source and/or compiled)
+- Cleanup, and .NET Design Guidelines.
 
 
 

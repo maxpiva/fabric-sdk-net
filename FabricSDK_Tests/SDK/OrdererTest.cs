@@ -33,8 +33,8 @@ namespace Hyperledger.Fabric.Tests.SDK
         private static readonly string ORDERER_NAME = "testorderer";
 
 
-        [ClassInitialize]
-        public static void SetupClient(TestContext context)
+        [TestInitialize]
+        public void SetupClient()
         {
             hfclient = TestHFClient.Create();
             orderer = hfclient.NewOrderer(ORDERER_NAME, "grpc://localhost:5151");
@@ -54,6 +54,8 @@ namespace Hyperledger.Fabric.Tests.SDK
         [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not add orderer testorderer to channel channel2 because it already belongs to channel channel.")]
         public void TestSetDuplicateChannnel()
         {
+            Channel channel = hfclient.NewChannel(DEFAULT_CHANNEL_NAME);
+            orderer.Channel = channel;
             Channel channel2 = hfclient.NewChannel("channel2");
             orderer.Channel = channel2;
             orderer.Channel = channel2;

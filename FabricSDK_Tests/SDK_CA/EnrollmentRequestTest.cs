@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Security;
@@ -129,6 +130,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
             string s = testEnrollReq.ToJson();
             Assert.IsNotNull(s);
+            Console.WriteLine(s);
             Assert.IsTrue(s.Contains("\"attr_reqs\":["));
             Assert.IsTrue(s.Contains("\"name\":\"foorequired\",\"optional\":false"));
             Assert.IsTrue(s.Contains("\"name\":\"foofalse\",\"optional\":true"));

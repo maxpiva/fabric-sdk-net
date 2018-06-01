@@ -94,7 +94,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
         // Convert the enrollment request to a JSON string
         public string ToJson()
         {
-            return ToJsonObject().ToString();
+            return ToJsonObject().ToString(Formatting.None);
         }
 
         // Convert the enrollment request to a JSON object

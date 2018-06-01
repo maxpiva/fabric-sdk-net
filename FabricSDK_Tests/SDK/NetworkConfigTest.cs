@@ -151,20 +151,20 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
         private string RelocateFilePathsYAML(string filename)
         {
-            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)\\r");
+            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)$");
         }
         private string RelocateFilePaths(string filename, string ext, string regex)
         {
             string tempfile = Path.GetTempFileName() + ext;
             string json = File.ReadAllText(filename);
-            MatchCollection matches = new Regex(regex).Matches(json);
+            MatchCollection matches = new Regex(regex, RegexOptions.Compiled|RegexOptions.Multiline).Matches(json);
             Console.WriteLine("Match COUNT:"+matches.Count+" Regex:"+regex);
             foreach (Match m in matches)
             {
                 if (m.Success)
                 {
                     bool replace = false;
-                    string path = m.Groups[1].Value;
+                    string path = m.Groups[1].Value.Replace("\r",string.Empty).Replace("\n",string.Empty);
                     Console.WriteLine("Match:"+path);
                     if (path.StartsWith("\"") && path.EndsWith("\""))
                         path = path.Substring(1, path.Length - 2);

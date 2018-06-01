@@ -13,6 +13,7 @@
  */
 
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -178,9 +179,11 @@ namespace Hyperledger.Fabric.Tests.SDK
                     {
                         path = path.Locate().Replace("\\","/");
                         json = json.Replace(orgpath, path);
-                    }
+                        Console.WriteLine("Replace: " + orgpath+" x "+path);
+                    } 
                 }
             }
+            Console.WriteLine("JSON: "+json);
             File.WriteAllText(tempfile,json);
             return tempfile;
         }

@@ -13,10 +13,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DefineConstants>TRACE;LIBLOG_NETSTANDARD</DefineConstants>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Security\CryptoPrimitives_OLD.cs" />
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.5.1" />
     <PackageReference Include="Grpc.Tools" Version="1.12.0" />

@@ -151,7 +151,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
         private string RelocateFilePathsYAML(string filename)
         {
-            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)\r");
+            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)\\r");
         }
         private string RelocateFilePaths(string filename, string ext, string regex)
         {

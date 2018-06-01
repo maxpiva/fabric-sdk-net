@@ -2,6 +2,8 @@
 
 [![Build status](https://ci.appveyor.com/api/projects/status/yli69cn4iq5c5lel/branch/master?svg=true)](https://ci.appveyor.com/project/maxpiva/fabric-sdk-net/branch/master)
 
+Direct .NET port from [fabric-sdk-java](https://github.com/hyperledger/fabric-sdk-java)
+
 WIP, do not even think about it.
 
 

@@ -11,36 +11,9 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import io.grpc.ConnectivityState;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.orderer.Ab;
-import org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse;
-import org.hyperledger.fabric.protos.orderer.AtomicBroadcastGrpc;
-import org.hyperledger.fabric.sdk.exception.TransactionException;
-import org.hyperledger.fabric.sdk.helper.Config;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse.TypeCase.STATUS;*/
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,7 +23,6 @@ using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
-using Org.BouncyCastle.Asn1.Crmf;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 
@@ -65,14 +37,14 @@ namespace Hyperledger.Fabric.SDK
         private readonly string channelName;
         private readonly Endpoint endPoint;
         private readonly string name;
+
+
+        private readonly long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
         private readonly long ordererWaitTimeMilliSecs;
         private readonly string url;
-        private Grpc.Core.Channel managedChannel = null;
+        private Grpc.Core.Channel managedChannel;
 
-        private readonly Orderer orderer;
-        private readonly long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
-
-        private bool shutdown = false;
+        private bool shutdown;
 
         /**
          * Construct client for accessing Orderer server using the existing managedChannel.
@@ -82,14 +54,13 @@ namespace Hyperledger.Fabric.SDK
             this.endPoint = endPoint;
             name = orderer.Name;
             url = orderer.Url;
-            this.orderer = orderer;
             channelName = orderer.Channel.Name;
 
             ordererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
 
             if (properties != null && properties.Contains("ordererWaitTimeMilliSecs"))
             {
-                string ordererWaitTimeMilliSecsString = (string) properties["ordererWaitTimeMilliSecs"];
+                string ordererWaitTimeMilliSecsString = properties["ordererWaitTimeMilliSecs"];
                 if (!long.TryParse(ordererWaitTimeMilliSecsString, out ordererWaitTimeMilliSecs))
                 {
                     logger.Warn($"Orderer {name} wait time {ordererWaitTimeMilliSecsString} not parsable.");
@@ -147,64 +118,55 @@ namespace Hyperledger.Fabric.SDK
             return SendTransactionAsync(envelope).RunAndUnwarp();
         }
 
-        private async Task<BroadcastResponse> Broadcast(Grpc.Core.Channel lmanagedChannel, Envelope envelope, CancellationToken token)
+        private async Task<BroadcastResponse> Broadcast(AsyncDuplexStreamingCall<Envelope, BroadcastResponse> call, Envelope envelope, CancellationToken token)
         {
             BroadcastResponse resp = null;
-            AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-            using (var call = nso.Broadcast(null, null, token))
-            {              
-                var rtask = Task.Run(async () =>
+            var rtask = Task.Run(async () =>
+            {
+                if (await call.ResponseStream.MoveNext(token))
                 {
-                    if (await call.ResponseStream.MoveNext(token))
+                    token.ThrowIfCancellationRequested();
+                    resp = call.ResponseStream.Current;
+                    logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
+                    if (resp.Status == Status.Success)
+                        return;
+                    if (shutdown)
+                        throw new OperationCanceledException($"Channel {channelName}, sendTransaction were canceled");
+                    throw new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status} ({resp.Info}) during order registration");
+                }
+            }, token);
+            await call.RequestStream.WriteAsync(envelope);
+            token.ThrowIfCancellationRequested();
+            await rtask;
+            return resp;
+        }
+
+        private async Task<List<DeliverResponse>> Deliver(AsyncDuplexStreamingCall<Envelope, DeliverResponse> call, Envelope envelope, CancellationToken token)
+        {
+            List<DeliverResponse> ret = new List<DeliverResponse>();
+            var rtask = Task.Run(async () =>
+            {
+                while (await call.ResponseStream.MoveNext(token))
+                {
+                    token.ThrowIfCancellationRequested();
+                    DeliverResponse resp = call.ResponseStream.Current;
+                    logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
+                    if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
                     {
-                        token.ThrowIfCancellationRequested();
-                        resp = call.ResponseStream.Current;
-                        logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
+                        ret.Insert(0, resp);
                         if (resp.Status == Status.Success)
                             return;
                         if (shutdown)
-                            throw new OperationCanceledException($"Channel {channelName}, sendTransaction were canceled");
-                        throw new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status} ({resp.Info}) during order registration");
+                            throw new OperationCanceledException($"Channel {channelName}, sendDeliver were canceled");
+                        throw new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {resp.Status} during order registration");
                     }
-                }, token);
-                await call.RequestStream.WriteAsync(envelope);
-                token.ThrowIfCancellationRequested();
-                await rtask;
-                return resp;
-            }
-        }
 
-        private async Task<List<DeliverResponse>> Deliver(Grpc.Core.Channel lmanagedChannel, Envelope envelope, CancellationToken token)
-        {
-            List<DeliverResponse> ret = new List<DeliverResponse>();
-            AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-            using (var call = nso.Deliver(null, null, token))
-            {
-                var rtask = Task.Run(async () =>
-                {
-                    while (await call.ResponseStream.MoveNext(token))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        DeliverResponse resp = call.ResponseStream.Current;
-                        logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
-                        if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
-                        {
-                            ret.Insert(0, resp);
-                            if (resp.Status == Status.Success)
-                                return;
-                            if (shutdown)
-                                throw new OperationCanceledException($"Channel {channelName}, sendDeliver were canceled");
-                            throw new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {resp.Status} during order registration");
-                        }
-
-                        ret.Add(resp);
-                    }
-                },token);
-                await call.RequestStream.WriteAsync(envelope);
-                await call.RequestStream.CompleteAsync();
-                token.ThrowIfCancellationRequested();
-                await rtask;
-            }
+                    ret.Add(resp);
+                }
+            }, token);
+            await call.RequestStream.WriteAsync(envelope);
+            token.ThrowIfCancellationRequested();
+            await rtask;
             return ret;
         }
 
@@ -212,7 +174,7 @@ namespace Hyperledger.Fabric.SDK
         {
             if (e is TimeoutException)
             {
-                TransactionException ste = new TransactionException($"Channel {channelName}, send {funcname} failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.",e);
+                TransactionException ste = new TransactionException($"Channel {channelName}, send {funcname} failed on orderer {name}. Reason:  timeout after {ordererWaitTimeMilliSecs} ms.", e);
                 logger.ErrorException($"send{funcname} error {ste.Message}", ste);
                 return ste;
             }
@@ -229,6 +191,7 @@ namespace Hyperledger.Fabric.SDK
             logger.ErrorException($"send{funcname} error {ste2.Message}", ste2);
             return ste2;
         }
+
         public async Task<BroadcastResponse> SendTransactionAsync(Envelope envelope, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
@@ -239,13 +202,30 @@ namespace Hyperledger.Fabric.SDK
                 lmanagedChannel = endPoint.BuildChannel();
                 managedChannel = lmanagedChannel;
             }
-            try
+            AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+            using (var call = nso.Broadcast(null, null, token))
             {
-                return await Broadcast(lmanagedChannel, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
-            }
-            catch (Exception e)
-            {
-                throw BuildException(e,"transaction");
+                try
+                {
+                    return await Broadcast(call, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
+                }
+                catch (Exception e)
+                {
+                    managedChannel = null;
+                    throw BuildException(e, "transaction");
+                }
+                finally
+                {
+                    try
+                    {
+                        await call.RequestStream.CompleteAsync();
+                    }
+                    catch (Exception e)
+                    {
+                        //Best effort only report on debug
+                        logger.Debug($"Exception completing sendDeliver with channel {channelName},  name {name}, url {url} {e.Message}");
+                    }
+                }
             }
         }
 
@@ -253,27 +233,43 @@ namespace Hyperledger.Fabric.SDK
         {
             return SendDeliverAsync(envelope).RunAndUnwarp();
         }
+
         public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope envelope, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
                 throw new TransactionException("Orderer client is shutdown");
             Grpc.Core.Channel lmanagedChannel = managedChannel;
-
             if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure || lmanagedChannel.State == ChannelState.Shutdown)
             {
                 lmanagedChannel = endPoint.BuildChannel();
                 managedChannel = lmanagedChannel;
             }
-            try
+            AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
+            using (var call = nso.Deliver(null, null, token))
             {
-                return await Deliver(lmanagedChannel, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
-            }
-            catch (Exception e)
-            {
-                throw BuildException(e, "deliver");
+                try
+                {
+                    return await Deliver(call, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
+                }
+                catch (Exception e)
+                {
+                    managedChannel = null;
+                    throw BuildException(e, "deliver");
+                }
+                finally
+                {
+                    try
+                    {
+                        await call.RequestStream.CompleteAsync();
+                    }
+                    catch (Exception e)
+                    {
+                        //Best effort only report on debug
+                        logger.Debug($"Exception completing sendTransaction with channel {channelName},  name {name}, url {url} {e.Message}");
+                    }
+                }
             }
         }
-
         public bool IsChannelActive()
         {
             Grpc.Core.Channel lchannel = managedChannel;

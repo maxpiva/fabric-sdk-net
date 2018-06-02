@@ -156,11 +156,9 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        private async Task Deliver(Grpc.Core.Channel lmanagedChannel, Envelope envelope, CancellationToken token)
+        private async Task Deliver(AsyncDuplexStreamingCall<Envelope, DeliverResponse> call, Envelope envelope, CancellationToken token)
         {
-            Deliver.DeliverClient broadcast = new Deliver.DeliverClient(lmanagedChannel);
-            using (var call = filterBlock ? broadcast.DeliverFiltered(null, null, token) : broadcast.Deliver(null, null, token))
-            {
+
                 var rtask = Task.Run(async () =>
                 {
                     if (await call.ResponseStream.MoveNext(token))
@@ -203,11 +201,9 @@ namespace Hyperledger.Fabric.SDK
                     }
                 }, token);
                 await call.RequestStream.WriteAsync(envelope);
-                await call.RequestStream.CompleteAsync();
                 token.ThrowIfCancellationRequested();
                 await rtask;
                 logger.Debug($"DeliverResponse onCompleted channel {channelName} peer {peer.Name} setting done.");
-            }
         }
 
         /**
@@ -226,47 +222,66 @@ namespace Hyperledger.Fabric.SDK
                 lmanagedChannel = channelBuilder.BuildChannel();
                 managedChannel = lmanagedChannel;
             }
-
-            try
+            Deliver.DeliverClient broadcast = new Deliver.DeliverClient(lmanagedChannel);
+            using (var call = filterBlock ? broadcast.DeliverFiltered(null, null, token) : broadcast.Deliver(null, null, token))
             {
-                await Deliver(lmanagedChannel, envelope, token).Timeout(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs));
-            }
-            catch (Exception e)
-            {
-                Exception fnal = null;
-                if (e is TimeoutException)
-                {
-                    string msg = $"Channel {channelName} connect time exceeded for peer eventing service {name}, timed out at {peerEventRegistrationWaitTimeMilliSecs} ms.";
-                    TransactionException ex = new TransactionException(msg, e);
-                    logger.ErrorException(msg, e);
-                    fnal = ex;
-                }
-                else if (e is RpcException sre)
-                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
-                else if (e is OperationCanceledException)
-                    logger.Error($"(Peer Eventing service {name} canceled on channel {channelName}");
-                else if (e is TransactionException tra)
-                    fnal = tra;
 
-                if (fnal == null)
-                    fnal = new TransactionException($"Channel {channelName}, send eventing service failed on orderer {name}. Reason: {e.Message}", e);
-                if (lmanagedChannel != null)
+                try
                 {
-                    await lmanagedChannel.ShutdownAsync();
-                    managedChannel = null;
+                    await Deliver(call, envelope, token).Timeout(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs));
                 }
-                if (!shutdown)
+                catch (Exception e)
                 {
-                    long reconnectCount = peer.ReconnectCount;
-                    if (PEER_EVENT_RECONNECTION_WARNING_RATE > 1 && reconnectCount % PEER_EVENT_RECONNECTION_WARNING_RATE == 1)
-                        logger.Warn($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
+                    Exception fnal = null;
+                    if (e is TimeoutException)
+                    {
+                        string msg = $"Channel {channelName} connect time exceeded for peer eventing service {name}, timed out at {peerEventRegistrationWaitTimeMilliSecs} ms.";
+                        TransactionException ex = new TransactionException(msg, e);
+                        logger.ErrorException(msg, e);
+                        fnal = ex;
+                    }
+                    else if (e is RpcException sre)
+                        logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                    else if (e is OperationCanceledException)
+                        logger.Error($"(Peer Eventing service {name} canceled on channel {channelName}");
+                    else if (e is TransactionException tra)
+                        fnal = tra;
+
+                    if (fnal == null)
+                        fnal = new TransactionException($"Channel {channelName}, send eventing service failed on orderer {name}. Reason: {e.Message}", e);
+                    if (lmanagedChannel != null)
+                    {
+                        await lmanagedChannel.ShutdownAsync();
+                        managedChannel = null;
+                    }
+
+                    if (!shutdown)
+                    {
+                        long reconnectCount = peer.ReconnectCount;
+                        if (PEER_EVENT_RECONNECTION_WARNING_RATE > 1 && reconnectCount % PEER_EVENT_RECONNECTION_WARNING_RATE == 1)
+                            logger.Warn($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
+                        else
+                            logger.Trace($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
+                        peer.ReconnectPeerEventServiceClient(this, fnal, token);
+                    }
                     else
-                        logger.Trace($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
-                    peer.ReconnectPeerEventServiceClient(this, fnal, token);
+                        logger.Trace($"{name} was shutdown.");
                 }
-                else
-                    logger.Trace($"{name} was shutdown.");
+                finally
+                {
+                    try
+                    {
+                        await call.RequestStream.CompleteAsync();
+                    }
+                    catch (Exception e)
+                    {
+                        //Best effort only report on debug
+                        logger.Debug($"Exception completing connect with channel { channelName},  name {name}, url {url} {e.Message}");
+                    }
+                }
+
             }
+
         }
 
         public bool IsChannelActive()

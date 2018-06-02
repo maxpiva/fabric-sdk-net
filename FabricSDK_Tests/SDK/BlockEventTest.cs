@@ -42,7 +42,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public static void SetUpBeforeClass(TestContext context)
         {
 
-            eventHub = new EventHub("test", "grpc://lh:99", null, null);
+            eventHub = new EventHub("test", "grpc://lh:99", null);
 
             // build a block with 3 transactions, set transaction 1,3 as valid, transaction 2 as invalid
 

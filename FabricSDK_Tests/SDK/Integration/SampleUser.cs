@@ -20,7 +20,7 @@ using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
-    [DataContract]
+    
     public class SampleUser : IUser
     {
         private string account;
@@ -60,10 +60,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public string Organization { get; set; }
 
-        [DataMember]
+        
         public string EnrollmentSecret
         {
             get => enrollmentSecret;
@@ -74,13 +74,13 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public string KeyValStoreName { get; set; }
 
-        [DataMember]
+        
         public string Name { get; }
 
-        [DataMember]
+        
         public HashSet<string> Roles
         {
             get => roles;
@@ -91,7 +91,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public string Account
         {
             get => account;
@@ -102,7 +102,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public string Affiliation
         {
             get => affiliation;
@@ -113,7 +113,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public IEnrollment Enrollment
         {
             get => enrollment;
@@ -124,7 +124,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        [DataMember]
+        
         public string MspId
         {
             get => mspId;

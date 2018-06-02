@@ -27,6 +27,7 @@ using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -35,7 +36,7 @@ namespace Hyperledger.Fabric.SDK
 */
 
 
-    [DataContract]
+    
     public class Peer : BaseClient, IEquatable<Peer>
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Peer));
@@ -51,18 +52,15 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public BlockEvent LastBlockEvent { get; private set; }
-
-        [IgnoreDataMember]
-        private TaskScheduler ExecutorService => Channel.ExecutorService;
-
+     
         /**
          * Set the channel the peer is on.
          *
          * @param channel
          */
-        [DataMember]
+        
         public override Channel Channel
         {
             get => base.Channel;
@@ -78,10 +76,10 @@ namespace Hyperledger.Fabric.SDK
         {
             set => base.Channel = value;
         }
-        [IgnoreDataMember]
+        [JsonIgnore]
         public long LastConnectTime { get; set; }
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public long ReconnectCount { get; private set; }
         public static IPeerEventingServiceDisconnected DefaultDisconnectHandler => _disconnectedHandler ?? (_disconnectedHandler = new PeerEventingServiceDisconnect());
 
@@ -220,12 +218,8 @@ namespace Hyperledger.Fabric.SDK
 
             TransactionContext fltransactionContext = ltransactionContext.RetryTransactionSameContext();
 
-            TaskScheduler executorService = ExecutorService;
             Channel.PeerOptions peerOptions = null != failedPeerEventServiceClient.GetPeerOptions() ? failedPeerEventServiceClient.GetPeerOptions() : Channel.PeerOptions.CreatePeerOptions();
-            if (executorService != null)
-            {
-                Task.Factory.StartNew(async () => { await ldisconnectedHandler.Disconnected(new PeerEventingServiceDisconnectEvent(this, throwable, peerOptions, fltransactionContext), token); }, token, TaskCreationOptions.None, executorService);
-            }
+            Task.Run(async () => { await ldisconnectedHandler.Disconnected(new PeerEventingServiceDisconnectEvent(this, throwable, peerOptions, fltransactionContext), token); }, token);
         }
 
         public void ResetReconnectCount()

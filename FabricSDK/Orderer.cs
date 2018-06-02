@@ -40,13 +40,14 @@ using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK
 {
     /**
      * The Orderer class represents a orderer to which SDK sends deploy, invoke, or query requests.
      */
-    [DataContract]
+    
     public class Orderer : BaseClient
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Orderer));
@@ -67,6 +68,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return {Channel} The channel of which this orderer is a member.
          */
+        [JsonIgnore]
         public override Channel Channel
         {
             get => base.Channel;

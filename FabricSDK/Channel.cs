@@ -55,6 +55,7 @@ namespace Hyperledger.Fabric.SDK
  * <p>
  */
     [Serializable]
+    
     public class Channel
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Channel));
@@ -164,14 +165,14 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return Event Hubs
          */
-        [DataMember]
+        
         public IReadOnlyList<EventHub> EventHubs
         {
             get { return eventHubs.ToList(); }
             private set { eventHubs = new LinkedList<EventHub>(value); }
         }
 
-        [DataMember]
+        
         public IReadOnlyList<Orderer> Orderers
         {
             get { return orderers.ToList(); }
@@ -183,23 +184,17 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return The name of the channel
          */
-        [DataMember]
+        
         public string Name { get; internal set; }
 
-        [IgnoreDataMember]
-        public TaskScheduler ExecutorService
-        {
-            get { return client.ExecutorService; }
-        }
-
-        [DataMember]
+        
         public Dictionary<Peer, PeerOptions> PeerOptionsMap
         {
             get { return peerOptionsMap.ToDictionary(a => a.Key, a => a.Value); }
             private set { peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>(value); }
         }
 
-        [DataMember]
+        
         public Dictionary<PeerRole, List<Peer>> PeerRoleMap
         {
             get { return peerRoleSetMap.ToDictionary(a => a.Key, a => a.Value.ToList()); }
@@ -207,7 +202,7 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        [DataMember]
+        
         public bool IsSystemChannel { get; private set; }
 
         /**
@@ -215,7 +210,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return the peers.
          */
-        [DataMember]
+        
         public IReadOnlyList<Peer> Peers
         {
             get { return peers; }
@@ -228,10 +223,10 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return return true if the channel is shutdown.
          */
-        [IgnoreDataMember]
+        [JsonIgnore]
         public bool IsShutdown { get; internal set; } = false;
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public ChannelEventQue ChannelEventQueue { get; }
 
         /**
@@ -239,7 +234,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return true if the channel has been initialized.
          */
-        [IgnoreDataMember]
+        [JsonIgnore]
         public bool IsInitialized
         {
             get { return initialized; }
@@ -509,7 +504,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new TransactionException(msg, e);
             }
         }
-        [IgnoreDataMember]
+        [JsonIgnore]
         public IEnrollment Enrollment => client.UserContext.Enrollment;
 
         /**
@@ -2949,8 +2944,8 @@ namespace Hyperledger.Fabric.SDK
                 return;
             eventQueueTokenSource = new CancellationTokenSource();
             CancellationToken ct = eventQueueTokenSource.Token;
-            TaskScheduler scheduler = client.ExecutorService;
-            Task.Factory.StartNew(() =>
+
+            Task.Run(() =>
             {
                 while (!IsShutdown)
                 {
@@ -3007,11 +3002,10 @@ namespace Hyperledger.Fabric.SDK
                             try
                             {
                                 logger.Trace($"Sending block event '{from}' to block listener {l.Handle}");
-                                Task.Factory.StartNew((listener) =>
+                                Task.Run(() =>
                                 {
-                                    BL lis = (BL) listener;
-                                    lis.ListenerAction(blockEvent);
-                                }, l, default(CancellationToken), TaskCreationOptions.None, scheduler);
+                                    l.ListenerAction(blockEvent);
+                                },ct);
                             }
                             catch (Exception e)
                             {
@@ -3029,7 +3023,7 @@ namespace Hyperledger.Fabric.SDK
 
                     ct.ThrowIfCancellationRequested();
                 }
-            }, ct, TaskCreationOptions.None, scheduler);
+            }, ct);
         }
 
         private string RegisterTransactionListenerProcessor()
@@ -3382,7 +3376,7 @@ namespace Hyperledger.Fabric.SDK
      * These options are channel based.
      */
 
-        [DataContract]
+        
         public class PeerOptions
         {
             protected List<PeerRole> peerRoles;
@@ -3395,14 +3389,14 @@ namespace Hyperledger.Fabric.SDK
              *
              * @return
              */
-            [DataMember]
+            
             public bool? Newest { get; private set; } = true;
             /**
              * The block number to start getting events from on start up of the peer eventing service..
              *
              * @return the start number
              */
-            [DataMember]
+            
             public long? StartEventsBlock { get; private set; }
 
             /**
@@ -3411,7 +3405,7 @@ namespace Hyperledger.Fabric.SDK
              * @return the stop block number.
              */
 
-            [DataMember]
+            
             public long StopEventsBlock { get; private set; } = long.MaxValue;
 
             /**
@@ -3426,7 +3420,7 @@ namespace Hyperledger.Fabric.SDK
              *
              * @return true if filtered blocks will be returned by the peer eventing service.
              */
-            [DataMember]
+            
             public bool IsRegisterEventsForFilteredBlocks { get; protected set; } = false;
 
             /**
@@ -3434,7 +3428,7 @@ namespace Hyperledger.Fabric.SDK
              *
              * @return the roles {@link PeerRole}
              */
-            [DataMember]
+            
             public List<PeerRole> PeerRoles
             {
                 get
@@ -4278,8 +4272,8 @@ namespace Hyperledger.Fabric.SDK
             }
             public void Fire(BlockEvent blockEvent, ChaincodeEventDeserializer ce)
             {
-                TaskScheduler sch = channel.client.ExecutorService;
-                Task.Factory.StartNew(() => listenerAction(Handle, blockEvent, ce), default(CancellationToken), TaskCreationOptions.None, sch);
+        
+                Task.Run(() => listenerAction(Handle, blockEvent, ce));
             }
         }
     }

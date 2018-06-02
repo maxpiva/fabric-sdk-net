@@ -719,8 +719,8 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsTrue(nOfEvents1.Ready);
             Assert.IsFalse(nOfEvents.Ready);
 
-            EventHub peer2Org2eh = new EventHub("peer2Org2", "grpc://localhost:9", null, null);
-            EventHub peer2Org22ndeh = new EventHub("peer2Org22nd", "grpc://localhost:9", null, null);
+            EventHub peer2Org2eh = new EventHub("peer2Org2", "grpc://localhost:9", null);
+            EventHub peer2Org22ndeh = new EventHub("peer2Org22nd", "grpc://localhost:9", null);
 
             nOfEvents = Channel.NOfEvents.CreateNofEvents().SetN(1).AddNOfs(Channel.NOfEvents.CreateNofEvents().AddPeers(peer1Org1, peer1Org12nd), Channel.NOfEvents.CreateNofEvents().AddEventHubs(peer2Org2eh, peer2Org22ndeh));
 

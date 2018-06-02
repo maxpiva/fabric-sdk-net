@@ -67,8 +67,6 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        public TaskScheduler ExecutorService { get; } = TaskScheduler.Default;
-
         public IUser UserContext
         {
             get => userContext;
@@ -357,7 +355,7 @@ namespace Hyperledger.Fabric.SDK
         public EventHub NewEventHub(string name, string grpcURL, Properties properties)
         {
             ClientCheck();
-            return EventHub.Create(name, grpcURL, ExecutorService, properties);
+            return EventHub.Create(name, grpcURL, properties);
         }
 
         /**

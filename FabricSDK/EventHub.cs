@@ -30,10 +30,11 @@ using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK
 {
-    [DataContract]
+    
     public class EventHub : BaseClient
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHub));
@@ -55,16 +56,14 @@ namespace Hyperledger.Fabric.SDK
         private AsyncDuplexStreamingCall<SignedEvent, Event> sender;
 
 
-        public EventHub(string name, string grpcURL, TaskScheduler scheduler, Properties properties) : base(name, grpcURL, properties)
+        public EventHub(string name, string grpcURL,  Properties properties) : base(name, grpcURL, properties)
         {
-            Scheduler = scheduler;
+           
         }
 
 
-        [IgnoreDataMember]
-        public TaskScheduler Scheduler { get; }
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public TransactionContext TransactionContext { get; private set; }
 
         /**
@@ -73,7 +72,7 @@ namespace Hyperledger.Fabric.SDK
          * @return Time in milli seconds disconnect occurred. Zero if never disconnected
          */
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public long DisconnectedTime { get; private set; }
 
 
@@ -83,7 +82,7 @@ namespace Hyperledger.Fabric.SDK
          * @return boolean if true event hub is connected.
          */
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public bool IsConnected { get; private set; }
 
         /**
@@ -93,7 +92,7 @@ namespace Hyperledger.Fabric.SDK
          */
 
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public long ConnectedTime { get; private set; }
 
         /**
@@ -102,10 +101,11 @@ namespace Hyperledger.Fabric.SDK
          * @return Last attempt time to connect the event hub in milli seconds. Zero when never attempted.
          */
 
-        [IgnoreDataMember]
+        [JsonIgnore]
         public long LastConnectedAttempt { get; private set; }
 
-        [IgnoreDataMember]
+        [JsonIgnore]
+        
         public override Channel Channel
         {
             get => base.Channel;
@@ -128,9 +128,9 @@ namespace Hyperledger.Fabric.SDK
          * @return
          */
 
-        public static EventHub Create(string name, string url, TaskScheduler executorService, Properties properties)
+        public static EventHub Create(string name, string url, Properties properties)
         {
-            return new EventHub(name, url, executorService, properties);
+            return new EventHub(name, url, properties);
         }
 
         [MethodImpl(MethodImplOptions.Synchronized)]
@@ -354,7 +354,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 if (eventHub.reconnectCount == 1)
                     logger.Warn($"Channel {eventHub.Channel.Name} detected disconnect on event hub {eventHub} ({eventHub.Url})");
-                Task.Factory.StartNew(async () =>
+                Task.Run(async () =>
                 {
                     await Task.Delay(500,token);
                     try
@@ -368,7 +368,7 @@ namespace Hyperledger.Fabric.SDK
                     {
                         logger.Warn($"Failed {eventHub} to reconnect. {e.Message}");
                     }
-                }, token, TaskCreationOptions.LongRunning, eventHub.Scheduler);
+                }, token);
             }
 
             /**

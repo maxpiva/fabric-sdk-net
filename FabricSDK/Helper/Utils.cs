@@ -99,7 +99,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             if (string.IsNullOrEmpty(str))
                 return str;
-            string ret = Regex.Replace(str, "[^\\p{Print}]", "?");
+            string ret = str;//Regex.Replace(str, "[^\\p{Print}]", "?");
             ret = ret.Substring(0, Math.Min(ret.Length, MAX_LOG_STRING_LENGTH)) + (ret.Length > MAX_LOG_STRING_LENGTH ? "..." : "");
             return ret;
 

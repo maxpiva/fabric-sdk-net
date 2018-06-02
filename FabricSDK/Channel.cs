@@ -899,10 +899,10 @@ namespace Hyperledger.Fabric.SDK
                 foreach (EventHub eh in eventHubs)
                 {
                     //Connect all event hubs
-                    eh.Connect(GetTransactionContext());
+                    await eh.Connect(GetTransactionContext(), token);
                 }
                 foreach (Peer peer in GetEventingPeers())
-                    peer.InitiateEventing(GetTransactionContext(), GetPeersOptions(peer));
+                    await peer.InitiateEventing(GetTransactionContext(), GetPeersOptions(peer), token);
                 logger.Debug($"{eventHubs.Count} eventhubs initialized");
                 RegisterTransactionListenerProcessor(); //Manage transactions.
                 logger.Debug($"Channel {Name} registerTransactionListenerProcessor completed");

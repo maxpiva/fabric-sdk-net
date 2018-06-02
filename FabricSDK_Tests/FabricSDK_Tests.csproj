@@ -18,6 +18,7 @@
     <PackageReference Include="Grpc.Core" Version="1.12.0" />
     <PackageReference Include="LibLog" Version="5.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="NLog" Version="4.5.6" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.2" />
     <PackageReference Include="SharpCompress" Version="0.21.1" />
     <PackageReference Include="YamlDotNet" Version="4.3.1" />
@@ -26,6 +27,12 @@
   <ItemGroup>
     <ProjectReference Include="..\FabricSDK\FabricSDK.csproj" />
     <ProjectReference Include="..\FabricSDK_CA\FabricSDK_CA.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="nlog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Target Name="AfterBuild">
     <ItemGroup>

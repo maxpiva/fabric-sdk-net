@@ -105,7 +105,7 @@ namespace Hyperledger.Fabric.SDK
         [IgnoreDataMember]
         public long LastConnectedAttempt { get; private set; }
 
-        [DataMember]
+        [IgnoreDataMember]
         public override Channel Channel
         {
             get => base.Channel;
@@ -134,77 +134,83 @@ namespace Hyperledger.Fabric.SDK
         }
 
         [MethodImpl(MethodImplOptions.Synchronized)]
-        public bool Connect(TransactionContext transactionContext)
+        public Task<bool> Connect(TransactionContext transactionContext, CancellationToken token=default(CancellationToken))
         {
-            return Connect(transactionContext, false);
+            return Connect(transactionContext, false, token);
         }
 
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        public bool Connect(TransactionContext transactionContext, bool reconnection)
+        private async Task Events(AsyncDuplexStreamingCall<SignedEvent, Event> ch, TransactionContext context, CancellationToken token)
         {
+            Task rtask=Task.Run(async () =>
+            {
+                while (await ch.ResponseStream.MoveNext(token))
+                {
+                    token.ThrowIfCancellationRequested();
+                    Event evnt = ch.ResponseStream.Current;
+                    logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
+                    if (evnt.EventCase == Event.EventOneofCase.Block)
+                    {
+                        try
+                        {
+                            BlockEvent blockEvent = new BlockEvent(this, evnt);
+                            SetLastBlockSeen(blockEvent);
+                            eventQue.AddBEvent(blockEvent); //add to channel queue
+                        }
+                        catch (InvalidProtocolBufferException e)
+                        {
+                            EventHubException eventHubException = new EventHubException($"{Name} onNext error {e}", e);
+                            logger.Error(eventHubException.Message);
+                        }
+                    }
+                    else if (evnt.EventCase == Event.EventOneofCase.Register)
+                    {
+                        if (reconnectCount > 1)
+                            logger.Info($"Eventhub {Name} has reconnecting after {reconnectCount} attempts");
+                        IsConnected = true;
+                        ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        reconnectCount = 0L;
+                        break;
+                    }
+                }
+                logger.Debug($"Stream completed {ToString()}");
+            }, token);
+            await BlockListen(ch, context);
+            token.ThrowIfCancellationRequested();
+            await rtask;
+        }
+
+        static readonly AsyncLock connectLock=new AsyncLock();
+      
+        public async Task<bool> Connect(TransactionContext transactionContext, bool reconnection, CancellationToken token=default(CancellationToken))
+        {
+
             if (IsConnected)
             {
                 logger.Warn($"{ToString()}%s already connected.");
-                return true;
+                return false;
             }
-
-            CountDownLatch finishLatch = new CountDownLatch(1);
-            logger.Debug($"EventHub {Name} is connecting.");
-            LastConnectedAttempt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            Endpoint endpoint = new Endpoint(Url, Properties);
-            managedChannel = endpoint.BuildChannel();
-            clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
-            Events.EventsClient events = new Events.EventsClient(managedChannel);
-            var senderLocal = events.Chat();
-            //List<Exception> threw = new List<Exception>();
-            Task.Factory.StartNew(async () =>
+            using (await connectLock.LockAsync(token))
             {
+                logger.Debug($"EventHub {Name} is connecting.");
+                LastConnectedAttempt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                Endpoint endpoint = new Endpoint(Url, Properties);
+                managedChannel = endpoint.BuildChannel();
+                clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
+                Events.EventsClient events = new Events.EventsClient(managedChannel);
+                var senderLocal = events.Chat();
                 try
                 {
-                    while (await sender.ResponseStream.MoveNext())
-                    {
-                        Event evnt = senderLocal.ResponseStream.Current;
-                        logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
-                        if (evnt.EventCase == Event.EventOneofCase.Block)
-                        {
-                            try
-                            {
-                                BlockEvent blockEvent = new BlockEvent(this, evnt);
-                                SetLastBlockSeen(blockEvent);
-                                eventQue.AddBEvent(blockEvent); //add to channel queue
-                            }
-                            catch (InvalidProtocolBufferException e)
-                            {
-                                EventHubException eventHubException = new EventHubException($"{Name} onNext error {e}", e);
-                                logger.Error(eventHubException.Message);
-                                //threw.Add(eventHubException);
-                            }
-                        }
-                        else if (evnt.EventCase == Event.EventOneofCase.Register)
-                        {
-                            if (reconnectCount > 1)
-                                logger.Info($"Eventhub {Name} has reconnecting after {reconnectCount} attempts");
-                            IsConnected = true;
-                            ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                            reconnectCount = 0L;
-                            finishLatch.Signal();
-                        }
-                    }
-
-                    logger.Debug($"Stream completed %s", ToString());
-                    finishLatch.Signal();
+                    await Events(senderLocal, transactionContext, token);
                 }
                 catch (Exception e)
                 {
                     IsConnected = false;
-                    sender?.Dispose();
-                    sender = null;
+                    senderLocal?.Dispose();
+                    senderLocal = null;
                     DisconnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     if (shutdown)
                     {
-                        //IF we're shutdown don't try anything more.
                         logger.Trace($"{Name} was shutdown.");
-                        finishLatch.Signal();
                     }
                     else
                     {
@@ -215,39 +221,25 @@ namespace Hyperledger.Fabric.SDK
                             logger.Warn($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
                         else
                             logger.Trace($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
-                        finishLatch.Signal();
+                        if (e is TimeoutException)
+                            logger.Warn($"EventHub {Name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
+                        else if (e is RpcException sre)
+                            logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                        else if (e is OperationCanceledException)
+                            logger.Error($"(EventHub Connext {Name} canceled");
+                        else
+                            logger.ErrorException(e.Message, e);
+                        Reconnect(token);
                     }
                 }
-            });
-            try
-            {
-                BlockListen(transactionContext);
-            }
-            catch (CryptoException e)
-            {
-                throw new EventHubException(e);
-            }
-
-            try
-            {
-                //On reconnection don't wait here.
-                if (!reconnection && !finishLatch.Wait((int) EVENTHUB_CONNECTION_WAIT_TIME))
-                    logger.Warn($"EventHub {Name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
-                else
-                    logger.Trace($"Eventhub {Name} Done waiting for reply!");
-            }
-            catch (Exception e)
-            {
-                logger.ErrorException(e.Message, e);
-            }
-
-            logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
-            if (IsConnected)
-                sender = senderLocal;
-            return IsConnected;
+                logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
+                if (IsConnected)
+                    sender = senderLocal;
+                return IsConnected;
+            }            
         }
 
-        public void Reconnect()
+        public void Reconnect(CancellationToken token=default(CancellationToken))
         {
             Grpc.Core.Channel lmanagedChannel = managedChannel;
             if (lmanagedChannel != null)
@@ -260,11 +252,11 @@ namespace Hyperledger.Fabric.SDK
             if (!shutdown && null != ldisconnectedHandler)
             {
                 ++reconnectCount;
-                ldisconnectedHandler.Disconnected(this);
+                ldisconnectedHandler.Disconnected(this, token);
             }
         }
 
-        private void BlockListen(TransactionContext transactionContext)
+        private async Task BlockListen(AsyncDuplexStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
         {
             TransactionContext = transactionContext;
             Register register = new Register();
@@ -275,10 +267,9 @@ namespace Hyperledger.Fabric.SDK
                 logger.Trace("Setting clientTLSCertificate digest for event registration to " + clientTLSCertificateDigest.ToHexString());
                 blockEvent.TlsCertHash = ByteString.CopyFrom(clientTLSCertificateDigest);
             }
-
             ByteString blockEventByteString = blockEvent.ToByteString();
             SignedEvent signedBlockEvent = new SignedEvent {EventBytes = blockEventByteString, Signature = transactionContext.SignByteString(blockEventByteString.ToByteArray())};
-            sender.RequestStream.WriteAsync(signedBlockEvent).Wait();
+            await sendL.RequestStream.WriteAsync(signedBlockEvent);
         }
 
 
@@ -350,7 +341,7 @@ namespace Hyperledger.Fabric.SDK
              * @param eventHub
              * @throws EventHubException
              */
-            void Disconnected(EventHub eventHub);
+            void Disconnected(EventHub eventHub, CancellationToken token);
         }
 
         public class EventHubDisconnected : IEventHubDisconnected
@@ -359,25 +350,25 @@ namespace Hyperledger.Fabric.SDK
             private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHubDisconnected));
 
             [MethodImpl(MethodImplOptions.Synchronized)]
-            public void Disconnected(EventHub eventHub)
+            public void Disconnected(EventHub eventHub, CancellationToken token)
             {
                 if (eventHub.reconnectCount == 1)
                     logger.Warn($"Channel {eventHub.Channel.Name} detected disconnect on event hub {eventHub} ({eventHub.Url})");
                 Task.Factory.StartNew(async () =>
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(500,token);
                     try
                     {
                         if (eventHub.TransactionContext == null)
                             logger.Warn("Eventhub reconnect failed with no user context");
                         else
-                            eventHub.Connect(eventHub.TransactionContext, true);
+                            await eventHub.Connect(eventHub.TransactionContext, true, token);
                     }
                     catch (Exception e)
                     {
                         logger.Warn($"Failed {eventHub} to reconnect. {e.Message}");
                     }
-                }, default(CancellationToken), TaskCreationOptions.LongRunning, eventHub.Scheduler);
+                }, token, TaskCreationOptions.LongRunning, eventHub.Scheduler);
             }
 
             /**

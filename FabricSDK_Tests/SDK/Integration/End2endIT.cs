@@ -93,7 +93,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             int maxLogStringLength = 64;
             if (string.IsNullOrEmpty(str))
                 return str;
-            string ret = Regex.Replace(str, "[^\\p{Print}]", "?");
+            string ret = str;//Regex.Replace(str, "[^\\p{Print}]", "?");
 
             ret = ret.Substring(0, Math.Min(ret.Length, maxLogStringLength)) + (ret.Length > maxLogStringLength ? "..." : "");
 
@@ -270,7 +270,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
 
-                SampleUser peerOrgAdmin = sampleStore.GetMember(sampleOrgName + "Admin", sampleOrgName, sampleOrg.MSPID, Util.FindFileSk(Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/keystore")), Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"/users/Admin@{sampleOrgDomainName}/msp/signcerts/Admin@{sampleOrgDomainName}-cert.pem"));
+                SampleUser peerOrgAdmin = sampleStore.GetMember(sampleOrgName + "Admin", sampleOrgName, sampleOrg.MSPID, Util.FindFileSk(Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations/", sampleOrgDomainName, $"users/Admin@{sampleOrgDomainName}/msp/keystore")), Path.Combine(testConfig.GetTestChannelPath(), "crypto-config/peerOrganizations", sampleOrgDomainName, $"users/Admin@{sampleOrgDomainName}/msp/signcerts/Admin@{sampleOrgDomainName}-cert.pem"));
 
                 sampleOrg.PeerAdmin = peerOrgAdmin; //A special user that can create channels, join peers and install chaincode
             }
@@ -776,7 +776,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Orderer anOrderer = orderers.First();
             orderers.Remove(anOrderer);
 
-            ChannelConfiguration channelConfiguration = new ChannelConfiguration(Path.Combine(TEST_FIXTURES_PATH + "sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/" + name + ".tx").Locate());
+            ChannelConfiguration channelConfiguration = new ChannelConfiguration(Path.Combine(TEST_FIXTURES_PATH.Locate() , "sdkintegration","e2e-2Orgs", TestConfig.FAB_CONFIG_GEN_VERS , name + ".tx"));
 
             //Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.
             Channel newChannel = client.NewChannel(name, anOrderer, channelConfiguration, client.GetChannelConfigurationSignature(channelConfiguration, sampleOrg.PeerAdmin));

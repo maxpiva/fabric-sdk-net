@@ -13,44 +13,11 @@
  *  limitations under the License.
  *
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.StreamObserver;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.common.Common.Envelope;
-import org.hyperledger.fabric.protos.orderer.Ab;
-import org.hyperledger.fabric.protos.orderer.Ab.SeekInfo;
-import org.hyperledger.fabric.protos.peer.DeliverGrpc;
-import org.hyperledger.fabric.protos.peer.PeerEvents.DeliverResponse;
-import org.hyperledger.fabric.sdk.Channel.PeerOptions;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.TransactionException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.transaction.TransactionContext;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.protos.peer.PeerEvents.DeliverResponse.TypeCase.BLOCK;
-import static org.hyperledger.fabric.protos.peer.PeerEvents.DeliverResponse.TypeCase.FILTERED_BLOCK;
-import static org.hyperledger.fabric.protos.peer.PeerEvents.DeliverResponse.TypeCase.STATUS;
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.createSeekInfoEnvelope;
-   */
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
-
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
@@ -59,51 +26,51 @@ using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using DeliverResponse = Hyperledger.Fabric.Protos.Peer.PeerEvents.DeliverResponse;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
 
 namespace Hyperledger.Fabric.SDK
 {
-
-
     /**
      * Sample client code that makes gRPC calls to the server.
      */
     public class PeerEventServiceClient
     {
-
-        private readonly long PEER_EVENT_REGISTRATION_WAIT_TIME = Helper.Config.Instance.GetPeerEventRegistrationWaitTime();
-        private readonly long PEER_EVENT_RECONNECTION_WARNING_RATE = Helper.Config.Instance.GetPeerEventReconnectionWarningRate();
         private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventServiceClient));
-        private readonly string channelName;
         private readonly Endpoint channelBuilder;
+        private readonly string channelName;
+        private readonly bool filterBlock;
         private readonly string name;
-        private readonly string url;
+        private readonly long PEER_EVENT_RECONNECTION_WARNING_RATE = Config.Instance.GetPeerEventReconnectionWarningRate();
+
+        private readonly long PEER_EVENT_REGISTRATION_WAIT_TIME = Config.Instance.GetPeerEventRegistrationWaitTime();
         private readonly long peerEventRegistrationWaitTimeMilliSecs;
 
         private readonly Channel.PeerOptions peerOptions;
-        private readonly bool filterBlock;
-        private byte[] clientTLSCertificateDigest;
-        Properties properties = new Properties();
-        AsyncDuplexStreamingCall<Envelope,DeliverResponse> nso = null;
+        private readonly string url;
 
         private Channel.ChannelEventQue channelEventQue;
-        private bool shutdown = false;
-        [NonSerialized]
-        private Grpc.Core.Channel managedChannel = null;
-    [NonSerialized]
-        private TransactionContext transactionContext;
-    [NonSerialized]
-        private Peer peer;
+        private readonly byte[] clientTLSCertificateDigest;
+
+        [NonSerialized] private Grpc.Core.Channel managedChannel ;
+
+        private AsyncDuplexStreamingCall<Envelope, DeliverResponse> nso;
+
+        [NonSerialized] private Peer peer;
+
+        private Properties properties = new Properties();
+        private bool shutdown ;
+
+        [NonSerialized] private TransactionContext transactionContext;
 
         /**
          * Construct client for accessing Peer eventing service using the existing managedChannel.
          */
         public PeerEventServiceClient(Peer peer, Endpoint endpoint, Properties properties, Channel.PeerOptions peerOptions)
         {
-
-            this.channelBuilder = endpoint;
-            this.filterBlock = peerOptions.IsRegisterEventsForFilteredBlocks;
+            channelBuilder = endpoint;
+            filterBlock = peerOptions.IsRegisterEventsForFilteredBlocks;
             this.peer = peer;
             name = peer.Name;
             url = peer.Url;
@@ -111,68 +78,136 @@ namespace Hyperledger.Fabric.SDK
             this.peerOptions = peerOptions;
             clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
 
-            this.channelEventQue = peer.Channel.ChannelEventQueue;
+            channelEventQue = peer.Channel.ChannelEventQueue;
 
-            if (null == properties) {
-
+            if (null == properties)
+            {
                 peerEventRegistrationWaitTimeMilliSecs = PEER_EVENT_REGISTRATION_WAIT_TIME;
-
-            } else {
+            }
+            else
+            {
                 this.properties = properties;
                 peerEventRegistrationWaitTimeMilliSecs = properties.GetLongProperty("peerEventRegistrationWaitTime", PEER_EVENT_REGISTRATION_WAIT_TIME);
             }
-
         }
 
         public Channel.PeerOptions GetPeerOptions()
         {
             return peerOptions.Clone();
         }
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        public void Shutdown(bool force) {
 
-            if (shutdown) {
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force)
+        {
+            if (shutdown)
+            {
                 return;
             }
+
             shutdown = true;
             var lsno = nso;
             nso = null;
-            if (null != lsno) {
-                try {
+            if (null != lsno)
+            {
+                try
+                {
                     lsno.Dispose();
-                } catch (Exception e) {
-                   
+                }
+                catch (Exception )
+                {
                 }
             }
 
             Grpc.Core.Channel lchannel = managedChannel;
             managedChannel = null;
-            if (lchannel != null) {
-
-                if (force) {
+            if (lchannel != null)
+            {
+                if (force)
+                {
                     lchannel.ShutdownAsync().Wait();
-                } else {
+                }
+                else
+                {
                     bool isTerminated = false;
 
                     try
                     {
                         lchannel.ShutdownAsync().Wait(3 * 1000);
-                    } catch (Exception e) {
-                        logger.DebugException(e.Message,e); //best effort
                     }
-                    if (!isTerminated) {
+                    catch (Exception e)
+                    {
+                        logger.DebugException(e.Message, e); //best effort
+                    }
+
+                    if (!isTerminated)
+                    {
                         lchannel.ShutdownAsync().Wait();
                     }
                 }
             }
+
             peer = null;
             channelEventQue = null;
-
         }
 
         ~PeerEventServiceClient()
         {
             Shutdown(true);
+        }
+
+
+        private async Task Deliver(Grpc.Core.Channel lmanagedChannel, Envelope envelope, CancellationToken token)
+        {
+            Deliver.DeliverClient broadcast = new Deliver.DeliverClient(lmanagedChannel);
+            using (var call = filterBlock ? broadcast.DeliverFiltered(null, null, token) : broadcast.Deliver(null, null, token))
+            {
+                var rtask = Task.Run(async () =>
+                {
+                    if (await call.ResponseStream.MoveNext(token))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        DeliverResponse resp = nso.ResponseStream.Current;
+                        logger.Trace($"DeliverResponse channel {channelName} peer {peer.Name} resp status value:{resp.Status} typecase {resp.TypeCase}");
+                        switch (resp.TypeCase)
+                        {
+                            case DeliverResponse.TypeOneofCase.Status:
+                                logger.Debug($"DeliverResponse channel {channelName} peer {peer.Name} setting done.");
+                                if (resp.Status == Status.Success)
+                                {
+                                    // unlike you may think this only happens when all blocks are fetched.
+                                    peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                    peer.ResetReconnectCount();
+                                    return;
+                                }
+
+                                throw new TransactionException($"Channel {channelName} peer {peer.Name} Status returned failure code {resp.Status} during peer service event registration");
+                            case DeliverResponse.TypeOneofCase.FilteredBlock:
+                            case DeliverResponse.TypeOneofCase.Block:
+                                if (resp.TypeCase == DeliverResponse.TypeOneofCase.Block)
+                                    logger.Trace($"Channel {channelName} peer {peer.Name} got event block hex hashcode: {resp.Block.GetHashCode():X8}, block number: {resp.Block.Header.Number}");
+                                else
+                                    logger.Trace($"Channel {channelName} peer {peer.Name} got event block hex hashcode: {resp.FilteredBlock.GetHashCode():X8}, block number: {resp.FilteredBlock.Number}");
+                                peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                long reconnectCount = peer.ReconnectCount;
+                                if (reconnectCount > 1)
+                                    logger.Info($"Peer eventing service reconnected after {reconnectCount} attempts on channel {channelName}, peer {name}, url {url}");
+                                peer.ResetReconnectCount();
+                                BlockEvent blockEvent = new BlockEvent(peer, resp);
+                                peer.SetLastBlockSeen(blockEvent);
+                                channelEventQue.AddBEvent(blockEvent);
+                                return;
+                            default:
+                                logger.Error($"Channel {channelName} peer {peer.Name} got event block with unknown type: {resp.TypeCase}");
+                                throw new TransactionException($"Channel  {channelName} peer {peer.Name} Status got unknown type {resp.TypeCase}");
+                        }
+                    }
+                }, token);
+                await call.RequestStream.WriteAsync(envelope);
+                await call.RequestStream.CompleteAsync();
+                token.ThrowIfCancellationRequested();
+                await rtask;
+                logger.Debug($"DeliverResponse onCompleted channel {channelName} peer {peer.Name} setting done.");
+            }
         }
 
         /**
@@ -181,217 +216,100 @@ namespace Hyperledger.Fabric.SDK
          * @return The last block received by this peer. May return null if no block has been received since first reactivated.
          */
 
-        void ConnectEnvelope(Envelope envelope) {
-
-            if (shutdown) {
+        private async Task ConnectEnvelope(Envelope envelope, CancellationToken token)
+        {
+            if (shutdown)
                 throw new TransactionException("Peer eventing client is shutdown");
-            }
-
             Grpc.Core.Channel lmanagedChannel = managedChannel;
-
-            if (lmanagedChannel == null || lmanagedChannel.State==ChannelState.Shutdown || lmanagedChannel.State==ChannelState.TransientFailure) {
-
+            if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.Shutdown || lmanagedChannel.State == ChannelState.TransientFailure)
+            {
                 lmanagedChannel = channelBuilder.BuildChannel();
                 managedChannel = lmanagedChannel;
-
             }
 
             try
             {
-
-                Deliver.DeliverClient broadcast = new Deliver.DeliverClient(lmanagedChannel);
-
-                // final DeliverResponse[] ret = new DeliverResponse[1];
-                //   final List<DeliverResponse> retList = new ArrayList<>();
-                List<Exception> throwableList = new List<Exception>();
-                CountDownLatch finishLatch = new CountDownLatch(1);
-
-                using (nso = filterBlock ? broadcast.DeliverFiltered() : broadcast.Deliver())
-                {
-                    Task.Run(async () =>
-                    {
-                        try
-                        {
-                            while (await nso.ResponseStream.MoveNext())
-                            {
-                                DeliverResponse resp = nso.ResponseStream.Current;
-                                logger.Trace($"DeliverResponse channel {channelName} peer {peer.Name} resp status value:{resp.Status} typecase {resp.TypeCase}");
-                                switch (resp.TypeCase)
-                                {
-                                    case DeliverResponse.TypeOneofCase.Status:
-                                        logger.Debug($"DeliverResponse channel {channelName} peer {peer.Name} setting done.");
-                                        if (resp.Status == Status.Success)
-                                        {
-                                            // unlike you may think this only happens when all blocks are fetched.
-                                            peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                            peer.ResetReconnectCount();
-                                        }
-                                        else
-                                        {
-                                            throwableList.Add(new TransactionException($"Channel {channelName} peer {peer.Name} Status returned failure code {resp.Status} during peer service event registration"));
-                                        }
-
-                                        break;
-                                    case DeliverResponse.TypeOneofCase.FilteredBlock:
-                                    case DeliverResponse.TypeOneofCase.Block:
-                                        if (resp.TypeCase == DeliverResponse.TypeOneofCase.Block)
-                                        {
-                                            logger.Trace($"Channel {channelName} peer {peer.Name} got event block hex hashcode: {resp.Block.GetHashCode():X8}, block number: {resp.Block.Header.Number}");
-                                        }
-                                        else
-                                        {
-                                            logger.Trace($"Channel {channelName} peer {peer.Name} got event block hex hashcode: {resp.FilteredBlock.GetHashCode():X8}, block number: {resp.FilteredBlock.Number}");
-                                        }
-
-                                        peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                        long reconnectCount = peer.ReconnectCount;
-                                        if (reconnectCount > 1)
-                                        {
-
-                                            logger.Info($"Peer eventing service reconnected after {reconnectCount} attempts on channel {channelName}, peer {name}, url {url}");
-
-                                        }
-
-                                        peer.ResetReconnectCount();
-
-                                        BlockEvent blockEvent = new BlockEvent(peer, resp);
-                                        peer.SetLastBlockSeen(blockEvent);
-
-                                        channelEventQue.AddBEvent(blockEvent);
-                                        break;
-                                    default:
-                                        logger.Error($"Channel {channelName} peer {peer.Name} got event block with unknown type: {resp.TypeCase}");
-                                        throwableList.Add(new TransactionException($"Channel  {channelName} peer {peer.Name} Status got unknown type {resp.TypeCase}"));
-                                        break;
-                                }
-
-                                finishLatch.Signal();
-                            }
-
-                            logger.Debug($"DeliverResponse onCompleted channel {channelName} peer {peer.Name} setting done.");
-                            finishLatch.Signal();
-                        }
-                        catch (Exception e)
-                        {
-                            Grpc.Core.Channel llmanagedChannel = managedChannel;
-                            if (llmanagedChannel != null)
-                            {
-                                llmanagedChannel.ShutdownAsync().Wait();
-                                managedChannel = null;
-                            }
-
-                            if (!shutdown)
-                            {
-                                long reconnectCount = peer.ReconnectCount;
-                                if (PEER_EVENT_RECONNECTION_WARNING_RATE > 1 && reconnectCount % PEER_EVENT_RECONNECTION_WARNING_RATE == 1)
-                                {
-                                    logger.Warn($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
-                                }
-                                else
-                                {
-                                    logger.Trace($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
-
-                                }
-
-                                peer.ReconnectPeerEventServiceClient(this, e);
-
-                            }
-
-                            finishLatch.Signal();
-                        }
-                    });
-                    nso.RequestStream.WriteAsync(envelope);
-                    if (!finishLatch.Wait((int) peerEventRegistrationWaitTimeMilliSecs))
-                    {
-                        TransactionException ex = new TransactionException($"Channel {channelName} connect time exceeded for peer eventing service {name}, timed out at {peerEventRegistrationWaitTimeMilliSecs} ms.");
-                        throwableList.Insert(0, ex);
-
-                    }
-
-                    logger.Trace("Done waiting for reply!");
-
-                    if (throwableList.Count > 0)
-                    {
-                        Grpc.Core.Channel llmanagedChannel = managedChannel;
-                        if (llmanagedChannel != null)
-                        {
-                            llmanagedChannel.ShutdownAsync().Wait();
-                            managedChannel = null;
-                        }
-
-                        Exception throwable = throwableList[0];
-                        peer.ReconnectPeerEventServiceClient(this, throwable);
-
-                    }
-                }
+                await Deliver(lmanagedChannel, envelope, token).Timeout(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs));
             }
-            catch (Exception e) {
-                Grpc.Core.Channel llmanagedChannel = managedChannel;
-                if (llmanagedChannel != null)
+            catch (Exception e)
+            {
+                Exception fnal = null;
+                if (e is TimeoutException)
                 {
-                    llmanagedChannel.ShutdownAsync().Wait();
+                    string msg = $"Channel {channelName} connect time exceeded for peer eventing service {name}, timed out at {peerEventRegistrationWaitTimeMilliSecs} ms.";
+                    TransactionException ex = new TransactionException(msg, e);
+                    logger.ErrorException(msg, e);
+                    fnal = ex;
+                }
+                else if (e is RpcException sre)
+                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                else if (e is OperationCanceledException)
+                    logger.Error($"(Peer Eventing service {name} canceled on channel {channelName}");
+                else if (e is TransactionException tra)
+                    fnal = tra;
+
+                if (fnal == null)
+                    fnal = new TransactionException($"Channel {channelName}, send eventing service failed on orderer {name}. Reason: {e.Message}", e);
+                if (lmanagedChannel != null)
+                {
+                    await lmanagedChannel.ShutdownAsync();
                     managedChannel = null;
                 }
-                logger.ErrorException(e.Message,e); // not likely
-
-                peer.ReconnectPeerEventServiceClient(this, e);
-
-            }
-            /*
-            finally {
-                if (null != nso) {
-
-                    try {
-                        nso.onCompleted();
-                    } catch (Exception e) {  //Best effort only report on debug
-                        logger.debug(format("Exception completing connect with channel %s,  name %s, url %s %s",
-                                channelName, name, url, e.getMessage()), e);
-                    }
-
+                if (!shutdown)
+                {
+                    long reconnectCount = peer.ReconnectCount;
+                    if (PEER_EVENT_RECONNECTION_WARNING_RATE > 1 && reconnectCount % PEER_EVENT_RECONNECTION_WARNING_RATE == 1)
+                        logger.Warn($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
+                    else
+                        logger.Trace($"Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {reconnectCount}. {e.Message}");
+                    peer.ReconnectPeerEventServiceClient(this, fnal, token);
                 }
-            }*/
+                else
+                    logger.Trace($"{name} was shutdown.");
+            }
         }
 
-        public bool IsChannelActive() {
+        public bool IsChannelActive()
+        {
             Grpc.Core.Channel lchannel = managedChannel;
             return lchannel != null && lchannel.State != ChannelState.Shutdown && lchannel.State != ChannelState.TransientFailure;
         }
 
-        public void Connect(TransactionContext transactionContext)
+        public async Task Connect(TransactionContext tcontext, CancellationToken token = default(CancellationToken))
         {
-
-            this.transactionContext = transactionContext;
-            PeerVent(transactionContext);
-
+            transactionContext = tcontext;
+            await PeerVent(tcontext, token);
         }
 
         //=========================================================
         // Peer eventing
-        public void PeerVent(TransactionContext transactionContext)
+        public async Task PeerVent(TransactionContext tcontext, CancellationToken token = default(CancellationToken))
         {
-            try {
-
-                SeekPosition start=new SeekPosition();
-                if (peerOptions.Newest!=null)
+            try
+            {
+                SeekPosition start = new SeekPosition();
+                if (peerOptions.Newest != null)
                 {
                     start.Newest = new SeekNewest();
-                } else if (peerOptions.StartEventsBlock!=null)
+                }
+                else if (peerOptions.StartEventsBlock != null)
                 {
-                    start.Specified =new SeekSpecified { Number=(ulong)peerOptions.StartEventsBlock.Value};
-                } else
+                    start.Specified = new SeekSpecified {Number = (ulong) peerOptions.StartEventsBlock.Value};
+                }
+                else
                 {
                     start.Newest = new SeekNewest();
                 }
 
                 //   properties.
 
-                Envelope envelope = ProtoUtils.CreateSeekInfoEnvelope(transactionContext, start, new SeekPosition {Specified = new SeekSpecified {Number = (ulong) peerOptions.StopEventsBlock}},SeekInfo.Types.SeekBehavior.BlockUntilReady, clientTLSCertificateDigest); 
-                ConnectEnvelope(envelope);
-            } catch (CryptoException e) {
+                Envelope envelope = ProtoUtils.CreateSeekInfoEnvelope(tcontext, start, new SeekPosition {Specified = new SeekSpecified {Number = (ulong) peerOptions.StopEventsBlock}}, SeekInfo.Types.SeekBehavior.BlockUntilReady, clientTLSCertificateDigest);
+                await ConnectEnvelope(envelope, token);
+            }
+            catch (CryptoException e)
+            {
                 throw new TransactionException(e);
             }
-
         }
-
     }
 }

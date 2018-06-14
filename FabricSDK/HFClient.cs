@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -24,6 +25,7 @@ using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
+using Nito.AsyncEx;
 
 
 namespace Hyperledger.Fabric.SDK
@@ -146,7 +148,7 @@ namespace Hyperledger.Fabric.SDK
             if (string.IsNullOrEmpty(name))
                 throw new InvalidArgumentException("Channel name can not be null or empty string.");
 
-            using (_channelLock.LockAsync(token))
+            using (await _channelLock.LockAsync(token))
             {
                 if (channels.ContainsKey(name))
                     throw new InvalidArgumentException($"Channel by the name {name} already exits");
@@ -270,10 +272,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Channel GetChannel(string name)
         {
-            using (_channelLock.Lock())
-            {
-                return channels.GetOrNull(name);
-            }
+            return channels.GetOrNull(name);
         }
 
         /**
@@ -546,6 +545,7 @@ namespace Hyperledger.Fabric.SDK
 
         public void RemoveChannel(Channel channel)
         {
+
             using (_channelLock.Lock())
             {
                 string name = channel.Name;
@@ -556,6 +556,7 @@ namespace Hyperledger.Fabric.SDK
                     channels.Remove(name);
                 }
             }
+
         }
     }
 }

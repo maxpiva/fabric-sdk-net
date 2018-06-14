@@ -19,6 +19,7 @@
     <PackageReference Include="Grpc.Tools.MsBuild.Unofficial" Version="1.0.51" />
     <PackageReference Include="LibLog" Version="5.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.2" />
     <PackageReference Include="SharpCompress" Version="0.21.1" />
     <PackageReference Include="YamlDotNet" Version="4.3.1" />

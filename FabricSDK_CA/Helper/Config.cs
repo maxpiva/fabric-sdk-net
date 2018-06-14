@@ -90,7 +90,7 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
                 sdkProperties.Load(fullpath);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 logger.Warn($"Failed to load any configuration from: {fullpath}. Using toolkit defaults");
             }

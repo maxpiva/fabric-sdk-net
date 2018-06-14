@@ -529,7 +529,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Util.COut("sending transactionProposal to all peers with arguments: move(a,b,100)");
 
-                    List<ProposalResponse> transactionPropResp = channel.SendTransactionProposal(transactionProposalRequest, channel.GetPeers());
+                    List<ProposalResponse> transactionPropResp = channel.SendTransactionProposal(transactionProposalRequest, channel.Peers);
                     foreach (ProposalResponse response in transactionPropResp)
                     {
                         if (response.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
@@ -625,7 +625,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     tm2.Add("method", "QueryByChaincodeRequest".ToBytes());
                     queryByChaincodeRequest.SetTransientMap(tm2);
 
-                    List<ProposalResponse> queryProposals = channel.QueryByChaincode(queryByChaincodeRequest, channel.GetPeers());
+                    List<ProposalResponse> queryProposals = channel.QueryByChaincode(queryByChaincodeRequest, channel.Peers);
                     foreach (ProposalResponse proposalResponse in queryProposals)
                     {
                         if (!proposalResponse.IsVerified || proposalResponse.Status != ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
@@ -955,7 +955,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                                         {
                                             rs++;
 
-                                            Util.COut("     Namespace {0} read set {1} key {2}  version [{3}:{4}]", nspace, rs, readList.Key, readList.Version.BlockNum, readList.Version.TxNum);
+                                            Util.COut("     Namespace {0} read set {1} key {2}  version [{3}:{4}]", nspace, rs, readList.Key, readList.Version?.BlockNum ?? 0, readList.Version?.TxNum ?? 0);
 
                                             if ("bar".Equals(channelId) && blockNumber == 2)
                                             {
@@ -964,14 +964,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                                                     if (rs == 0)
                                                     {
                                                         Assert.AreEqual("a", readList.Key);
-                                                        Assert.AreEqual(1, readList.Version.BlockNum);
-                                                        Assert.AreEqual(0, readList.Version.TxNum);
+                                                        Assert.AreEqual((ulong)1, readList.Version.BlockNum);
+                                                        Assert.AreEqual((ulong)0, readList.Version.TxNum);
                                                     }
                                                     else if (rs == 1)
                                                     {
                                                         Assert.AreEqual("b", readList.Key);
-                                                        Assert.AreEqual(1, readList.Version.BlockNum);
-                                                        Assert.AreEqual(0, readList.Version.TxNum);
+                                                        Assert.AreEqual((ulong)1, readList.Version.BlockNum);
+                                                        Assert.AreEqual((ulong)0, readList.Version.TxNum);
                                                     }
                                                     else
                                                     {

@@ -9,9 +9,9 @@ namespace Hyperledger.Fabric.SDK.Helper
     
     public class BaseClient
     {
-        
-        public Properties Properties { get; internal set; }
-        
+
+        public Properties Properties { get; internal set; }=new Properties();
+
         public string Name { get; internal set; }
         
         public string Url { get; internal set; }

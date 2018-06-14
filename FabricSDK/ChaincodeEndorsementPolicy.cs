@@ -73,8 +73,7 @@ namespace Hyperledger.Fabric.SDK
                 {
                     string matchStingNo = match.Groups[1].Value.Trim();
                     int.TryParse(matchStingNo, out int matchNo);
-                    List<object> voList = vo as List<object>;
-                    if (voList == null)
+                    if (!(vo is List<object> voList))
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have list but found {vo}x.");
                     if (voList.Count < matchNo)
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have at least {matchNo} items to match but only found {voList.Count}.");
@@ -116,24 +115,21 @@ namespace Hyperledger.Fabric.SDK
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} is listed more than once ");
                 }
 
-                Dictionary<object, object> dictval = val as Dictionary<object, object>;
-                if (dictval == null)
+                if (!(val is Dictionary<object, object> dictval))
                 {
                     string str = (val == null) ? "null" : val.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} value expected Map got {str}");
                 }
 
                 object role = dictval.ContainsKey("role") ? dictval["role"] : null;
-                Dictionary<object, object> roleMap = role as Dictionary<object, object>;
-                if (roleMap == null)
+                if (!(role is Dictionary<object, object> roleMap))
                 {
                     string str = (role == null) ? "null" : role.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} value expected Map for role got {str}");
                 }
 
                 object nameObj = roleMap.ContainsKey("name") ? roleMap["name"] : null;
-                string name = nameObj as string;
-                if (name == null)
+                if (!(nameObj is string name))
                 {
                     string str = (nameObj == null) ? "null" : nameObj.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} name expected String in role got {str}");

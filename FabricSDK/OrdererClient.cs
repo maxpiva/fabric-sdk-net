@@ -138,6 +138,7 @@ namespace Hyperledger.Fabric.SDK
             await call.RequestStream.WriteAsync(envelope);
             token.ThrowIfCancellationRequested();
             await rtask;
+            await call.TryCompleteAsync();
             return resp;
         }
 
@@ -167,6 +168,7 @@ namespace Hyperledger.Fabric.SDK
             await call.RequestStream.WriteAsync(envelope);
             token.ThrowIfCancellationRequested();
             await rtask;
+            await call.TryCompleteAsync();
             return ret;
         }
 
@@ -216,15 +218,7 @@ namespace Hyperledger.Fabric.SDK
                 }
                 finally
                 {
-                    try
-                    {
-                        await call.RequestStream.CompleteAsync();
-                    }
-                    catch (Exception e)
-                    {
-                        //Best effort only report on debug
-                        logger.Debug($"Exception completing sendDeliver with channel {channelName},  name {name}, url {url} {e.Message}");
-                    }
+                    await call.TryCompleteAsync();
                 }
             }
         }
@@ -258,15 +252,7 @@ namespace Hyperledger.Fabric.SDK
                 }
                 finally
                 {
-                    try
-                    {
-                        await call.RequestStream.CompleteAsync();
-                    }
-                    catch (Exception e)
-                    {
-                        //Best effort only report on debug
-                        logger.Debug($"Exception completing sendTransaction with channel {channelName},  name {name}, url {url} {e.Message}");
-                    }
+                    await call.TryCompleteAsync();
                 }
             }
         }

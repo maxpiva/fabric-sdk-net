@@ -20,7 +20,6 @@ using Google.Protobuf.WellKnownTypes;
 using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
-using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.SDK.Builders
 {
@@ -31,38 +30,29 @@ namespace Hyperledger.Fabric.SDK.Builders
  */
     public class TransactionContext
     {
-        //    private static final Log logger = LogFactory.getLog(TransactionContext.class);
-        //TODO right now the server does not care need to figure out
-        private readonly ICryptoSuite cryptoPrimitives;
-        private IUser user;
-        private readonly Channel channel;
-        private readonly string txID;
-        private readonly SerializedIdentity identity;
-        Timestamp currentTimeStamp;
+        private Timestamp currentTimeStamp;
 
         //private List<String> attrs;
 
 
-        public TransactionContext(Channel channel, IUser user, ICryptoSuite cryptoPrimitives) {
-
-            this.user = user;
-            this.channel = channel;
+        public TransactionContext(Channel channel, IUser user, ICryptoSuite cryptoPrimitives)
+        {
+            User = user;
+            Channel = channel;
             //TODO clean up when public classes are interfaces.
-            this.Verify = !"".Equals(channel.Name);  //if name is not blank not system channel and need verify.
+            Verify = !"".Equals(channel.Name); //if name is not blank not system channel and need verify.
             //  this.txID = transactionID;
-            this.cryptoPrimitives = cryptoPrimitives;
-            identity = ProtoUtils.CreateSerializedIdentity(User);
+            CryptoPrimitives = cryptoPrimitives;
+            Identity = ProtoUtils.CreateSerializedIdentity(User);
             ByteString no = Nonce;
-            byte[] comp = no.Concat(identity.ToByteArray()).ToArray();
+            byte[] comp = no.Concat(Identity.ToByteArray()).ToArray();
             byte[] txh = cryptoPrimitives.Hash(comp);
             //    txID = Hex.encodeHexString(txh);
-            txID = txh.ToHexString();
-
+            TxID = txh.ToHexString();
         }
 
-        public ICryptoSuite CryptoPrimitives => cryptoPrimitives;
-
-        public SerializedIdentity Identity => identity;
+        public ICryptoSuite CryptoPrimitives { get; }
+        public SerializedIdentity Identity { get; }
 
         public long Epoch => 0;
 
@@ -71,7 +61,7 @@ namespace Hyperledger.Fabric.SDK.Builders
          *
          * @return The user
          */
-        public IUser User => user;
+        public IUser User { get; }
 
         /**
          * Get the attribute names associated with this transaction context.
@@ -96,7 +86,7 @@ namespace Hyperledger.Fabric.SDK.Builders
          *
          * @return The channel
          */
-        public Channel Channel => this.channel;
+        public Channel Channel { get; }
 
         /**
          * Gets/Sets the timeout for a single proposal request to endorser in milliseconds.
@@ -113,50 +103,59 @@ namespace Hyperledger.Fabric.SDK.Builders
         public bool Verify { get; set; }
 
 
-
         public string ChannelID => Channel.Name;
 
-        public string TxID => txID;
+        public string TxID { get; }
 
-        byte[] Sign(byte[] b)
+        private byte[] Sign(byte[] b)
         {
-            return cryptoPrimitives.Sign(User.Enrollment.GetKeyPair(), b);
+            return CryptoPrimitives.Sign(User.Enrollment.GetKeyPair(), b);
         }
 
-        public ByteString SignByteString(byte[] b) 
+        public ByteString SignByteString(byte[] b)
         {
             return ByteString.CopyFrom(Sign(b));
         }
 
         public ByteString SignByteStrings(params ByteString[] bs)
         {
-            if (bs == null) {
+            if (bs == null)
+            {
                 return null;
             }
-            if (bs.Length == 0) {
+
+            if (bs.Length == 0)
+            {
                 return null;
             }
+
             if (bs.Length == 1 && bs[0] == null)
                 return null;
-            byte[] total=new byte[bs.Sum(a=>a.Length)];
+            byte[] total = new byte[bs.Sum(a => a.Length)];
             int start = 0;
             foreach (ByteString b in bs)
             {
-                Array.Copy(b.ToByteArray(),0,total,start,b.Length);
+                Array.Copy(b.ToByteArray(), 0, total, start, b.Length);
                 start += b.Length;
             }
+
             return ByteString.CopyFrom(Sign(total));
         }
 
         public ByteString[] SignByteStrings(IUser[] users, params ByteString[] bs)
         {
-            if (bs == null) {
+            if (bs == null)
+            {
                 return null;
             }
-            if (bs.Length == 0) {
+
+            if (bs.Length == 0)
+            {
                 return null;
             }
-            if (bs.Length == 1 && bs[0] == null) {
+
+            if (bs.Length == 1 && bs[0] == null)
+            {
                 return null;
             }
 
@@ -171,17 +170,17 @@ namespace Hyperledger.Fabric.SDK.Builders
 
             ByteString[] ret = new ByteString[users.Length];
             int ii = -1;
-            foreach (IUser user in users) {
-                ret[++ii] = ByteString.CopyFrom(cryptoPrimitives.Sign(user.Enrollment.GetKeyPair(), signbytes));
+            foreach (IUser user in users)
+            {
+                ret[++ii] = ByteString.CopyFrom(CryptoPrimitives.Sign(user.Enrollment.GetKeyPair(), signbytes));
             }
+
             return ret;
         }
 
-        public TransactionContext RetryTransactionSameContext() {
-
-            return new TransactionContext(channel, user, cryptoPrimitives);
-
+        public TransactionContext RetryTransactionSameContext()
+        {
+            return new TransactionContext(Channel, User, CryptoPrimitives);
         }
-
-    }  // end TransactionContext
+    } // end TransactionContext
 }

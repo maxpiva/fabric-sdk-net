@@ -84,7 +84,7 @@ namespace Hyperledger.Fabric.SDK.Security
             {
                 return Validate(Certificate.Create(cert));
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return false;
             }
@@ -98,7 +98,7 @@ namespace Hyperledger.Fabric.SDK.Security
             {
                 return Validate(Certificate.Create(cert));
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return false;
             }
@@ -141,7 +141,7 @@ namespace Hyperledger.Fabric.SDK.Security
                     PkixCertPathBuilderResult result = builder.Build(builderParams);
                     return true;
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     return false;
                 }

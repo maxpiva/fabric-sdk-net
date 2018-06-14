@@ -117,10 +117,10 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected ChaincodeEndorsementPolicyParseException");
             }
-            catch (ChaincodeEndorsementPolicyParseException e)
+            catch (ChaincodeEndorsementPolicyParseException)
             {
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
                 Assert.Fail("Expected ChaincodeEndorsementPolicyParseException");
             }

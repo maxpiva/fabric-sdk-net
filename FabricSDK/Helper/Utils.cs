@@ -13,6 +13,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -24,9 +25,12 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
+using Grpc.Core;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Logging;
-
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Security;
@@ -43,7 +47,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Utils));
         private static readonly bool TRACE_ENABED = logger.IsTraceEnabled();
 
-        private static int MAX_LOG_STRING_LENGTH = Config.Instance.MaxLogStringLength();
+        private static readonly int MAX_LOG_STRING_LENGTH = Config.Instance.MaxLogStringLength();
 
         public static void WriteAllBytes(this Stream stream, byte[] data)
         {
@@ -328,6 +332,31 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
 
         }
+
+        public static Task TryCompleteAsync<T, S>(this AsyncDuplexStreamingCall<T, S> d)
+        {
+            try
+            {
+                return d?.RequestStream?.CompleteAsync();
+            }
+            catch (Exception e)
+
+            {
+                return Task.FromResult(0);
+            }
+        }
+
+        public static void TryComplete<T, S>(this AsyncDuplexStreamingCall<T, S> d)
+        {
+            try
+            {
+                d?.RequestStream?.CompleteAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception e)
+            {
+            }
+        }
+
         public static (string Protocol, string Host, int Port) ParseGrpcUrl(string url)
         {
             (string Protocol, string Host, int Port) ret;
@@ -394,7 +423,7 @@ byte[] data = ByteStreams.toByteArray(is);
         return data;
     }
     */
-   
+
 
 
 
@@ -406,6 +435,18 @@ byte[] data = ByteStreams.toByteArray(is);
          */
 
 
+    }
+    class PeerPeerOptionsResolver : DefaultContractResolver
+    {
+        protected override JsonContract CreateContract(Type objectType)
+        {
+            if (objectType.Name.Equals(typeof(Dictionary<Peer,Channel.PeerOptions>).Name))
+            {
+                return base.CreateArrayContract(objectType);
+            }
+
+            return base.CreateContract(objectType);
+        }
     }
 
 }

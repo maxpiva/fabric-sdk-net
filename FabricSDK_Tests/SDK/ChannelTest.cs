@@ -133,7 +133,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null peer to throw exception.");
             }
-            catch (InvalidArgumentException e)
+            catch (InvalidArgumentException)
             {
                 Assert.AreEqual(testChannel?.Peers.Count ?? -1, 0);
             }
@@ -153,7 +153,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 testChannel.AddPeer(peer);
                 Assert.Fail("Expected no named peer to throw exception.");
             }
-            catch (InvalidArgumentException e)
+            catch (InvalidArgumentException)
             {
                 Assert.AreEqual(testChannel?.Peers.Count ?? -1, 0);
             }
@@ -172,7 +172,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null order to throw exception.");
             }
-            catch (InvalidArgumentException e)
+            catch (InvalidArgumentException)
             {
                 Assert.AreEqual(testChannel?.Orderers.Count ?? -1, 0);
             }
@@ -191,7 +191,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null peer to throw exception.");
             }
-            catch (InvalidArgumentException e)
+            catch (InvalidArgumentException)
             {
                 Assert.AreEqual(testChannel?.EventHubs.Count ?? -1, 0);
             }
@@ -438,7 +438,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestChannelPeerJoinNoOrderer()
         {
             Channel channel = CreateRunningChannel(null);
-            channel.orderers = new LinkedList<Orderer>();
+            channel.orderers = new List<Orderer>();
 
             channel.JoinPeer(hfclient.NewPeer("peerJoiningNOT", "grpc://localhost:22"));
         }
@@ -788,14 +788,16 @@ namespace Hyperledger.Fabric.Tests.SDK
             {
             }
 
-            protected new void ParseConfigBlock()
+            protected override Task ParseConfigBlockAsync(CancellationToken token)
             {
+                return Task.FromResult(0);
             }
 
-
-            protected new void LoadCACertificates()
+            protected override Task LoadCACertificatesAsync(CancellationToken token)
             {
+                return Task.FromResult(0);
             }
+
         }
 
         private class MockEndorserClient : EndorserClient

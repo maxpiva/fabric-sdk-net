@@ -86,7 +86,7 @@ namespace Hyperledger.Fabric.SDK
                                         {
                                             bis.WriteAllBytes(File.ReadAllBytes(Path.GetFullPath(pem)));
                                         }
-                                        catch (IOException e)
+                                        catch (IOException)
                                         {
                                             throw new IllegalArgumentException($"Failed to read certificate file {Path.GetFullPath(pem)}");
                                         }
@@ -231,7 +231,7 @@ namespace Hyperledger.Fabric.SDK
                 List<ChannelOption> options = new List<ChannelOption>();
                 if (properties != null)
                 {
-                    foreach (string str in properties)
+                    foreach (string str in properties.Keys)
                     {
                         if (str.StartsWith("grpc."))
                         {
@@ -258,21 +258,14 @@ namespace Hyperledger.Fabric.SDK
                     }
                     else
                     {
-                        try
-                        {
-                            if (ckb != null && ccb != null)
-                                creds = new SslCredentials(pemBytes.ToUTF8String(), new KeyCertificatePair(ccb.ToUTF8String(), ckb.ToUTF8String()));
-                            else
-                                creds = new SslCredentials(pemBytes.ToUTF8String());
-                            if (cn != null)
-                                options.Add(new ChannelOption("grpc.ssl_target_name_override", cn));
-                            Credentials = creds;
-                            ChannelOptions = options;
-                        }
-                        catch (Exception sslex)
-                        {
-                            throw;
-                        }
+                        if (ckb != null && ccb != null)
+                            creds = new SslCredentials(pemBytes.ToUTF8String(), new KeyCertificatePair(ccb.ToUTF8String(), ckb.ToUTF8String()));
+                        else
+                            creds = new SslCredentials(pemBytes.ToUTF8String());
+                        if (cn != null)
+                            options.Add(new ChannelOption("grpc.ssl_target_name_override", cn));
+                        Credentials = creds;
+                        ChannelOptions = options;
                     }
                 }
                 else

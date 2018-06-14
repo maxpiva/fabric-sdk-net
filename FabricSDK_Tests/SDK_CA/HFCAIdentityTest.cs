@@ -97,7 +97,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Error while getting user")]
-        public void getIdentityNoServerResponse()
+        public void GetIdentityNoServerResponse()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
@@ -108,7 +108,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Error while creating user")]
-        public void createIdentityNoServerResponse()
+        public void CreateIdentityNoServerResponse()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
@@ -119,7 +119,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Error while updating user")]
-        public void updateIdentityNoServerResponse()
+        public void UpdateIdentityNoServerResponse()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
@@ -130,7 +130,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(IdentityException), "Error while deleting user")]
-        public void deleteIdentityNoServerResponse()
+        public void DeleteIdentityNoServerResponse()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;

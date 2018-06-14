@@ -57,7 +57,7 @@ namespace Hyperledger.Fabric.SDK.Security
             foreach (Properties st in cache.Keys)
             {
                 bool found = true;
-                foreach (string key in properties)
+                foreach (string key in properties.Keys)
                 {
                     if (!st.Contains(key))
                         found = false;

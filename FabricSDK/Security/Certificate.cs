@@ -142,7 +142,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // best attempt
             }

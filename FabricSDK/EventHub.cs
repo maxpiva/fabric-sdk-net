@@ -18,9 +18,7 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -31,6 +29,7 @@ using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json;
+using Nito.AsyncEx;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -53,10 +52,9 @@ namespace Hyperledger.Fabric.SDK
         private long lastBlockNumber;
         private Grpc.Core.Channel managedChannel;
         private long reconnectCount;
-        private AsyncDuplexStreamingCall<SignedEvent, Event> sender;
+        private readonly DaemonTask<SignedEvent, Event> dtask =new DaemonTask<SignedEvent, Event>();
 
-
-        public EventHub(string name, string grpcURL,  Properties properties) : base(name, grpcURL, properties)
+        public EventHub(string name, string url,  Properties properties) : base(name, url, properties)
         {
            
         }
@@ -104,8 +102,8 @@ namespace Hyperledger.Fabric.SDK
         [JsonIgnore]
         public long LastConnectedAttempt { get; private set; }
 
+       
         [JsonIgnore]
-        
         public override Channel Channel
         {
             get => base.Channel;
@@ -139,14 +137,14 @@ namespace Hyperledger.Fabric.SDK
             return Connect(transactionContext, false, token);
         }
 
-        private async Task Events(AsyncDuplexStreamingCall<SignedEvent, Event> ch, TransactionContext context, CancellationToken token)
+
+        private async Task Events(Events.EventsClient events, TransactionContext context, CancellationToken token)
         {
-            Task rtask=Task.Run(async () =>
+            try
             {
-                while (await ch.ResponseStream.MoveNext(token))
+                var senderLocal = events.Chat();
+                Task connect = dtask.Connect(senderLocal, (evnt) =>
                 {
-                    token.ThrowIfCancellationRequested();
-                    Event evnt = ch.ResponseStream.Current;
                     logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
                     if (evnt.EventCase == Event.EventOneofCase.Block)
                     {
@@ -162,25 +160,59 @@ namespace Hyperledger.Fabric.SDK
                             logger.Error(eventHubException.Message);
                         }
                     }
-                    else if (evnt.EventCase == Event.EventOneofCase.Register)
+                    if (evnt.EventCase == Event.EventOneofCase.Register)
                     {
                         if (reconnectCount > 1)
                             logger.Info($"Eventhub {Name} has reconnecting after {reconnectCount} attempts");
                         IsConnected = true;
                         ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         reconnectCount = 0L;
-                        break;
+                        return ProcessResult.ConnectionComplete;
                     }
-                }
-                logger.Debug($"Stream completed {ToString()}");
-            }, token);
-            await BlockListen(ch, context);
-            token.ThrowIfCancellationRequested();
-            await rtask;
+                    return ProcessResult.Ok;
+                }, (ex) => ProcessException(ex), token);
+                await BlockListen(senderLocal, context);
+                await connect.Timeout(TimeSpan.FromMilliseconds(EVENTHUB_CONNECTION_WAIT_TIME));
+                logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
+            }
+            catch (Exception e)
+            {
+                ProcessException(e,token);
+            }
         }
 
         static readonly AsyncLock connectLock=new AsyncLock();
-      
+
+        public void ProcessException(Exception e, CancellationToken token=default(CancellationToken))
+        {
+            logger.Debug("Processing Exception "+e.Message+" Cancelation afterwards");
+            IsConnected = false;        
+            dtask.Cancel();
+            DisconnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (shutdown)
+            {
+                logger.Trace($"{Name} was shutdown.");
+            }
+            else
+            {
+                Grpc.Core.Channel lmanagedChannel = managedChannel;
+                bool isTerminated = lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure; //TODO TransientFailure!=Terminated
+                bool isChannelShutdown = lmanagedChannel == null || lmanagedChannel.State == ChannelState.Shutdown;
+                if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1)
+                    logger.Warn($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
+                else
+                    logger.Trace($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
+                if (e is TimeoutException)
+                    logger.Warn($"EventHub {Name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
+                else if (e is RpcException sre)
+                    logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
+                else if (e is OperationCanceledException)
+                    logger.Error($"(EventHub Connect {Name} canceled");
+                else
+                    logger.ErrorException(e.Message, e);
+                Reconnect(token);
+            }
+        }
         public async Task<bool> Connect(TransactionContext transactionContext, bool reconnection, CancellationToken token=default(CancellationToken))
         {
 
@@ -196,45 +228,7 @@ namespace Hyperledger.Fabric.SDK
                 Endpoint endpoint = new Endpoint(Url, Properties);
                 managedChannel = endpoint.BuildChannel();
                 clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
-                Events.EventsClient events = new Events.EventsClient(managedChannel);
-                var senderLocal = events.Chat();
-                try
-                {
-                    await Events(senderLocal, transactionContext, token);
-                }
-                catch (Exception e)
-                {
-                    IsConnected = false;
-                    senderLocal?.Dispose();
-                    senderLocal = null;
-                    DisconnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    if (shutdown)
-                    {
-                        logger.Trace($"{Name} was shutdown.");
-                    }
-                    else
-                    {
-                        Grpc.Core.Channel lmanagedChannel = managedChannel;
-                        bool isTerminated = lmanagedChannel == null || lmanagedChannel.State == ChannelState.TransientFailure; //TODO TransientFailure!=Terminated
-                        bool isChannelShutdown = lmanagedChannel == null || lmanagedChannel.State == ChannelState.Shutdown;
-                        if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1)
-                            logger.Warn($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
-                        else
-                            logger.Trace($"{Name} terminated is {isTerminated} shutdown is {isChannelShutdown}, retry count {reconnectCount}  has error {e.Message}.");
-                        if (e is TimeoutException)
-                            logger.Warn($"EventHub {Name} failed to connect in {EVENTHUB_CONNECTION_WAIT_TIME} ms.");
-                        else if (e is RpcException sre)
-                            logger.Error($"grpc status Code:{sre.StatusCode}, Description {sre.Status.Detail} {sre.Message}");
-                        else if (e is OperationCanceledException)
-                            logger.Error($"(EventHub Connext {Name} canceled");
-                        else
-                            logger.ErrorException(e.Message, e);
-                        Reconnect(token);
-                    }
-                }
-                logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
-                if (IsConnected)
-                    sender = senderLocal;
+                await Events(new Events.EventsClient(managedChannel), transactionContext, token);               
                 return IsConnected;
             }            
         }
@@ -245,7 +239,7 @@ namespace Hyperledger.Fabric.SDK
             if (lmanagedChannel != null)
             {
                 managedChannel = null;
-                lmanagedChannel.ShutdownAsync().Wait();
+                lmanagedChannel.ShutdownAsync().Wait(token);
             }
 
             IEventHubDisconnected ldisconnectedHandler = disconnectedHandler;
@@ -288,16 +282,16 @@ namespace Hyperledger.Fabric.SDK
         {
             return "EventHub:" + Name;
         }
-
+        [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown()
         {
+            logger.Debug("Starting shutdown");
+            dtask.Cancel();
             shutdown = true;
             lastBlockEvent = null;
             lastBlockNumber = 0;
             IsConnected = false;
             base.Channel = null;
-            sender?.Dispose();
-            sender = null;
             Grpc.Core.Channel lmanagedChannel = managedChannel;
             managedChannel = null;
             lmanagedChannel?.ShutdownAsync().Wait();

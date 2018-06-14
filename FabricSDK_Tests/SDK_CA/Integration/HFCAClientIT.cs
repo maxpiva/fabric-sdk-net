@@ -384,7 +384,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // 2.5.29.35 : AuthorityKeyIdentifier
 
             
-            Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier.Id);
+            Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier);
             string aki = AuthorityKeyIdentifier.GetInstance(Asn1Sequence.GetInstance(akiOc.GetOctets())).GetKeyIdentifier().ToHexString();
 
                 
@@ -791,7 +791,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             HFCAAffiliation resp = client.GetHFCAAffiliations(admin);
 
             List<string> expectedFirstLevelAffiliations = new List<string> {"org2", "org1"};
-            int found = 0;
+ 
             foreach (HFCAAffiliation aff in resp.Children)
             {
                 foreach (string element in expectedFirstLevelAffiliations.ToList())
@@ -878,7 +878,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // that are getting updated
             HFCAAffiliation.HFCAAffiliationResp resp = aff.Update(admin, true);
 
-            int found = 0;
+ 
             int idCount = 0;
             // Should contain the affiliations affected by the update request
             HFCAAffiliation child = aff.GetChild("dept1");

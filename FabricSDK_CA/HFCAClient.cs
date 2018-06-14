@@ -576,7 +576,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 string serial = ncert.SerialNumber.ToByteArray().ToHexString();
                 // get its aki
                 // 2.5.29.35 : AuthorityKeyIdentifier
-                Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier.Id);
+                Asn1OctetString akiOc = ncert.GetExtensionValue(X509Extensions.AuthorityKeyIdentifier);
                 string aki = AuthorityKeyIdentifier.GetInstance(Asn1Sequence.GetInstance(akiOc.GetOctets())).GetKeyIdentifier().ToHexString();
                 // build request body
                 RevocationRequest req = new RevocationRequest(CAName, null, serial, aki, reason, genCRL);
@@ -971,7 +971,7 @@ namespace Hyperledger.Fabric_CA.SDK
                                     {
                                         CryptoSuite.Store.AddCertificate(File.ReadAllText(fname));
                                     }
-                                    catch (IOException e)
+                                    catch (IOException)
                                     {
                                         throw new InvalidArgumentException($"Unable to add CA certificate, can't open certificate file {pem}");
                                     }

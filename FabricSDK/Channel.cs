@@ -43,6 +43,8 @@ using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Responses;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Nito.AsyncEx;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
 using ProposalResponse = Hyperledger.Fabric.SDK.Responses.ProposalResponse;
@@ -97,7 +99,7 @@ namespace Hyperledger.Fabric.SDK
 
         internal HFClient client;
 
-        private LinkedList<EventHub> eventHubs = new LinkedList<EventHub>();
+        private List<EventHub> eventHubs = new List<EventHub>();
         /**
          * Runs processing events from event hubs.
          */
@@ -106,7 +108,7 @@ namespace Hyperledger.Fabric.SDK
         private Block genesisBlock;
         internal volatile bool initialized = false;
         private IReadOnlyDictionary<string, MSP> msps = new Dictionary<string, MSP>();
-        internal LinkedList<Orderer> orderers = new LinkedList<Orderer>();
+        internal List<Orderer> orderers = new List<Orderer>();
 
         // Name of the channel is only meaningful to the client
         private ConcurrentDictionary<Peer, PeerOptions> peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>();
@@ -154,6 +156,7 @@ namespace Hyperledger.Fabric.SDK
         {
             initialized = false;
             IsShutdown = false;
+            FillRoles();
             msps = new Dictionary<string, MSP>();
             txListeners = new LinkedHashMap<string, LinkedList<TL>>();
             ChannelEventQueue = new ChannelEventQue(this);
@@ -169,14 +172,14 @@ namespace Hyperledger.Fabric.SDK
         public IReadOnlyList<EventHub> EventHubs
         {
             get { return eventHubs.ToList(); }
-            private set { eventHubs = new LinkedList<EventHub>(value); }
+            private set { eventHubs = new List<EventHub>(value); }
         }
 
         
         public IReadOnlyList<Orderer> Orderers
         {
             get { return orderers.ToList(); }
-            private set { orderers = new LinkedList<Orderer>(value); }
+            private set { orderers = new List<Orderer>(value); }
         }
 
         /**
@@ -187,7 +190,7 @@ namespace Hyperledger.Fabric.SDK
         
         public string Name { get; internal set; }
 
-        
+
         public Dictionary<Peer, PeerOptions> PeerOptionsMap
         {
             get { return peerOptionsMap.ToDictionary(a => a.Key, a => a.Value); }
@@ -286,9 +289,60 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
+        private static JsonSerializerSettings _defaultSerialization = new JsonSerializerSettings {TypeNameHandling = TypeNameHandling.Auto, ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor, PreserveReferencesHandling = PreserveReferencesHandling.All, ObjectCreationHandling = ObjectCreationHandling.Auto, ContractResolver = new PeerPeerOptionsResolver()};
+
         public static Channel Deserialize(string json)
         {
-            Channel ch = JsonConvert.DeserializeObject<Channel>(json);
+            JObject j=JObject.Parse(json);
+            Channel ch = new Channel();
+            ch.Name = j["Name"].Value<string>();
+            ch.IsSystemChannel = j["SystemChannel"].Value<bool>();
+            JArray ordarray = j["Orderers"] as JArray;
+            List<Orderer> orderers=new List<Orderer>();
+            foreach (JObject m in ordarray)
+            {
+                Orderer o = m.ToObject<Orderer>();
+                o.Channel = ch;
+                orderers.Add(o);
+            }
+            ch.orderers = orderers;
+            JArray evearray = j["EventHubs"] as JArray;
+            List<EventHub> events = new List<EventHub>();
+            foreach (JObject m in evearray)
+            {
+                EventHub o = m.ToObject<EventHub>();
+                o.Channel = ch;
+                events.Add(o);
+            }
+
+            ch.eventHubs = events;
+            JArray pearray = j["Peers"] as JArray;
+            List<Peer> peers=new List<Peer>();
+            foreach (JObject m in pearray)
+            {
+                Peer o = m["Peer"].ToObject<Peer>();
+                o.Channel = ch;
+                peers.Add(o);
+                if (m.ContainsKey("Options"))
+                {
+                    PeerOptions opt = m["Options"].ToObject<PeerOptions>();
+                    ch.peerOptionsMap[o] = opt;
+                }
+
+                if (m.ContainsKey("Roles"))
+                {
+                    List<int> rol = m["Roles"].ToObject<List<int>>();
+                    foreach (int n in rol)
+                    {
+                        PeerRole pr = (PeerRole) n;
+                        if (!ch.peerRoleSetMap.ContainsKey(pr))
+                            ch.peerRoleSetMap[pr]=new List<Peer>();
+                        ch.peerRoleSetMap[pr].Add(o);
+                    }
+                }
+            }
+
+            ch.peers = peers;
             foreach (EventHub eventHub in ch.eventHubs.ToList())
                 eventHub.SetEventQue(ch.ChannelEventQueue);
             return ch;
@@ -296,7 +350,31 @@ namespace Hyperledger.Fabric.SDK
 
         public string Serialize()
         {
-            return JsonConvert.SerializeObject(this);
+            JObject obj = new JObject();
+
+            List<JObject> l = new List<JObject>();
+            foreach (Peer p in Peers)
+            {
+                JObject pobj=new JObject();
+                List<int> Roles=new List<int>();
+                pobj.Add("Peer", JObject.FromObject(p, new JsonSerializer { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }));
+                if (PeerOptionsMap.ContainsKey(p))
+                    pobj.Add("Options", JObject.FromObject(PeerOptionsMap[p]));
+                foreach (PeerRole r in PeerRoleMap.Keys)
+                {
+                    if (PeerRoleMap[r].Contains(p))
+                        Roles.Add((int)r);
+                }
+                if (Roles.Count>0)
+                    pobj.Add("Roles",JArray.FromObject(Roles));
+                l.Add(pobj);
+            }
+            obj.Add("Peers", new JArray(l));
+            obj.Add("EventHubs", new JArray(EventHubs.Select(a=>JObject.FromObject(a, new JsonSerializer { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }))));
+            obj.Add("Orderers", new JArray(Orderers.Select(a => JObject.FromObject(a, new JsonSerializer { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }))));
+            obj.Add("Name", Name);
+            obj.Add("SystemChannel", IsSystemChannel);
+            return obj.ToString();
         }
 
 
@@ -779,7 +857,7 @@ namespace Hyperledger.Fabric.SDK
             }
             logger.Debug($"Channel {Name} adding orderer {orderer.Name}, url: {orderer.Url}");
             orderer.Channel = this;
-            orderers.AddLast(orderer);
+            orderers.Add(orderer);
             return this;
         }
 
@@ -807,7 +885,7 @@ namespace Hyperledger.Fabric.SDK
             logger.Debug($"Channel {Name} adding event hub {eventHub.Name}, url: {eventHub.Url}");
             eventHub.Channel = this;
             eventHub.SetEventQue(ChannelEventQueue);
-            eventHubs.AddLast(eventHub);
+            eventHubs.Add(eventHub);
             return this;
         }
 
@@ -884,7 +962,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 await LoadCACertificatesAsync(token); // put all MSP certs into cryptoSuite if this fails here we'll try again later.
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 logger.Warn($"Channel {Name} could not load peer CA certificates from any peers.");
             }
@@ -917,9 +995,9 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        protected async Task LoadCACertificatesAsync(CancellationToken token)
+        protected virtual async Task LoadCACertificatesAsync(CancellationToken token)
         {
-            using (_certificatelock.LockAsync(token))
+            using (await _certificatelock.LockAsync(token))
             {
                 if (msps != null && msps.Count > 0)
                     return;
@@ -1022,7 +1100,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        protected async Task ParseConfigBlockAsync(CancellationToken token)
+        protected virtual async Task ParseConfigBlockAsync(CancellationToken token)
         {
             IReadOnlyDictionary<string, MSP> lmsps = msps;
             if (lmsps != null && lmsps.Count > 0)
@@ -2166,7 +2244,6 @@ namespace Hyperledger.Fabric.SDK
             userContext.UserContextCheck();
             if (txID == null)
                 throw new InvalidArgumentException("TxID parameter is null.");
-            TransactionInfo transactionInfo;
             try
             {
                 logger.Debug($"QueryTransactionByID with txID {txID}\n    from peer on channel {Name}");
@@ -2459,10 +2536,10 @@ namespace Hyperledger.Fabric.SDK
             throw lastException;
         }
         
-        private async Task<List<ProposalResponse>> SendProposalAsync(TransactionRequest proposalRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
+        private async Task<List<ProposalResponse>> SendProposalAsync(TransactionRequest proposalRequest, IEnumerable<Peer> peerarray, CancellationToken token = default(CancellationToken))
         {
             CheckChannelState();
-            CheckPeers(peers);
+            CheckPeers(peerarray);
             if (null == proposalRequest)
                 throw new InvalidArgumentException("The proposalRequest is null");
             if (string.IsNullOrEmpty(proposalRequest.Fcn))
@@ -2478,7 +2555,7 @@ namespace Hyperledger.Fabric.SDK
                 // Protobuf message builder
                 Proposal proposal = ProposalBuilder.Create().Context(transactionContext).Request(proposalRequest).Build();
                 SignedProposal invokeProposal = GetSignedProposal(transactionContext, proposal);
-                return await SendProposalToPeersAsync(peers, invokeProposal, transactionContext, token);
+                return await SendProposalToPeersAsync(peerarray, invokeProposal, transactionContext, token);
             }
             catch (ProposalException e)
             {
@@ -3193,7 +3270,7 @@ namespace Hyperledger.Fabric.SDK
                 {
                     eh.Shutdown();
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Best effort.
                 }
@@ -3206,7 +3283,7 @@ namespace Hyperledger.Fabric.SDK
                     RemovePeerInternal(peer);
                     peer.Shutdown(force);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Best effort.
                 }
@@ -3437,6 +3514,7 @@ namespace Hyperledger.Fabric.SDK
                         return PeerRoleExtensions.All();
                     return peerRoles;
                 }
+                internal set => peerRoles = value;
             }
 
             public PeerOptions Clone()
@@ -3932,7 +4010,7 @@ namespace Hyperledger.Fabric.SDK
             private readonly FabricMSPConfig fabricMSPConfig;
             private byte[][] adminCerts;
             private byte[][] intermediateCerts;
-            private string orgName;
+            private readonly string orgName;
             private byte[][] rootCerts;
 
             public MSP(string orgName, FabricMSPConfig fabricMSPConfig)

@@ -340,7 +340,7 @@ namespace Hyperledger.Fabric.SDK
                 logger.Trace($"NetworkConfig.fromFile: {configFile}  isJson = {isJson}");
             }
 
-            NetworkConfig config;
+
 
             // Json file
             using (Stream stream = File.OpenRead(configFile))
@@ -621,101 +621,95 @@ namespace Hyperledger.Fabric.SDK
         {
             Channel channel = null;
 
-            try
+
+            channel = client.NewChannel(channelName);
+
+            // orderers is an array of orderer name strings
+            JArray ordererNames = jsonChannel["orderers"] as JArray;
+            bool foundOrderer = false;
+
+            //out("Orderer names: " + (ordererNames == null ? "null" : ordererNames.toString()));
+            if (ordererNames != null)
             {
-                channel = client.NewChannel(channelName);
-
-                // orderers is an array of orderer name strings
-                JArray ordererNames = jsonChannel["orderers"] as JArray;
-                bool foundOrderer = false;
-
-                //out("Orderer names: " + (ordererNames == null ? "null" : ordererNames.toString()));
-                if (ordererNames != null)
+                foreach (JToken jsonVal in ordererNames)
                 {
-                    foreach (JToken jsonVal in ordererNames)
+                    string ordererName = jsonVal.Value<string>();
+                    Orderer orderer = GetOrderer(client, ordererName);
+                    if (orderer == null)
                     {
-                        string ordererName = jsonVal.Value<string>();
-                        Orderer orderer = GetOrderer(client, ordererName);
-                        if (orderer == null)
-                        {
-                            throw new NetworkConfigurationException($"Error constructing channel {channelName}. Orderer {ordererName} not defined in configuration");
-                        }
-
-                        channel.AddOrderer(orderer);
-                        foundOrderer = true;
+                        throw new NetworkConfigurationException($"Error constructing channel {channelName}. Orderer {ordererName} not defined in configuration");
                     }
-                }
 
-                if (!foundOrderer)
-                {
-                    // orderers is a required field
-                    throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one orderer must be specified");
-                }
-
-                // peers is an object containing a nested object for each peer
-                JToken jsonPeers = jsonChannel["peers"];
-                bool foundPeer = false;
-
-                //out("Peers: " + (peers == null ? "null" : peers.toString()));
-                if (jsonPeers != null)
-                {
-                    foreach (JProperty prop in jsonPeers.Children<JProperty>())
-                    {
-                        string peerName = prop.Name;
-
-                        if (logger.IsTraceEnabled())
-                        {
-                            logger.Trace($"NetworkConfig.reconstructChannel: Processing peer {peerName}");
-                        }
-
-                        JToken jsonPeer = prop.Value;
-                        if (jsonPeer == null)
-                        {
-                            throw new NetworkConfigurationException($"Error constructing channel {channelName}. Invalid peer entry: {peerName}");
-                        }
-
-                        Peer peer = GetPeer(client, peerName);
-                        if (peer == null)
-                        {
-                            throw new NetworkConfigurationException($"Error constructing channel {channelName}. Peer {peerName} not defined in configuration");
-                        }
-
-                        // Set the various roles
-                        Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions();
-                        SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.ENDORSING_PEER);
-                        SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.CHAINCODE_QUERY);
-                        SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.LEDGER_QUERY);
-                        SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.EVENT_SOURCE);
-
-                        foundPeer = true;
-
-                        // Add the event hub associated with this peer
-                        EventHub eventHub = GetEventHub(client, peerName);
-                        if (eventHub != null)
-                        {
-                            channel.AddEventHub(eventHub);
-                            if (!peerOptions.HasPeerRoles())
-                            {
-                                // means no roles were found but there is an event hub so define all roles but eventing.
-                                peerOptions.SetPeerRoles(new List<PeerRole> {PeerRole.ENDORSING_PEER, PeerRole.CHAINCODE_QUERY, PeerRole.LEDGER_QUERY});
-                            }
-                        }
-
-                        channel.AddPeer(peer, peerOptions);
-                    }
-                }
-
-                if (!foundPeer)
-                {
-                    // peers is a required field
-                    throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one peer must be specified");
+                    channel.AddOrderer(orderer);
+                    foundOrderer = true;
                 }
             }
-            catch (InvalidArgumentException e)
+
+            if (!foundOrderer)
             {
-                throw;
+                // orderers is a required field
+                throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one orderer must be specified");
             }
 
+            // peers is an object containing a nested object for each peer
+            JToken jsonPeers = jsonChannel["peers"];
+            bool foundPeer = false;
+
+            //out("Peers: " + (peers == null ? "null" : peers.toString()));
+            if (jsonPeers != null)
+            {
+                foreach (JProperty prop in jsonPeers.Children<JProperty>())
+                {
+                    string peerName = prop.Name;
+
+                    if (logger.IsTraceEnabled())
+                    {
+                        logger.Trace($"NetworkConfig.reconstructChannel: Processing peer {peerName}");
+                    }
+
+                    JToken jsonPeer = prop.Value;
+                    if (jsonPeer == null)
+                    {
+                        throw new NetworkConfigurationException($"Error constructing channel {channelName}. Invalid peer entry: {peerName}");
+                    }
+
+                    Peer peer = GetPeer(client, peerName);
+                    if (peer == null)
+                    {
+                        throw new NetworkConfigurationException($"Error constructing channel {channelName}. Peer {peerName} not defined in configuration");
+                    }
+
+                    // Set the various roles
+                    Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions();
+                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.ENDORSING_PEER);
+                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.CHAINCODE_QUERY);
+                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.LEDGER_QUERY);
+                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.EVENT_SOURCE);
+
+                    foundPeer = true;
+
+                    // Add the event hub associated with this peer
+                    EventHub eventHub = GetEventHub(client, peerName);
+                    if (eventHub != null)
+                    {
+                        channel.AddEventHub(eventHub);
+                        if (!peerOptions.HasPeerRoles())
+                        {
+                            // means no roles were found but there is an event hub so define all roles but eventing.
+                            peerOptions.SetPeerRoles(new List<PeerRole> {PeerRole.ENDORSING_PEER, PeerRole.CHAINCODE_QUERY, PeerRole.LEDGER_QUERY});
+                        }
+                    }
+
+                    channel.AddPeer(peer, peerOptions);
+                }
+            }
+
+            if (!foundPeer)
+            {
+                // peers is a required field
+                throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one peer must be specified");
+            }
+ 
             return channel;
         }
 
@@ -780,20 +774,20 @@ namespace Hyperledger.Fabric.SDK
                 String value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTime");
                 if (null != value)
                 {
-                    props.Remove("grpc.NettyChannelBuilderOption.keepAliveTime");
+                    props.GetAndRemove("grpc.NettyChannelBuilderOption.keepAliveTime");
                     props.Set("grpc.keepalive_time_ms", value);
                 }
 
                 value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTimeout");
                 if (null != value)
                 {
-                    props.Remove("grpc.NettyChannelBuilderOption.keepAliveTimeout");
+                    props.GetAndRemove("grpc.NettyChannelBuilderOption.keepAliveTimeout");
                     props.Set("grpc.keepalive_timeout_ms", value);
                 }
                 value = props.Get("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                 if (null != value)
                 {
-                    props.Remove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
+                    props.GetAndRemove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                     props.Set("grpc.max_receive_message_length", value);
                 }
 

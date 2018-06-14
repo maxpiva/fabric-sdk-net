@@ -56,7 +56,8 @@ namespace Hyperledger.Fabric.SDK.Helper
                     cancelSource.Cancel();
                     await task; //Propagate Exceptions
                 }
-                throw new TimeoutException("The operation has timed out.");
+                else
+                    throw new TimeoutException("The operation has timed out.");
             }
         }
     }

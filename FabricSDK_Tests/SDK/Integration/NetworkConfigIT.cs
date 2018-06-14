@@ -183,7 +183,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Channel channel = ConstructChannel(client, FOO_CHANNEL_NAME);
 
             // Use any old peer...
-            Peer peer = channel.GetPeers().First();
+            Peer peer = channel.Peers.First();
             if (!CheckInstantiatedChaincode(channel, peer, CHAIN_CODE_NAME, CHAIN_CODE_PATH, CHAIN_CODE_VERSION))
             {
                 // The chaincode we require does not exist, so deploy it...
@@ -235,7 +235,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             {
 
                 MoveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null);
-                bool erro = false;
                 QueryChaincodeForExpectedValue(client, channel, newVal, chaincodeID);
                 MoveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null);
                 QueryChaincodeForExpectedValue(client, channel, originalVal, chaincodeID);
@@ -404,7 +403,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // only a client from the same org as the peer can issue an install request
                 int numInstallProposal = 0;
 
-                List<Peer> peersFromOrg = channel.GetPeers();
+                IReadOnlyList<Peer> peersFromOrg = channel.Peers;
                 numInstallProposal = numInstallProposal + peersFromOrg.Count;
                 responses = client.SendInstallProposal(installProposalRequest, peersFromOrg);
 

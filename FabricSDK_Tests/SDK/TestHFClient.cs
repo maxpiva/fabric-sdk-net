@@ -28,17 +28,15 @@ namespace Hyperledger.Fabric.Tests.SDK
     {
 
         internal string tempFile;
-        HFClient hfClient;
 
-        public TestHFClient(string tempFile, HFClient hfClient)
+        public TestHFClient(string tempFile)
         {
             this.tempFile = tempFile;
-            this.hfClient = hfClient;
+
         }
 
         public static HFClient Create()
         {
-
             HFClient hfclient = HFClient.Create();
             SetupClient(hfclient);
             return hfclient;
@@ -87,7 +85,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 {
                     File.Delete(tempFile);
                 }
-                catch (System.Exception e)
+                catch (System.Exception)
                 {
                     // // now harm done.
                 }

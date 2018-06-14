@@ -60,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         internal readonly string sampleStoreFile = Path.Combine(Path.GetTempPath() + "HFCSampletest.properties");
         internal SampleStore sampleStore;
         private IReadOnlyList<SampleOrg> testSampleOrgs;
-        private string testTxID = null; // save the CC invoke TxID and use in queries
+        //private string testTxID = null; // save the CC invoke TxID and use in queries
 
         internal virtual string CHAIN_CODE_FILEPATH { get; } = "sdkintegration/gocc/sample_11";
 
@@ -523,7 +523,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     return channel.SendTransaction(successful, user, testConfig.GetTransactionWaitTime() * 1000);
                 return channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
                 throw new TaskCanceledException();
             }

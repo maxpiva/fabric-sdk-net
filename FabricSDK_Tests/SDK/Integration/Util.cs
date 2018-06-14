@@ -19,9 +19,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Logging;
 using SharpCompress.Common;
 using SharpCompress.Writers;
-using System.Threading.Tasks;
 using Hyperledger.Fabric.Tests.Helper;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
@@ -74,10 +75,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 throw new SystemException($"Expected in {directorys} only 1 sk file but found {matches.Length}");
             return matches[0];
         }
-
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(Util));
         public static void COut(string format, params object[] args)
         {
-            Console.WriteLine(format,args);
+            logger.Debug(string.Format(format,args));
         }
 
         public static T Get<T>(this TaskCompletionSource<T> tco, int timeoutinmilliseconds)

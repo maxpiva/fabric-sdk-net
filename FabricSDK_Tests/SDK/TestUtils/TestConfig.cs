@@ -89,7 +89,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
                 sdkProperties.Load(fullpath);
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
                 logger.Warn($"Failed to load any configuration from: {fullpath}. Using toolkit defaults");
             }
@@ -121,7 +121,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 runningFabricCATLS = runningTLS;
                 runningFabricTLS = runningTLS;
 
-                foreach (string key in sdkProperties)
+                foreach (string key in sdkProperties.Keys)
                 {
                     string val = sdkProperties[key] + string.Empty;
 
@@ -395,31 +395,26 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 // change on the fly ...
                 string temp = null;
 
-                try
-                {
-                    //create a temp file
-                    string dir = Path.GetTempPath();
-                    Directory.CreateDirectory(dir);
-                    temp = Path.Combine(dir, fname + "-FixedUp.yaml");
-                    if (File.Exists(temp))
-                    {
-                        //For testing start fresh
-                        File.Delete(temp);
-                    }
 
-                    string sourceText = File.ReadAllText(ret, Encoding.UTF8);
-
-                    sourceText = sourceText.Replace("https://localhost", "https://" + LOCALHOST);
-                    sourceText = sourceText.Replace("http://localhost", "http://" + LOCALHOST);
-                    sourceText = sourceText.Replace("grpcs://localhost", "grpcs://" + LOCALHOST);
-                    sourceText = sourceText.Replace("grpc://localhost", "grpc://" + LOCALHOST);
-                    File.WriteAllText(temp, sourceText);
-                    logger.Info($"produced new network-config.yaml file at: {temp}");
-                }
-                catch (System.Exception e)
+                //create a temp file
+                string dir = Path.GetTempPath();
+                Directory.CreateDirectory(dir);
+                temp = Path.Combine(dir, fname + "-FixedUp.yaml");
+                if (File.Exists(temp))
                 {
-                    throw;
+                    //For testing start fresh
+                    File.Delete(temp);
                 }
+
+                string sourceText = File.ReadAllText(ret, Encoding.UTF8);
+
+                sourceText = sourceText.Replace("https://localhost", "https://" + LOCALHOST);
+                sourceText = sourceText.Replace("http://localhost", "http://" + LOCALHOST);
+                sourceText = sourceText.Replace("grpcs://localhost", "grpcs://" + LOCALHOST);
+                sourceText = sourceText.Replace("grpc://localhost", "grpc://" + LOCALHOST);
+                File.WriteAllText(temp, sourceText);
+                logger.Info($"produced new network-config.yaml file at: {temp}");
+
 
                 ret = temp;
             }

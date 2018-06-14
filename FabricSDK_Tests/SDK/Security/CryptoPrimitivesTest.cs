@@ -278,7 +278,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 myCrypto.Store = null;
                 Assert.Fail("setTrustStore(null) should have thrown exception");
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
             }
         }
@@ -489,7 +489,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
                 Assert.IsFalse(crypto.Store.Validate(certBytes));
             }
-            catch (IOException e)
+            catch (IOException)
             {
                 Assert.Fail("cannot read cert file");
             }
@@ -560,7 +560,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 X509Certificate2 cert = new X509Certificate2("Resources/notsigned.crt".Locate());
                 res = crypto.Store.Validate(cert);
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
                 Assert.Fail("cannot read cert file");
             }
@@ -580,7 +580,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             {
                 Assert.IsTrue(crypto.Store.Validate(pemCert.ToUTF8String()));
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
                 Assert.Fail("cannot read cert file");
             }
@@ -652,14 +652,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 crypto.Sign(null, new byte[] {(byte) 0x00});
                 Assert.Fail("sign() should have thrown an exception");
             }
-            catch (IllegalArgumentException e)
+            catch (IllegalArgumentException)
             {
             }
         }
 
         private KeyPair FindRightKey()
         {
-            X509Certificate2 certf = null;
+
             foreach (X509Certificate2 cert in crypto.Store.Certificates.Select(a=>a.X509Certificate2))
             {
                 if (cert.HasPrivateKey && cert.FriendlyName == "Hyperledger.Fabric")
@@ -703,7 +703,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 crypto.Sign(key, null);
                 Assert.Fail("sign() should have thrown an exception");
             }
-            catch (IllegalArgumentException e)
+            catch (IllegalArgumentException)
             {
             }
             catch (System.Exception e)

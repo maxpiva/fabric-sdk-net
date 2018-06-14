@@ -30,7 +30,7 @@ namespace Hyperledger.Fabric.SDK.Security
         internal int securityLevel = Config.Instance.GetSecurityLevel();
 
 
-        private bool inited = false;
+        private readonly bool inited = false;
         public KeyStore Store
         {
             get => _store;

@@ -251,8 +251,8 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Assert.AreEqual("Properties \"clientKeyFile\" and \"clientKeyBytes\" must cannot both be set", e.Message);
             }
 
-            testprops.Remove("clientKeyFile");
-            testprops.Remove("clientKeyBytes");
+            testprops.GetAndRemove("clientKeyFile");
+            testprops.GetAndRemove("clientKeyBytes");
             testprops.Set("clientCertFile", ("resources/tls-client.crt").Locate());
             testprops.Set("clientCertBytes", new string('\0', 100));
             try
@@ -264,7 +264,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Assert.AreEqual("Properties \"clientCertFile\" and \"clientCertBytes\" must cannot both be set", e.Message);
             }
 
-            testprops.Remove("clientCertFile");
+            testprops.GetAndRemove("clientCertFile");
             testprops.Set("clientKeyBytes", new string('\0', 100));
             testprops.Set("clientCertBytes", new string('\0', 100));
             try
@@ -302,8 +302,8 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Assert.Fail("failed to read tls client key or cert: " + e.Message);
             }
 
-            testprops.Remove("clientKeyFile");
-            testprops.Remove("clientCertFile");
+            testprops.GetAndRemove("clientKeyFile");
+            testprops.GetAndRemove("clientCertFile");
             testprops.Set("clientKeyBytes", ckb.ToUTF8String());
             testprops.Set("clientCertBytes", ccb.ToUTF8String());
             new Endpoint("grpcs://localhost:594", testprops);

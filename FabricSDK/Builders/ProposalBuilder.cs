@@ -62,7 +62,7 @@ import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHead
     {
 
         private static readonly ILog logger = LogProvider.GetLogger(typeof(ProposalBuilder));
-        private static bool IS_DEBUG_LEVEL = logger.IsDebugEnabled();
+        private static readonly bool IS_DEBUG_LEVEL = logger.IsDebugEnabled();
 
         private Protos.Peer.ChaincodeID chaincodeID;
         protected List<ByteString> argList;

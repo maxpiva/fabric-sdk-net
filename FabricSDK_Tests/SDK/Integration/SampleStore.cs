@@ -107,7 +107,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             {
                 properties.Load(file);
             }
-            catch (FileNotFoundException e)
+            catch (FileNotFoundException)
             {
                 logger.Warn($"Could not find the file \"{file}\"");
             }

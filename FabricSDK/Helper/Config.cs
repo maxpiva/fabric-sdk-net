@@ -144,7 +144,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
                 sdkProperties.Load(fullpath);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 logger.Warn($"Failed to load any configuration from: {fullpath}. Using toolkit defaults");
             }
@@ -366,7 +366,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                         int parseInt = int.Parse(ep[0]);
                         lcurveMapping.Add(parseInt, ep[1]);
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         logger.Warn($"Bad curve mapping. Integer needed for strength {ep[0]} for {mape} in property {SECURITY_CURVE_MAPPING}");
                     }

@@ -7,30 +7,47 @@ using System.Linq;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
-    //From StackOverflow
-    //https://stackoverflow.com/a/7696370
-    //User: Nick Rimmer & Community
-    //Heavly modified to suit
-    public class Properties : IEnumerable<string>
+    public class Properties : IDictionary<string, string>
     {
         private string filename;
         private Dictionary<string, string> list=new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
-        public Properties()
+
+        public void Add(string key, string value)
         {
+            throw new NotImplementedException();
         }
+
+        public bool ContainsKey(string key)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Remove(string key)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool TryGetValue(string key, out string value)
+        {
+            throw new NotImplementedException();
+        }
+
         public string this[string field]
         {
             get => Get(field);
             set => Set(field, value);
         }
 
+        public ICollection<string> Keys => list.Keys;
+        public ICollection<string> Values => list.Values;
+
         public string Get(string field, string defValue)
         {
             return Get(field) == null ? defValue : Get(field);
         }
 
-        public string Remove(string field)
+        public string GetAndRemove(string field)
         {
             if (list.ContainsKey(field))
             {
@@ -116,9 +133,9 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
         }
 
-        public IEnumerator<string> GetEnumerator()
+        public IEnumerator<KeyValuePair<string,string>> GetEnumerator()
         {
-            foreach (string str in list.Keys)
+            foreach (KeyValuePair<string, string> str in list)
                 yield return str;
         }
 
@@ -135,6 +152,32 @@ namespace Hyperledger.Fabric.SDK.Helper
             return p;
         }
 
+        public void Add(KeyValuePair<string, string> item)
+        {
+            Set(item.Key,item.Value);
+        }
+
+        public void Clear()
+        {
+            list.Clear();
+        }
+
+        public bool Contains(KeyValuePair<string, string> item)
+        {
+            return list.Contains(item);
+        }
+
+        public void CopyTo(KeyValuePair<string, string>[] array, int arrayIndex)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Remove(KeyValuePair<string, string> item)
+        {
+            return list.Remove(item.Key);
+        }
+
         public int Count => list.Count;
+        public bool IsReadOnly => false;
     }
 }

@@ -19,10 +19,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -36,7 +36,6 @@ namespace Hyperledger.Fabric.SDK
 */
 
 
-    
     public class Peer : BaseClient, IEquatable<Peer>
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Peer));
@@ -46,21 +45,22 @@ namespace Hyperledger.Fabric.SDK
         private PeerEventServiceClient peerEventingClient;
         private TransactionContext transactionContext;
 
-        public Peer(string name, string grpcURL, Properties properties) : base(name, grpcURL, properties)
+        public Peer(string name, string url, Properties properties) : base(name, url, properties)
         {
             ReconnectCount = 0L;
+            _disconnectedHandler = DefaultDisconnectHandler;
         }
 
 
         [JsonIgnore]
         public BlockEvent LastBlockEvent { get; private set; }
-     
+
         /**
          * Set the channel the peer is on.
          *
          * @param channel
          */
-        
+        [JsonIgnore]
         public override Channel Channel
         {
             get => base.Channel;
@@ -72,15 +72,18 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
+        [JsonIgnore]
         internal Channel intChannel
         {
             set => base.Channel = value;
         }
+
         [JsonIgnore]
         public long LastConnectTime { get; set; }
 
         [JsonIgnore]
         public long ReconnectCount { get; private set; }
+
         public static IPeerEventingServiceDisconnected DefaultDisconnectHandler => _disconnectedHandler ?? (_disconnectedHandler = new PeerEventingServiceDisconnect());
 
 
@@ -104,11 +107,8 @@ namespace Hyperledger.Fabric.SDK
             return new Peer(name, grpcURL, properties);
         }
 
-        public Peer()
-        {
-            _disconnectedHandler = DefaultDisconnectHandler;
-        }
-        public async Task InitiateEventing(TransactionContext transContext, Channel.PeerOptions peersOptions, CancellationToken token=default(CancellationToken))
+
+        public async Task InitiateEventing(TransactionContext transContext, Channel.PeerOptions peersOptions, CancellationToken token = default(CancellationToken))
         {
             transactionContext = transContext.RetryTransactionSameContext();
             if (peerEventingClient == null)
@@ -128,7 +128,7 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        public async Task<Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken))
+        public async Task<ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
         {
             CheckSendProposal(proposal);
 
@@ -144,7 +144,7 @@ namespace Hyperledger.Fabric.SDK
 
             try
             {
-                return await localEndorserClient.SendProposalAsync(proposal,token);
+                return await localEndorserClient.SendProposalAsync(proposal, token);
             }
             catch (Exception)
             {
@@ -195,7 +195,7 @@ namespace Hyperledger.Fabric.SDK
             Shutdown(true);
         }
 
-        public void ReconnectPeerEventServiceClient(PeerEventServiceClient failedPeerEventServiceClient, Exception throwable, CancellationToken token)
+        public void ReconnectPeerEventServiceClient(PeerEventServiceClient failedPeerEventServiceClient, Exception throwable, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
             {
@@ -334,7 +334,7 @@ namespace Hyperledger.Fabric.SDK
             public long ReconnectCount => peer.ReconnectCount;
             public Exception ExceptionThrown { get; }
 
-            public async Task Reconnect(long? startBlockNumber, CancellationToken token=default(CancellationToken))
+            public async Task Reconnect(long? startBlockNumber, CancellationToken token = default(CancellationToken))
             {
                 logger.Trace("reconnecting startBLockNumber" + startBlockNumber);
                 peer.IncrementReconnectCount();
@@ -361,7 +361,7 @@ namespace Hyperledger.Fabric.SDK
             private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventingServiceDisconnect));
             private readonly long PEER_EVENT_RETRY_WAIT_TIME = Config.Instance.GetPeerRetryWaitTime();
 
-            public async Task Disconnected(IPeerEventingServiceDisconnectEvent evnt, CancellationToken token=default(CancellationToken))
+            public async Task Disconnected(IPeerEventingServiceDisconnectEvent evnt, CancellationToken token = default(CancellationToken))
             {
                 BlockEvent lastBlockEvent = evnt.LatestBlockReceived;
 

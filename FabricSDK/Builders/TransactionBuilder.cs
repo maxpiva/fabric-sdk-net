@@ -72,7 +72,8 @@ namespace Hyperledger.Fabric.SDK.Builders
             ChaincodeActionPayload chaincodeActionPayload = new ChaincodeActionPayload {Action = chaincodeEndorsedAction};
 
             //We need to remove any transient fields - they are not part of what the peer uses to calculate hash.
-            ChaincodeProposalPayload chaincodeProposalPayloadNoTrans = new ChaincodeProposalPayload {Input = chaincodeProposal.ToByteString()};
+            ChaincodeProposalPayload p = ChaincodeProposalPayload.Parser.ParseFrom(chaincodeProposal.Payload);
+            ChaincodeProposalPayload chaincodeProposalPayloadNoTrans = new ChaincodeProposalPayload {Input = p.Input};
             chaincodeActionPayload.ChaincodeProposalPayload = chaincodeProposalPayloadNoTrans.ToByteString();
 
 
@@ -110,5 +111,6 @@ namespace Hyperledger.Fabric.SDK.Builders
 
             return new Payload {Header = header, Data = transaction.ToByteString()};
         }
+        
     }
 }

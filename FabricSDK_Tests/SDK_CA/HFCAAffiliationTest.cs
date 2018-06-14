@@ -164,7 +164,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(AffiliationException), "Error while deleting affiliation")]
-        public void deleteAffiliationNoServerResponse()
+        public void DeleteAffiliationNoServer()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;

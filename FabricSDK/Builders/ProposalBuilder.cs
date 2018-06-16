@@ -26,38 +26,6 @@ using Hyperledger.Fabric.SDK.Requests;
 
 namespace Hyperledger.Fabric.SDK.Builders
 {
-/*
-    package org.hyperledger.fabric.sdk.transaction;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import com.google.protobuf.ByteString;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.common.Common.HeaderType;
-import org.hyperledger.fabric.protos.peer.Chaincode;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeInput;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeInvocationSpec;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeSpec;
-import org.hyperledger.fabric.protos.peer.FabricProposal;
-import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeHeaderExtension;
-import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeProposalPayload;
-import org.hyperledger.fabric.sdk.TransactionRequest;
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hyperledger.fabric.sdk.helper.Utils.logString;
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.createChannelHeader;
-import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHeaderAsByteString;
-*/
     public class ProposalBuilder
     {
 

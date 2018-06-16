@@ -101,7 +101,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
         [TestInitialize]
-        public void CheckConfig()
+        public virtual void CheckConfig()
         {
             Util.COut("\n\n\nRUNNING: %s.\n", testName);
             //   configHelper.clearConfig();

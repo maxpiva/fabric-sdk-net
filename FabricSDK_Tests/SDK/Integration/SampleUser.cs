@@ -12,11 +12,13 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
@@ -113,7 +115,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        
+        [JsonConverter(typeof(InterfaceConverter<IEnrollment, SampleStore.SampleStoreEnrollement>))]
         public IEnrollment Enrollment
         {
             get => enrollment;
@@ -199,6 +201,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         public static string ToKeyValStoreName(string name, string org)
         {
             return "user." + name + org;
+        }
+    }
+    public class InterfaceConverter<TInterface, TConcrete> : CustomCreationConverter<TInterface>
+        where TConcrete : TInterface, new()
+    {
+        public override TInterface Create(Type objectType)
+        {
+            return new TConcrete();
         }
     }
 }

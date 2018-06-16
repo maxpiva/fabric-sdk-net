@@ -133,7 +133,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
 
         [TestInitialize]
-        public void CheckConfig()
+        public virtual void CheckConfig()
         {
             Util.COut("\n\n\nRUNNING: {0}.\n", testName);
 
@@ -759,7 +759,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
 
                     Assert.IsTrue(useFilteredBlocks ? blockEvent.IsFiltered : !blockEvent.IsFiltered, $"Wrong type of block seen block number {blockNumber}. expected filtered block {useFilteredBlocks} but got {blockEvent.IsFiltered}");
-                    long count = Interlocked.Increment(ref bcount);
+                    long count = Interlocked.Increment(ref bcount)-1;
 
 
                     //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
@@ -904,7 +904,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             foreach (ProposalResponse proposalResponse in queryProposals)
             {
-                if (!proposalResponse.IsVerified || proposalResponse.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
+                if (!proposalResponse.IsVerified || proposalResponse.Status != ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
                 {
                     Assert.Fail($"Failed query proposal from peer {proposalResponse.Peer.Name} status: {proposalResponse.Status}. Messages: {proposalResponse.Message}. Was verified : {proposalResponse.IsVerified}");
                 }

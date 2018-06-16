@@ -11,26 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk.helper;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.log4j.Level;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
-import static java.lang.String.format;
-*/
-
-
 
 /**
  * Config allows for a global config of the toolkit. Central location for all
@@ -155,7 +135,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 /**
                  * Timeout settings
                  **/
-                DefaultProperty(PROPOSAL_WAIT_TIME, "20000");
+                DefaultProperty(PROPOSAL_WAIT_TIME, "30000");
                 DefaultProperty(CHANNEL_CONFIG_WAIT_TIME, "15000");
                 DefaultProperty(ORDERER_RETRY_WAIT_TIME, "200");
                 DefaultProperty(ORDERER_WAIT_TIME, "10000");

@@ -118,57 +118,59 @@ namespace Hyperledger.Fabric.SDK
             return SendTransactionAsync(envelope).RunAndUnwarp();
         }
 
-        private async Task<BroadcastResponse> Broadcast(AsyncDuplexStreamingCall<Envelope, BroadcastResponse> call, Envelope envelope, CancellationToken token)
+        private async Task<BroadcastResponse> Broadcast(ADStreamingCall<Envelope, BroadcastResponse> call, Envelope envelope, CancellationToken token)
         {
             BroadcastResponse resp = null;
             var rtask = Task.Run(async () =>
             {
-                if (await call.ResponseStream.MoveNext(token))
+                if (await call.Call.ResponseStream.MoveNext(token))
                 {
                     token.ThrowIfCancellationRequested();
-                    resp = call.ResponseStream.Current;
+                    resp = call.Call.ResponseStream.Current;
                     logger.Debug("resp status value: " + resp.Status + ", resp: " + resp.Info);
-                    if (resp.Status == Status.Success)
-                        return;
+//TODO: mpiva: Review this, original JAVA code will throw exception on no success, channel init code, check for the status (Not Found) for retrying.
+//TODO: mpiva: Report this as an error to the original JAVA SDK repo.
+                    /*
                     if (shutdown)
                         throw new OperationCanceledException($"Channel {channelName}, sendTransaction were canceled");
-                    throw new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status} ({resp.Info}) during order registration");
+                    throw new TransactionException($"Channel {channelName} orderer {name} status returned failure code {resp.Status} ({resp.Info}) during order registration");*/
                 }
             }, token);
-            await call.RequestStream.WriteAsync(envelope);
+            await call.Call.RequestStream.WriteAsync(envelope);
             token.ThrowIfCancellationRequested();
-            await rtask;
-            await call.TryCompleteAsync();
+            await rtask.Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
             return resp;
         }
 
-        private async Task<List<DeliverResponse>> Deliver(AsyncDuplexStreamingCall<Envelope, DeliverResponse> call, Envelope envelope, CancellationToken token)
+        private async Task<List<DeliverResponse>> Deliver(ADStreamingCall<Envelope, DeliverResponse> call, Envelope envelope, CancellationToken token)
         {
             List<DeliverResponse> ret = new List<DeliverResponse>();
             var rtask = Task.Run(async () =>
             {
-                while (await call.ResponseStream.MoveNext(token))
+                while (await call.Call.ResponseStream.MoveNext(token))
                 {
                     token.ThrowIfCancellationRequested();
-                    DeliverResponse resp = call.ResponseStream.Current;
+                    DeliverResponse resp = call.Call.ResponseStream.Current;
                     logger.Debug("resp status value: " + resp.Status + ", type case: " + resp.TypeCase);
                     if (resp.TypeCase == DeliverResponse.TypeOneofCase.Status)
                     {
                         ret.Insert(0, resp);
-                        if (resp.Status == Status.Success)
+//TODO: mpiva: Review this, original JAVA code will throw exception on no success, channel init code, check for the status (Not Found) for retrying.
+//TODO: mpiva: Report this as an error to the original JAVA SDK repo.
+//                      if (resp.Status == Status.Success)
                             return;
-                        if (shutdown)
+                        /*if (shutdown)
                             throw new OperationCanceledException($"Channel {channelName}, sendDeliver were canceled");
                         throw new TransactionException($"Channel {channelName} orderer {name} status finished with failure code {resp.Status} during order registration");
+                        */
                     }
 
                     ret.Add(resp);
                 }
             }, token);
-            await call.RequestStream.WriteAsync(envelope);
+            await call.Call.RequestStream.WriteAsync(envelope);
             token.ThrowIfCancellationRequested();
-            await rtask;
-            await call.TryCompleteAsync();
+            await rtask.Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
             return ret;
         }
 
@@ -205,20 +207,16 @@ namespace Hyperledger.Fabric.SDK
                 managedChannel = lmanagedChannel;
             }
             AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-            using (var call = nso.Broadcast(null, null, token))
+            using (var call = nso.Broadcast(null, null, token).ToADStreamingCall())
             {
                 try
                 {
-                    return await Broadcast(call, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
+                    return await Broadcast(call, envelope, token);
                 }
                 catch (Exception e)
                 {
                     managedChannel = null;
                     throw BuildException(e, "transaction");
-                }
-                finally
-                {
-                    await call.TryCompleteAsync();
                 }
             }
         }
@@ -239,20 +237,16 @@ namespace Hyperledger.Fabric.SDK
                 managedChannel = lmanagedChannel;
             }
             AtomicBroadcast.AtomicBroadcastClient nso = new AtomicBroadcast.AtomicBroadcastClient(lmanagedChannel);
-            using (var call = nso.Deliver(null, null, token))
+            using (var call = nso.Deliver(null, null, token).ToADStreamingCall())
             {
                 try
                 {
-                    return await Deliver(call, envelope, token).Timeout(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs));
+                    return await Deliver(call, envelope, token);
                 }
                 catch (Exception e)
                 {
                     managedChannel = null;
                     throw BuildException(e, "deliver");
-                }
-                finally
-                {
-                    await call.TryCompleteAsync();
                 }
             }
         }

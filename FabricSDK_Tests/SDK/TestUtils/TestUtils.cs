@@ -13,37 +13,6 @@
  *  limitations under the License.
  *
  */
-/*
-package org.hyperledger.fabric.sdk.testutils;
-
-import java.io.ByteArrayInputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.security.PrivateKey;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
-import java.util.zip.GZIPInputStream;
-
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeMatcher;
-import org.hyperledger.fabric.sdk.Enrollment;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.junit.Assert;
-
-import static java.lang.String.format;
-*/
-//import org.hyperledger.fabric.sdk.MockUser;
-//import org.hyperledger.fabric.sdk.ClientTest.MockEnrollment;
 
 using System;
 using System.Collections;
@@ -51,9 +20,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
+using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
@@ -70,7 +41,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         }
 
         //Reflection methods deleted, there is no need, stuff marked as internal
-        private static readonly string MOCK_CERT = string.Join("\r\n","-----BEGIN CERTIFICATE-----" , "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" , "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" , "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" , "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" , "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" , "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" , "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" , "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" , "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" , "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" , "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" , "NHvr441QC85U+V4UQWY=" , "-----END CERTIFICATE-----");
+        private static readonly string MOCK_CERT = String.Join("\r\n","-----BEGIN CERTIFICATE-----" , "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" , "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" , "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" , "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" , "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" , "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" , "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" , "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" , "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" , "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" , "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" , "NHvr441QC85U+V4UQWY=" , "-----END CERTIFICATE-----");
 
         public class MockEnrollment : IEnrollment
         {
@@ -205,6 +176,49 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
 
 
+        }
+
+        public static string RelocateFilePathsJSON(string filename)
+        {
+            return RelocateFilePaths(filename, ".json", "\"path\":\\s?\"(.*?)\"");
+        }
+
+        public static string RelocateFilePathsYAML(string filename)
+        {
+            return RelocateFilePaths(filename, ".yaml", "path:\\s?(.*?)$");
+        }
+
+        public static string RelocateFilePaths(string filename, string ext, string regex)
+        {
+            string tempfile = Path.GetTempFileName() + ext;
+            string json = File.ReadAllText(filename);
+            MatchCollection matches = new Regex(regex, RegexOptions.Compiled|RegexOptions.Multiline).Matches(json);
+            foreach (Match m in matches)
+            {
+                if (m.Success)
+                {
+                    bool replace = false;
+                    string path = m.Groups[1].Value.Replace("\r",String.Empty).Replace("\n",String.Empty);
+                    if (path.StartsWith("\"") && path.EndsWith("\""))
+                        path = path.Substring(1, path.Length - 2);
+                    string orgpath = path;
+                    if (path.StartsWith("/"))
+                        path = path.Substring(1);
+                    if (path.StartsWith("src/test"))
+                    {
+                        replace = true;
+                        path = path.Substring(9);
+                    }
+
+                    if (replace)
+                    {
+                        path = path.Locate().Replace("\\","/");
+                        json = json.Replace(orgpath, path);
+                    } 
+                }
+            }
+            File.WriteAllText(tempfile,json);
+            return tempfile;
         }
     }
 }

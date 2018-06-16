@@ -29,47 +29,7 @@ using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK.Helper
-{/*
-    package org.hyperledger.fabric.sdk.transaction;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
-import javax.xml.bind.DatatypeConverter;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.common.Common.ChannelHeader;
-import org.hyperledger.fabric.protos.common.Common.Envelope;
-import org.hyperledger.fabric.protos.common.Common.HeaderType;
-import org.hyperledger.fabric.protos.common.Common.Payload;
-import org.hyperledger.fabric.protos.common.Common.SignatureHeader;
-import org.hyperledger.fabric.protos.msp.Identities;
-import org.hyperledger.fabric.protos.orderer.Ab.SeekInfo;
-import org.hyperledger.fabric.protos.orderer.Ab.SeekInfo.SeekBehavior;
-import org.hyperledger.fabric.protos.orderer.Ab.SeekPosition;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeDeploymentSpec;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeID;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeInput;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeSpec;
-import org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeSpec.Type;
-import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeHeaderExtension;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.security.CryptoPrimitives;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hyperledger.fabric.sdk.helper.Utils.logString;
-import static org.hyperledger.fabric.sdk.helper.Utils.toHexString;
-*/
+{
 /**
  * Internal use only, not a public API.
  */

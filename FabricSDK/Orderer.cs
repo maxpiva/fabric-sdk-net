@@ -11,23 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdk;
-
-import java.io.Serializable;
-import java.util.Properties;
-
-import io.netty.util.internal.StringUtil;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.orderer.Ab;
-import org.hyperledger.fabric.protos.orderer.Ab.DeliverResponse;
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-import org.hyperledger.fabric.sdk.exception.TransactionException;
-
-import static java.lang.String.format;
-import static org.hyperledger.fabric.sdk.helper.Utils.checkGrpcUrl;*/
 
 using System;
 using System.Collections.Generic;

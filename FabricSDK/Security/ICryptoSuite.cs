@@ -22,21 +22,6 @@ using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
-/*
-    package org.hyperledger.fabric.sdk.security;
-
-import java.lang.reflect.InvocationTargetException;
-import java.security.KeyPair;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
-import java.util.Collection;
-import java.util.Properties;
-
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-*/
-
-
 
     /**
      * All packages for PKI key creation/signing/verification implement this interface

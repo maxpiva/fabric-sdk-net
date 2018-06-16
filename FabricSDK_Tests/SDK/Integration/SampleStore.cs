@@ -11,42 +11,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-/*
-package org.hyperledger.fabric.sdkintegration;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.io.Serializable;
-import java.io.StringReader;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PrivateKey;
-import java.security.Security;
-import java.security.spec.InvalidKeySpecException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.bouncycastle.util.encoders.Hex;
-import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.Enrollment;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-*/
-
 
 using System;
 using System.Collections.Generic;
@@ -278,16 +242,20 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
         [Serializable]
-        private class SampleStoreEnrollement : IEnrollment
+        public class SampleStoreEnrollement : IEnrollment
         {
             public SampleStoreEnrollement(string key, string certificate)
             {
                 Key = key;
                 Cert = certificate;
             }
-            
-            public string Key { get; }
-            public string Cert { get; }
+
+            public SampleStoreEnrollement()
+            {
+
+            }
+            public string Key { get; set; }
+            public string Cert { get; set; }
         }
     }
 }

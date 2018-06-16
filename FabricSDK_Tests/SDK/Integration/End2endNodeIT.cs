@@ -31,6 +31,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             // there is no loss in coverage for not doing this.
         }
 
+        [TestInitialize]
+        public override void CheckConfig()
+        {
+            base.CheckConfig();
+        }
         [TestMethod]
         public override void Setup()
         {

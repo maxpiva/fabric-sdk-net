@@ -142,7 +142,7 @@ namespace Hyperledger.Fabric.SDK
         {
             try
             {
-                var senderLocal = events.Chat();
+                var senderLocal = events.Chat().ToADStreamingCall();
                 Task connect = dtask.Connect(senderLocal, (evnt) =>
                 {
                     logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
@@ -250,7 +250,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        private async Task BlockListen(AsyncDuplexStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
+        private async Task BlockListen(ADStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
         {
             TransactionContext = transactionContext;
             Register register = new Register();
@@ -263,7 +263,7 @@ namespace Hyperledger.Fabric.SDK
             }
             ByteString blockEventByteString = blockEvent.ToByteString();
             SignedEvent signedBlockEvent = new SignedEvent {EventBytes = blockEventByteString, Signature = transactionContext.SignByteString(blockEventByteString.ToByteArray())};
-            await sendL.RequestStream.WriteAsync(signedBlockEvent);
+            await sendL.Call.RequestStream.WriteAsync(signedBlockEvent);
         }
 
 

@@ -16,9 +16,9 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         //A Task that wait for connection, but keeps recv events from the GRPC channel.
         private CancellationTokenSource _tokenSource;
-        public AsyncDuplexStreamingCall<T, S> Sender { get; private set; }
+        public ADStreamingCall<T, S> Sender { get; private set; }
 
-        public Task Connect(AsyncDuplexStreamingCall<T, S> call, Func<S, ProcessResult> process_function, Action<Exception> exception_function, CancellationToken token)
+        public Task Connect(ADStreamingCall<T, S> call, Func<S, ProcessResult> process_function, Action<Exception> exception_function, CancellationToken token)
         {
             Cancel();
             canceling = false;
@@ -33,10 +33,10 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 try
                 {
-                    while (await call.ResponseStream.MoveNext(_tokenSource.Token))
+                    while (await call.Call.ResponseStream.MoveNext(_tokenSource.Token))
                     {
                         _tokenSource.Token.ThrowIfCancellationRequested();
-                        S evnt = call.ResponseStream.Current;
+                        S evnt = call.Call.ResponseStream.Current;
                         ProcessResult result = process_function(evnt);
                         if (result == ProcessResult.ConnectionComplete)
                             ShouldCompleteConnection();
@@ -72,11 +72,10 @@ namespace Hyperledger.Fabric.SDK.Helper
         public void Cancel()
         {
             canceling = true;
-            Sender?.TryComplete();
+            Sender?.Dispose();
             _tokenSource?.Cancel();
             _tokenSource = null;
             _needCompletition = false;
-            Sender?.Dispose();
             Sender = null;
         }
 

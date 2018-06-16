@@ -19,16 +19,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK
-{ /*
-    package org.hyperledger.fabric.sdk;
-
-import java.util.Set;
-
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-import org.hyperledger.fabric.sdk.helper.Utils;
-
-import static java.lang.String.format;
-    */
+{ 
 
 /**
  * Interface which is the contract between the Certificate Authority provider and the SDK.

@@ -13,9 +13,7 @@
  *  limitations under the License.
  *
  */
-/*
-package org.hyperledger.fabric_ca.sdk;
-*/
+
 namespace Hyperledger.Fabric_CA.SDK
 {
     /**

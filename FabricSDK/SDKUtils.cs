@@ -14,23 +14,6 @@
  *
  */
 
-/*    package org.hyperledger.fabric.sdk;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-
-import com.google.protobuf.ByteString;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERSequenceGenerator;
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-
-import static java.lang.String.format;*/
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

@@ -419,7 +419,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 ret = temp;
             }
 
-            return ret;
+            return TestUtils.RelocateFilePathsYAML(ret);
         }
 
         private string GetDomainName(string name)

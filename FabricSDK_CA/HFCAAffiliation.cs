@@ -13,30 +13,7 @@
  *  limitations under the License.
  *
  */
-/*
-package org.hyperledger.fabric_ca.sdk;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.sdk.User;
-import org.hyperledger.fabric.sdk.helper.Utils;
-import org.hyperledger.fabric_ca.sdk.exception.AffiliationException;
-import org.hyperledger.fabric_ca.sdk.exception.HTTPException;
-import org.hyperledger.fabric_ca.sdk.exception.InvalidArgumentException;
-
-import static java.lang.String.format;
-
-*/
 
 using System;
 using System.Collections.Generic;

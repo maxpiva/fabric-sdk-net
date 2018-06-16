@@ -269,7 +269,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         // Returns the current value of b's assets
         private static string QueryChaincodeForCurrentValue(HFClient client, Channel channel, ChaincodeID chaincodeID)
         {
-            Util.COut("Now query chaincode on channel {0} for the current value of {1}", channel.Name);
+            Util.COut("Now query chaincode on channel {0} for the current value of b", channel.Name);
 
             QueryByChaincodeRequest queryByChaincodeRequest = client.NewQueryProposalRequest();
             queryByChaincodeRequest.SetArgs("b");

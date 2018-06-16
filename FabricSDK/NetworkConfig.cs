@@ -926,6 +926,15 @@ namespace Hyperledger.Fabric.SDK
 
             return pemString;
         }
+        private static JArray GetJsonValueAsArray(JToken value)
+        {
+            if (value is JArray)
+                return (JArray) value;
+            JArray r=new JArray();
+            r.Add(value);
+            return r;
+        }
+
 
         // Creates a new CAInfo instance from a JSON object
         private CAInfo CreateCA(string name, JToken jsonCA, OrgInfo org)
@@ -936,18 +945,15 @@ namespace Hyperledger.Fabric.SDK
             string enrollId = null;
             string enrollSecret = null;
             List<UserInfo> regUsers = new List<UserInfo>();
-            JToken registrar = jsonCA["registar"];
+            JToken registrar = jsonCA["registrar"];
             if (registrar != null)
             {
-                List<JToken> registrars = jsonCA["registar"].Children<JToken>().ToList();
-                if (registrars != null)
+                
+                foreach (JToken reg in GetJsonValueAsArray(jsonCA["registrar"]))
                 {
-                    foreach (JToken reg in registrars)
-                    {
-                        enrollId = reg["enrollId"]?.Value<string>();
-                        enrollSecret = reg["enrollSecret"]?.Value<string>();
-                        regUsers.Add(new UserInfo(org.MspId, enrollId, enrollSecret));
-                    }
+                    enrollId = reg["enrollId"]?.Value<string>();
+                    enrollSecret = reg["enrollSecret"]?.Value<string>();
+                    regUsers.Add(new UserInfo(org.MspId, enrollId, enrollSecret));
                 }
             }
 

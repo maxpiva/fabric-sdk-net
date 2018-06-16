@@ -35,7 +35,7 @@ namespace Hyperledger.Fabric.SDK.Requests
 
         public override Dictionary<string, byte[]> TransientMap
         {
-            get => transientMap.ToDictionary(a => a.Key, a => a.Value);
+            get => transientMap?.ToDictionary(a => a.Key, a => a.Value);
             set => transientMap = value ?? throw new InvalidArgumentException("Transient map may not be set to null");
         }
 

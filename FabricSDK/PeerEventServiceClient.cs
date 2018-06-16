@@ -159,7 +159,7 @@ namespace Hyperledger.Fabric.SDK
 
         private async Task Deliver(Deliver.DeliverClient broadcast, Envelope envelope, CancellationToken token)
         {
-            var call = filterBlock ? broadcast.DeliverFiltered() : broadcast.Deliver();
+            var call = filterBlock ? broadcast.DeliverFiltered().ToADStreamingCall() : broadcast.Deliver().ToADStreamingCall();
             try
             {
                 Task connect = dtask.Connect(call, (resp) =>
@@ -198,7 +198,7 @@ namespace Hyperledger.Fabric.SDK
                             throw new TransactionException($"Channel  {channelName} peer {peer.Name} Status got unknown type {resp.TypeCase}");
                     }
                 }, (ex) => ProcessException(ex), token);
-                await call.RequestStream.WriteAsync(envelope);
+                await call.Call.RequestStream.WriteAsync(envelope);
                 if (token.IsCancellationRequested)
                     dtask.Cancel();
                 token.ThrowIfCancellationRequested();

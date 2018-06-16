@@ -3,31 +3,7 @@
 
  SPDX-License-Identifier: Apache-2.0
 */
-/*
-package org.hyperledger.fabric.sdk;
 
-import java.lang.ref.WeakReference;
-
-import javax.xml.bind.DatatypeConverter;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.protos.common.Common;
-import org.hyperledger.fabric.protos.common.Common.Header;
-import org.hyperledger.fabric.protos.ledger.rwset.Rwset.TxReadWriteSet;
-import org.hyperledger.fabric.protos.msp.Identities;
-import org.hyperledger.fabric.protos.peer.FabricProposal;
-import org.hyperledger.fabric.protos.peer.FabricProposal.ChaincodeHeaderExtension;
-import org.hyperledger.fabric.protos.peer.FabricProposalResponse;
-import org.hyperledger.fabric.sdk.exception.CryptoException;
-import org.hyperledger.fabric.sdk.exception.InvalidIllegalArgumentException;
-import org.hyperledger.fabric.sdk.exception.ProposalException;
-import org.hyperledger.fabric.sdk.helper.Config;
-import org.hyperledger.fabric.sdk.helper.DiagnosticFileDumper;
-import org.hyperledger.fabric.sdk.security.CryptoSuite;
-*/
 
 using System;
 using System.Linq;

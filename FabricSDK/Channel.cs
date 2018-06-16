@@ -914,6 +914,8 @@ namespace Hyperledger.Fabric.SDK
 
         public List<Peer> GetPeers(params PeerRole[] roles)
         {
+            if (roles.Length == 0)
+                return peers.ToList();
             return GetPeers((IEnumerable<PeerRole>) roles);
         }
         /**

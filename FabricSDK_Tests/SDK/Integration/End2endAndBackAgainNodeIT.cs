@@ -25,13 +25,15 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         internal override ChaincodeID chaincodeID => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION);
         internal override ChaincodeID chaincodeID_11 => new ChaincodeID().SetName(CHAIN_CODE_NAME).SetVersion(CHAIN_CODE_VERSION_11);
 
-
         [TestInitialize]
+        public override void CheckConfig()
+        {
+            base.CheckConfig();
+        }
+        [TestMethod]
         public override void Setup()
         {
-
             sampleStore = new SampleStore(sampleStoreFile);
-
             SetupUsers(sampleStore);
             RunFabricTest(sampleStore);
         }

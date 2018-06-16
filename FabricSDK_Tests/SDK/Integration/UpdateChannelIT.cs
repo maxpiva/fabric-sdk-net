@@ -118,7 +118,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 //Now modify the batch timeout
                 string updateString = responseAsString.Replace(ORIGINAL_BATCH_TIMEOUT, UPDATED_BATCH_TIMEOUT);
-                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", updateString.ToBytes());
+                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/encode/common.Config", updateString.ToBytes());
                 Util.COut("Got {0} status for encoding the new desired channel config bytes", statuscode);
                 Assert.AreEqual(200, statuscode);
                 byte[] newConfigBytes = data;
@@ -289,7 +289,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     }
                     else
                     {
-                        Assert.AreEqual(BlockInfo.EnvelopeType.ENVELOPE, envelopeInfo.GetType());
+                        Assert.AreEqual(BlockInfo.EnvelopeType.ENVELOPE, envelopeInfo.EnvelopeType);
                         ++nonTransactions;
                     }
                 }

@@ -103,63 +103,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return result;
         }
 
-        public static TaskCompletionSource<S> ThenApply<T, S>(this TaskCompletionSource<T> first, Func<T, TaskCompletionSource<S>> func, int timeoutinmills)
-        {
-            TaskCompletionSource<S> res = new TaskCompletionSource<S>();
-            first.Task.ContinueWith(async (t)=>
-            {
-                if (t.IsFaulted)
-                    res.SetException(t.Exception.InnerException);
-                else if (t.IsCanceled)
-                    res.SetCanceled();
-                else
-                {
-                    TaskCompletionSource<S> ret = func(t.Result);
-                    using (var timeoutCancellationTokenSource = new CancellationTokenSource())
-                    {
-                        var completedTask = await Task.WhenAny(ret.Task, Task.Delay(timeoutinmills, timeoutCancellationTokenSource.Token));
-                        if (completedTask == ret.Task)
-                        {
-                            timeoutCancellationTokenSource.Cancel();
-                            if (ret.Task.IsCompleted)
-                                res.SetResult(ret.Task.Result);
-                            else if (ret.Task.IsFaulted)
-                                res.SetException(ret.Task.Exception.InnerException);
-                            else
-                                res.SetCanceled();
-                        }
-                        else
-                        {
-                            res.SetException(new TimeoutException("The operation has timed out."));
-                        }
-                    }
-                }
-            },default(CancellationToken),TaskContinuationOptions.RunContinuationsAsynchronously,TaskScheduler.Current);
-            return res;
-        }
-        public static TaskCompletionSource<S> ThenApply<T, S>(this TaskCompletionSource<T> first, Func<T, TaskCompletionSource<S>> func)
-        {
-            TaskCompletionSource<S> res = new TaskCompletionSource<S>();
-            first.Task.ContinueWith(async (t) =>
-            {
-                if (t.IsFaulted)
-                    res.SetException(t.Exception.InnerException);
-                else if (t.IsCanceled)
-                    res.SetCanceled();
-                else
-                {
-                    TaskCompletionSource<S> ret = func(t.Result);
-                    await ret.Task;
-                    if (ret.Task.IsCompleted)
-                        res.SetResult(ret.Task.Result);
-                    else if (ret.Task.IsFaulted)
-                        res.SetException(ret.Task.Exception.InnerException);
-                    else
-                        res.SetCanceled();
-                }
-            }, default(CancellationToken), TaskContinuationOptions.RunContinuationsAsynchronously, TaskScheduler.Current);
-            return res;
-        }
         public static T Get<T>(this TaskCompletionSource<T> tco)
         {
             return tco.Task.GetAwaiter().GetResult();

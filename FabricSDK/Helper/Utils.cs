@@ -333,29 +333,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         }
 
-        public static Task TryCompleteAsync<T, S>(this AsyncDuplexStreamingCall<T, S> d)
-        {
-            try
-            {
-                return d?.RequestStream?.CompleteAsync();
-            }
-            catch (Exception e)
-
-            {
-                return Task.FromResult(0);
-            }
-        }
-
-        public static void TryComplete<T, S>(this AsyncDuplexStreamingCall<T, S> d)
-        {
-            try
-            {
-                d?.RequestStream?.CompleteAsync().GetAwaiter().GetResult();
-            }
-            catch (Exception e)
-            {
-            }
-        }
+  
 
         public static (string Protocol, string Host, int Port) ParseGrpcUrl(string url)
         {

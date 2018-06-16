@@ -12,18 +12,6 @@
  *  limitations under the License.
  */
 
-/*
-package org.hyperledger.fabric_ca.sdk.helper;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.log4j.Level;
-*/
 /**
  * Config allows for a global config of the toolkit. Central location for all
  * toolkit configuration defaults. Has a local config file that can override any

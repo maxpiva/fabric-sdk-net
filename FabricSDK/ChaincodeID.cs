@@ -14,7 +14,7 @@
 
 namespace Hyperledger.Fabric.SDK
 {
-//    package org.hyperledger.fabric.sdk;
+
 
 /**
  * ChaincodeID identifies chaincode.

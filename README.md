@@ -4,7 +4,7 @@
 
 Direct .NET port from [fabric-sdk-java](https://github.com/hyperledger/fabric-sdk-java)
 
-Alpha Version
+Alpha Version (not for production)
 
 * SDK Porting from JAVA done.
 * Both sdk compile ok.
@@ -27,6 +27,9 @@ On FABRIC (Help requested)
 On this SDK
 - Add .NET chaincode upload (source and/or compiled)
 - More Cleanup, and .NET Design Guidelines.
+
+On the SHIM
+- Maybe Visual Studio Templates
 
 
 

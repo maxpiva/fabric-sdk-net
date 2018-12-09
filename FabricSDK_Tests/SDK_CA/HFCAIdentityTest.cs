@@ -13,8 +13,8 @@
  */
 
 
+using System;
 using System.IO;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
@@ -79,7 +79,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Client's crypto primitives not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Client's crypto primitives not set")]
         public void TestHFCAIdentityCryptoNull()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -88,7 +88,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "EnrollmentID cannot be null or empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "EnrollmentID cannot be null or empty")]
         public void TestHFCAIdentityIDNull()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);

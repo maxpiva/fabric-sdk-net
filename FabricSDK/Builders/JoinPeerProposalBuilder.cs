@@ -35,7 +35,6 @@ namespace Hyperledger.Fabric.SDK.Builders
                 logger.ErrorException(exp.Message, exp);
                 throw exp;
             }
-
             AddArg("JoinChain");
             AddArg(genesisBlock.ToByteString());
             return this;

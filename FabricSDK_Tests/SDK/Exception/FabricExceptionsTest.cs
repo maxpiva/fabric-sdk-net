@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.Tests.Helper;
@@ -107,45 +108,45 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException1()
         {
-            throw new InvalidArgumentException(MESSAGE);
+            throw new ArgumentException(MESSAGE);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException2()
         {
-            throw new InvalidArgumentException(new InvalidArgumentException(MESSAGE));
+            throw new ArgumentException(MESSAGE,new ArgumentException(MESSAGE));
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException3()
         {
-            throw new InvalidArgumentException(MESSAGE, new InvalidArgumentException(MESSAGE));
+            throw new ArgumentException(MESSAGE, new ArgumentException(MESSAGE));
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestIllegalIllegalArgumentException1()
         {
-            throw new IllegalArgumentException(MESSAGE);
+            throw new ArgumentException(MESSAGE);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestIllegalIllegalArgumentException2()
         {
-            throw new IllegalArgumentException(new IllegalArgumentException(MESSAGE));
+            throw new ArgumentException(MESSAGE, new ArgumentException(MESSAGE));
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestIllegalIllegalArgumentException3()
         {
-            throw new IllegalArgumentException(MESSAGE, new IllegalArgumentException(MESSAGE));
+            throw new ArgumentException(MESSAGE, new ArgumentException(MESSAGE));
         }
 
         [TestMethod]
@@ -294,6 +295,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Exception
             InvalidProtocolBufferException e1 = default(InvalidProtocolBufferException);
             InvalidProtocolBufferRuntimeException e2 = new InvalidProtocolBufferRuntimeException(MESSAGE, e1);
 
+            // ReSharper disable once ExpressionIsAlwaysNull
             Assert.AreEqual(e1, e2.InnerException);
         }
     }

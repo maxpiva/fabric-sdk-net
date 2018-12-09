@@ -32,7 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -95,7 +94,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     ordererProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
                     networkConfig.SetOrdererProperties(ordererName, ordererProperties);
                 }
-                catch (InvalidArgumentException e)
+                catch (ArgumentException e)
                 {
                     throw new System.Exception(e.Message, e);
                 }
@@ -111,7 +110,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     peerProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
                     networkConfig.SetPeerProperties(peerName, peerProperties);
                 }
-                catch (InvalidArgumentException e)
+                catch (ArgumentException e)
                 {
                     throw new System.Exception(e.Message, e);
                 }
@@ -127,7 +126,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     eventHubsProperties.Set("clientKeyFile", testProp.Get("clientKeyFile"));
                     networkConfig.SetEventHubProperties(eventhubName, eventHubsProperties);
                 }
-                catch (InvalidArgumentException e)
+                catch (ArgumentException e)
                 {
                     throw new System.Exception(e.Message, e);
                 }
@@ -233,7 +232,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             // Move some assets
             try
             {
-
                 MoveAmount(client, channel, chaincodeID, "a", "b", "" + moveAmount, null);
                 QueryChaincodeForExpectedValue(client, channel, newVal, chaincodeID);
                 MoveAmount(client, channel, chaincodeID, "b", "a", "" + moveAmount, null);
@@ -245,17 +243,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 if (te != null)
                     Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
                 Assert.Fail($"Transaction failed with exception message {t.Message}");
-
             }
             catch (System.Exception e)
             {
                 Assert.Fail($"Test failed with {e.GetType().Name} exception {e.Message}");
-
             }
 
             channel.Shutdown(true); // Force channel to shutdown clean up resources.
 
             Util.COut("testUpdate1 - done");
+            Util.COut("That's all folks!");
         }
 
         private static void QueryChaincodeForExpectedValue(HFClient client, Channel channel, string expect, ChaincodeID chaincodeID)
@@ -304,13 +301,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return expect;
         }
 
+        // ReSharper disable once UnusedMethodReturnValue.Local
         private static BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
         {
             List<ProposalResponse> successful = new List<ProposalResponse>();
             List<ProposalResponse> failed = new List<ProposalResponse>();
 
             ///////////////
-            /// Send transaction proposal to all peers
+            // Send transaction proposal to all peers
             TransactionProposalRequest transactionProposalRequest = client.NewTransactionProposalRequest();
             transactionProposalRequest.SetChaincodeID(chaincodeID);
             transactionProposalRequest.SetFcn("move");
@@ -367,6 +365,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return channel.SendTransaction(successful, testConfig.GetTransactionWaitTime() * 1000);
         }
 
+        // ReSharper disable once UnusedMethodReturnValue.Local
         private static ChaincodeID DeployChaincode(HFClient client, Channel channel, string ccName, string ccPath, string ccVersion)
         {
             Util.COut("deployChaincode - enter");
@@ -481,7 +480,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 }
 
                 ///////////////
-                /// Send instantiate transaction to orderer
+                // Send instantiate transaction to orderer
                 Util.COut("Sending instantiateTransaction to orderer...");
                 Util.COut("calling get...");
                 BlockEvent.TransactionEvent evnt = channel.SendTransaction(successful, orderers, 30 * 1000);

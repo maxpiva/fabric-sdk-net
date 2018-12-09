@@ -12,22 +12,16 @@
  *  limitations under the License.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using Google.Protobuf;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
-
     /**
      * All packages for PKI key creation/signing/verification implement this interface
      */
     public interface ICryptoSuite
     {
+        KeyStore Store { get; set; }
 
         /**
          * Get Crypto Suite Factory for this implementation.
@@ -42,7 +36,7 @@ namespace Hyperledger.Fabric.SDK.Security
          */
         Properties GetProperties();
 
-        
+
         /**
          * Set the Certificate Authority certificates to be used when validating a certificate chain of trust
          *
@@ -75,7 +69,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @return the signed data.
          * @throws CryptoException
          */
-         byte[] Sign(KeyPair key, byte[] plainText);
+        byte[] Sign(KeyPair key, byte[] plainText);
 
         /**
          * Verify the specified signature
@@ -87,10 +81,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @return {@code true} if the signature is successfully verified; otherwise {@code false}.
          * @throws CryptoException
          */
-        bool Verify(byte[] certificate, string signatureAlgorithm,  byte[] signature, byte[] plainText);
-
-
-        KeyStore Store { get; set; }
+        bool Verify(byte[] certificate, string signatureAlgorithm, byte[] signature, byte[] plainText);
 
         /**
          * Hash the specified text byte data.
@@ -108,7 +99,7 @@ namespace Hyperledger.Fabric.SDK.Security
          * @return String in PEM format for certificate request.
          * @throws InvalidIllegalArgumentException
          */
-         string GenerateCertificationRequest(string user, KeyPair keypair);
+        string GenerateCertificationRequest(string user, KeyPair keypair);
 
         /**
          * Convert bytes in PEM format to Certificate.
@@ -125,10 +116,15 @@ namespace Hyperledger.Fabric.SDK.Security
          */
     }
 
-    public class Factory {
-        private Factory() {
+    public class Factory
+    {
+        private static ICryptoSuiteFactory _instance;
 
+        private Factory()
+        {
         }
+
+        public static ICryptoSuiteFactory Instance => _instance ?? (_instance = new HLSDKJCryptoSuiteFactory());
 
         /**
          * Get a crypto suite with the default factory with default settings.
@@ -146,8 +142,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
         public static ICryptoSuite GetCryptoSuite()
         {
-            return Factory.Instance.GetCryptoSuite();
-
+            return Instance.GetCryptoSuite();
         }
 
         /**
@@ -166,30 +161,7 @@ namespace Hyperledger.Fabric.SDK.Security
          */
         public static ICryptoSuite GetCryptoSuite(Properties properties)
         {
-            return Factory.Instance.GetCryptoSuite(properties);
-
-        }
-
-        private static ICryptoSuiteFactory _instance;
-        public static ICryptoSuiteFactory Instance => _instance ?? (_instance = new HLSDKJCryptoSuiteFactory());
-
-        private static ICryptoSuiteFactory theFACTORY = null; // one and only factory.
-
-        private static ICryptoSuiteFactory Default
-        {
-            get
-            {
-                lock (theFACTORY)
-                {
-                    if (theFACTORY == null)
-                    {
-                        theFACTORY = Instance;
-                    }
-
-                    return theFACTORY;
-                }
-            }
-
+            return Instance.GetCryptoSuite(properties);
         }
     }
 }

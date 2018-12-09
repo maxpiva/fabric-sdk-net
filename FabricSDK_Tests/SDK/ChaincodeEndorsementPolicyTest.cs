@@ -12,7 +12,6 @@
  *  limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,7 +59,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestPolicyCtorValidFile()
         {
-            string policyFile = ("Resources/policyBitsAdmin").Locate();
+            string policyFile = "Resources/policyBitsAdmin".Locate();
             ChaincodeEndorsementPolicy policy = new ChaincodeEndorsementPolicy();
             policy.FromFile(policyFile);
             byte[] policyBits = File.ReadAllBytes(policyFile);

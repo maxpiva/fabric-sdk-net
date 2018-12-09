@@ -18,25 +18,20 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
-
-
     public class HLSDKJCryptoSuiteFactory : ICryptoSuiteFactory
     {
+        private static readonly ConcurrentDictionary<Properties, ICryptoSuite> cache = new ConcurrentDictionary<Properties, ICryptoSuite>();
+        private readonly string HASH_ALGORITHM = Config.Instance.GetHashAlgorithm();
         private readonly int SECURITY_LEVEL = Config.Instance.GetSecurityLevel();
-        private readonly String HASH_ALGORITHM = Config.Instance.GetHashAlgorithm();
 
         internal HLSDKJCryptoSuiteFactory()
         {
-
         }
-
-        private static readonly ConcurrentDictionary<Properties, ICryptoSuite> cache = new ConcurrentDictionary<Properties, ICryptoSuite>();
 
 
         public ICryptoSuite GetCryptoSuite(Properties properties)
@@ -79,12 +74,11 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     throw new CryptoException(e.Message, e);
                 }
-                cache[properties]= ret;
+
+                cache[properties] = ret;
             }
 
             return ret;
-
-
         }
 
 
@@ -95,44 +89,5 @@ namespace Hyperledger.Fabric.SDK.Security
             properties.Set(Config.HASH_ALGORITHM, HASH_ALGORITHM);
             return GetCryptoSuite(properties);
         }
-
-    
-
-        /*
-        if (null == theFACTORY) {
-
-            String cf = config.getDefaultCryptoSuiteFactory();
-            if (null == cf || cf.isEmpty() || cf.equals(Security.HLSDKJCryptoSuiteFactory.class.getName())) { // Use this class as the factory.
-
-                theFACTORY = Security.Factory.Instance.);
-
-            } else {
-
-                // Invoke static method instance on factory class specified by config properties.
-                // In this case this class will no longer be used as the factory.
-
-                Class<?> aClass = Class.forName(cf);
-
-                Method method = aClass.getMethod("instance");
-                Object theFACTORYObject = method.invoke(null);
-                if (null == theFACTORYObject) {
-                    throw new InstantiationException(String.format("Class specified by %s has instance method returning null.  Expected object implementing CryptoSuiteFactory interface.", cf));
-                }
-
-                if (!(theFACTORYObject instanceof CryptoSuiteFactory)) {
-
-                    throw new InstantiationException(String.format("Class specified by %s has instance method returning a class %s which does not implement interface CryptoSuiteFactory ",
-                            cf, theFACTORYObject.getClass().getName()));
-
-                }
-
-                theFACTORY = (CryptoSuiteFactory) theFACTORYObject;
-
-            }
-        }
-
-        return theFACTORY;
-    }
-    */
     }
 }

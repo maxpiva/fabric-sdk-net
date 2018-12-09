@@ -11,10 +11,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+using System;
 using System.IO;
-using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Builders;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.Tests.Helper;
@@ -31,7 +31,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         public readonly string tempFolder = Path.GetTempPath();
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodeSource or chaincodeInputStream")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Missing chaincodeSource or chaincodeInputStream")]
         public void TestBuildNoChaincode()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -39,12 +39,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         }
 
 
-
-
-
         // Tests that both chaincodeSource and chaincodeInputStream are not specified together
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Both chaincodeSource and chaincodeInputStream")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Both chaincodeSource and chaincodeInputStream")]
         public void TestBuildBothChaincodeSources()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -56,7 +53,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests that a chaincode path has been specified for GO_LANG code using a File
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodePath")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Missing chaincodePath")]
         public void TestBuildChaincodePathGolangFile()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -69,7 +66,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Missing chaincodePath")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Missing chaincodePath")]
         public void TestBuildChaincodePathGolangStream()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -84,7 +81,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
         // Tests that a chaincode path is null for JAVA code using a File
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Java chaincode")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "chaincodePath must be null for Java chaincode")]
         public void TestBuildChaincodePathJavaFile()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -98,7 +95,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests that a chaincode path is null for JAVA code using a File
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Java chaincode")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "chaincodePath must be null for Java chaincode")]
         public void TestBuildChaincodePathJavaStream()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -112,7 +109,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests for non existent chaincode source path
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory does not exist")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "The project source directory does not exist")]
         public void TestBuildSourceNotExistGolang()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -126,7 +123,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests for a chaincode source path which is a file and not a directory
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The project source directory")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "The project source directory")]
         public void TestBuildSourceNotDirectory()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -146,7 +143,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests for an IOException on the stream
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Chaincode input stream was empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Chaincode input stream was empty")]
         public void TestBuildInvalidSource()
         {
             // A mock InputStream that throws an IOException
@@ -162,7 +159,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests that no chaincode path is specified for Node code using a File
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Node chaincode")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "chaincodePath must be null for Node chaincode")]
         public void TestBuildChaincodePathNodeFile()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -176,7 +173,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
         // Tests that no chaincode path is specified for Node code using input stream
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "chaincodePath must be null for Node chaincode")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "chaincodePath must be null for Node chaincode")]
         public void TestBuildChaincodePathNodeStream()
         {
             InstallProposalBuilder builder = CreateTestBuilder();
@@ -187,8 +184,22 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
 
             builder.Build();
         }
+        // ==========================================================================================
+        // Helper methods
+        // ==========================================================================================
 
-        public  class MockInputStream : MemoryStream
+        // Instantiates a basic InstallProposalBuilder with no chaincode source specified
+        private InstallProposalBuilder CreateTestBuilder()
+        {
+            InstallProposalBuilder builder = InstallProposalBuilder.Create();
+            builder.ChaincodeName("mycc");
+            builder.ChaincodeVersion("1.0");
+            builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
+
+            return builder;
+        }
+
+        public class MockInputStream : MemoryStream
         {
             public MockInputStream()
             {
@@ -222,20 +233,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
             {
                 throw new IOException("Cannot read!");
             }
-        }
-        // ==========================================================================================
-        // Helper methods
-        // ==========================================================================================
-
-        // Instantiates a basic InstallProposalBuilder with no chaincode source specified
-        private InstallProposalBuilder CreateTestBuilder()
-        {
-            InstallProposalBuilder builder = InstallProposalBuilder.Create();
-            builder.ChaincodeName("mycc");
-            builder.ChaincodeVersion("1.0");
-            builder.ChaincodeLanguage(TransactionRequest.Type.GO_LANG);
-
-            return builder;
         }
     }
 }

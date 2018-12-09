@@ -13,11 +13,11 @@
  */
 
 
+using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
@@ -32,15 +32,15 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
     public class MockHFCAClient : HFCAClient
     {
-        private string httpPostResponse = null;
+        private string httpPostResponse ;
 
         private MockHFCAClient(string name, string url, Properties properties) : base(name, url, properties)
         {
         }
 
-        public override async Task<string> HttpPostAsync(string url, string body, NetworkCredential credentials, CancellationToken token=default(CancellationToken))
+        public override async Task<string> HttpPostAsync(string url, string body, NetworkCredential credentials, CancellationToken token = default(CancellationToken))
         {
-            return httpPostResponse ?? await base.HttpPostAsync(url, body, credentials, token);
+            return httpPostResponse ?? await base.HttpPostAsync(url, body, credentials, token).ConfigureAwait(false);
         }
 
         public override async Task<JObject> HttpPostAsync(string url, string body, IUser admin, CancellationToken token = default(CancellationToken))
@@ -49,7 +49,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
             if (httpPostResponse == null)
             {
-                response = await base.HttpPostAsync(url, body, admin, token);
+                response = await base.HttpPostAsync(url, body, admin, token).ConfigureAwait(false);
             }
             else
             {
@@ -76,7 +76,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw new InvalidArgumentException("name must not be null or an empty string.");
+                throw new ArgumentException("name must not be null or an empty string.");
             }
 
             return new MockHFCAClient(name, url, properties);
@@ -84,9 +84,9 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         // Sets the test string to be returned from httpPost
         // If null, it returns the actual response
-        public void SetHttpPostResponse(string httpPostResponse)
+        public void SetHttpPostResponse(string httpPstResponse)
         {
-            this.httpPostResponse = httpPostResponse;
+            httpPostResponse = httpPstResponse;
         }
     }
 }

@@ -12,9 +12,9 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hyperledger.Fabric.SDK.Exceptions;
 
 namespace Hyperledger.Fabric.SDK.Requests
 {
@@ -36,7 +36,7 @@ namespace Hyperledger.Fabric.SDK.Requests
         public override Dictionary<string, byte[]> TransientMap
         {
             get => transientMap?.ToDictionary(a => a.Key, a => a.Value);
-            set => transientMap = value ?? throw new InvalidArgumentException("Transient map may not be set to null");
+            set => transientMap = value ?? throw new ArgumentException("Transient map may not be set to null");
         }
 
 

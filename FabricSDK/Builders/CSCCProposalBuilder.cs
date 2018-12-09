@@ -22,12 +22,11 @@ namespace Hyperledger.Fabric.SDK.Builders
         private static readonly string CSCC_CHAIN_NAME = "cscc";
         private static readonly Protos.Peer.ChaincodeID CHAINCODE_ID_CSCC = new Protos.Peer.ChaincodeID {Name = CSCC_CHAIN_NAME};
 
-        public new CSCCProposalBuilder Context(TransactionContext context)
+        public new CSCCProposalBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
-
 
         public override Proposal Build()
         {

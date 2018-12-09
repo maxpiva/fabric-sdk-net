@@ -19,7 +19,6 @@ using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Requests;
@@ -28,19 +27,18 @@ namespace Hyperledger.Fabric.SDK.Builders
 {
     public class ProposalBuilder
     {
-
         private static readonly ILog logger = LogProvider.GetLogger(typeof(ProposalBuilder));
         private static readonly bool IS_DEBUG_LEVEL = logger.IsDebugEnabled();
+        protected List<ByteString> argList;
+        protected ChaincodeSpec.Types.Type ccType = ChaincodeSpec.Types.Type.Golang;
 
         private Protos.Peer.ChaincodeID chaincodeID;
-        protected List<ByteString> argList;
-        protected TransactionContext context;
-        protected TransactionRequest request;
-        protected ChaincodeSpec.Types.Type ccType = ChaincodeSpec.Types.Type.Golang;
-        protected Dictionary<string, byte[]> transientMap = null;
 
         // The channel that is being targeted . note blank string means no specific channel
         private string channelID;
+        protected TransactionContext context;
+        protected TransactionRequest request;
+        protected Dictionary<string, byte[]> transientMap;
 
         protected ProposalBuilder()
         {
@@ -51,27 +49,29 @@ namespace Hyperledger.Fabric.SDK.Builders
             return new ProposalBuilder();
         }
 
-        public ProposalBuilder ChaincodeID(Protos.Peer.ChaincodeID chaincodeID)
+        public ProposalBuilder ChaincodeID(Protos.Peer.ChaincodeID ccodeID)
         {
-            this.chaincodeID = chaincodeID;
+            chaincodeID = ccodeID;
             return this;
         }
 
-        public ProposalBuilder Args(List<ByteString> argList)
+        public ProposalBuilder Args(List<ByteString> argLst)
         {
-            this.argList = argList;
+            argList = argLst;
             return this;
         }
+
         public ProposalBuilder AddArg(string arg)
         {
-            if (this.argList==null)
-                argList=new List<ByteString>();
+            if (argList == null)
+                argList = new List<ByteString>();
             argList.Add(ByteString.CopyFromUtf8(arg));
             return this;
         }
+
         public ProposalBuilder AddArg(ByteString arg)
         {
-            if (this.argList == null)
+            if (argList == null)
                 argList = new List<ByteString>();
             argList.Add(arg);
             return this;
@@ -81,27 +81,23 @@ namespace Hyperledger.Fabric.SDK.Builders
         {
             argList = null;
         }
-       
 
 
-        public ProposalBuilder Context(TransactionContext context)
+        public ProposalBuilder Context(TransactionContext ctx)
         {
-            this.context = context;
+            context = ctx;
             if (null == channelID)
-            {
-                channelID = context.Channel.Name; //Default to context channel.
-            }
-
+                channelID = ctx.Channel.Name; //Default to context channel.
             return this;
         }
 
-        public ProposalBuilder Request(TransactionRequest request)
+        public ProposalBuilder Request(TransactionRequest req)
         {
-            this.request = request;
+            request = req;
 
-            this.chaincodeID = request.ChaincodeID.FabricChaincodeID;
+            chaincodeID = req.ChaincodeID.FabricChaincodeID;
 
-            switch (request.ChaincodeLanguage)
+            switch (req.ChaincodeLanguage)
             {
                 case TransactionRequest.Type.JAVA:
                     CcType(ChaincodeSpec.Types.Type.Java);
@@ -113,25 +109,21 @@ namespace Hyperledger.Fabric.SDK.Builders
                     CcType(ChaincodeSpec.Types.Type.Golang);
                     break;
                 default:
-                    throw new InvalidArgumentException("Requested chaincode type is not supported: " + request.ChaincodeLanguage);
+                    throw new ArgumentException("Requested chaincode type is not supported: " + req.ChaincodeLanguage);
             }
 
-            transientMap = request.TransientMap;
-
+            transientMap = req.TransientMap;
             return this;
         }
 
         public virtual Proposal Build()
         {
             if (request != null && request.NoChannelID)
-            {
                 channelID = "";
-            }
-
             return CreateFabricProposal(channelID, chaincodeID);
         }
 
-        private Proposal CreateFabricProposal(string channelID, Protos.Peer.ChaincodeID chaincodeID)
+        private Proposal CreateFabricProposal(string chID, Protos.Peer.ChaincodeID ccodeID)
         {
             if (null == transientMap)
                 transientMap = new Dictionary<string, byte[]>();
@@ -139,32 +131,25 @@ namespace Hyperledger.Fabric.SDK.Builders
             if (IS_DEBUG_LEVEL)
             {
                 foreach (KeyValuePair<string, byte[]> tme in transientMap)
-                {
                     logger.Debug($"transientMap('{tme.Key.LogString()}', '{Encoding.UTF8.GetString(tme.Value).LogString()}'))");
-                }
             }
 
-            ChaincodeHeaderExtension chaincodeHeaderExtension = new ChaincodeHeaderExtension {ChaincodeId = chaincodeID};
+            ChaincodeHeaderExtension chaincodeHeaderExtension = new ChaincodeHeaderExtension {ChaincodeId = ccodeID};
 
-            ChannelHeader chainHeader = ProtoUtils.CreateChannelHeader(HeaderType.EndorserTransaction, context.TxID, channelID, context.Epoch, context.FabricTimestamp, chaincodeHeaderExtension, null);
+            ChannelHeader chainHeader = ProtoUtils.CreateChannelHeader(HeaderType.EndorserTransaction, context.TxID, chID, context.Epoch, context.FabricTimestamp, chaincodeHeaderExtension, null);
 
-            ChaincodeInvocationSpec chaincodeInvocationSpec = CreateChaincodeInvocationSpec(chaincodeID, ccType);
+            ChaincodeInvocationSpec chaincodeInvocationSpec = CreateChaincodeInvocationSpec(ccodeID, ccType);
 
             ChaincodeProposalPayload payload = new ChaincodeProposalPayload {Input = chaincodeInvocationSpec.ToByteString()};
             foreach (KeyValuePair<string, byte[]> pair in transientMap)
-            {
                 payload.TransientMap.Add(pair.Key, ByteString.CopyFrom(pair.Value));
-            }
-
             Header header = new Header {SignatureHeader = ProtoUtils.GetSignatureHeaderAsByteString(context), ChannelHeader = chainHeader.ToByteString()};
 
             return new Proposal {Header = header.ToByteString(), Payload = payload.ToByteString()};
-
         }
 
-        private ChaincodeInvocationSpec CreateChaincodeInvocationSpec(Protos.Peer.ChaincodeID chaincodeID, ChaincodeSpec.Types.Type langType)
+        private ChaincodeInvocationSpec CreateChaincodeInvocationSpec(Protos.Peer.ChaincodeID ccodeID, ChaincodeSpec.Types.Type langType)
         {
-
             List<ByteString> allArgs = new List<ByteString>();
 
             if (argList != null && argList.Count > 0)
@@ -182,9 +167,7 @@ namespace Hyperledger.Fabric.SDK.Builders
                 if (args != null && args.Count > 0)
                 {
                     foreach (string arg in args)
-                    {
                         allArgs.Add(ByteString.CopyFromUtf8(arg));
-                    }
                 }
 
                 // TODO currently assume that chaincodeInput args are strings followed by byte[].
@@ -194,46 +177,40 @@ namespace Hyperledger.Fabric.SDK.Builders
                 if (argBytes != null && argBytes.Count > 0)
                 {
                     foreach (byte[] arg in argBytes)
-                    {
                         allArgs.Add(ByteString.CopyFrom(arg));
-                    }
                 }
-
             }
 
             if (IS_DEBUG_LEVEL)
             {
-
                 StringBuilder logout = new StringBuilder(1000);
 
-                logout.Append($"ChaincodeInvocationSpec type: {langType.ToString()}, chaincode name: {chaincodeID.Name}, chaincode path: {chaincodeID.Path}, chaincode version: {chaincodeID.Version}");
+                logout.Append($"ChaincodeInvocationSpec type: {langType.ToString()}, chaincode name: {ccodeID.Name}, chaincode path: {ccodeID.Path}, chaincode version: {ccodeID.Version}");
 
-                String sep = "";
+                string sep = "";
                 logout.Append(" args(");
 
                 foreach (ByteString x in allArgs)
                 {
                     logout.Append(sep).Append("\"").Append(x.ToStringUtf8().LogString()).Append("\"");
                     sep = ", ";
-
                 }
 
                 logout.Append(")");
 
                 logger.Debug(logout.ToString);
-
             }
 
             ChaincodeInput chaincodeInput = new ChaincodeInput();
             chaincodeInput.Args.AddRange(allArgs);
-            ChaincodeSpec chaincodeSpec = new ChaincodeSpec { Type = langType, ChaincodeId = chaincodeID, Input = chaincodeInput};
+            ChaincodeSpec chaincodeSpec = new ChaincodeSpec {Type = langType, ChaincodeId = ccodeID, Input = chaincodeInput};
 
             return new ChaincodeInvocationSpec {ChaincodeSpec = chaincodeSpec};
         }
 
-        public ProposalBuilder CcType(ChaincodeSpec.Types.Type ccType)
+        public ProposalBuilder CcType(ChaincodeSpec.Types.Type ctype)
         {
-            this.ccType = ccType;
+            ccType = ctype;
             return this;
         }
     }

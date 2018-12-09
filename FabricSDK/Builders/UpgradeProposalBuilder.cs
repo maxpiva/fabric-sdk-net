@@ -28,9 +28,9 @@ namespace Hyperledger.Fabric.SDK.Builders
             return new UpgradeProposalBuilder();
         }
 
-        public new UpgradeProposalBuilder Context(TransactionContext context)
+        public new UpgradeProposalBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
     }

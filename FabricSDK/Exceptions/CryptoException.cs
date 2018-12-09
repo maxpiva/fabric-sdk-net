@@ -17,11 +17,11 @@ namespace Hyperledger.Fabric.SDK.Exceptions
 {
     public class CryptoException : Exception
     {
-        public CryptoException(String message) : base(message)
+        public CryptoException(string message) : base(message)
         {
         }
 
-        public CryptoException(String message, Exception parent) : base(message, parent)
+        public CryptoException(string message, Exception parent) : base(message, parent)
         {
         }
     }

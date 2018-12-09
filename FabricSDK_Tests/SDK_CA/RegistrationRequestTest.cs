@@ -17,6 +17,7 @@ using Hyperledger.Fabric_CA.SDK;
 using Hyperledger.Fabric_CA.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json.Linq;
+// ReSharper disable ObjectCreationAsStatement
 
 namespace Hyperledger.Fabric.Tests.SDK_CA
 {

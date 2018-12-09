@@ -24,14 +24,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
     public class InstantiateProposalBuilderTest
     {
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Transient map may not be null")]
-        public void TestSetTransientMapNull()
-        {
-            InstantiateProposalBuilder builder = InstantiateProposalBuilder.Create();
-            builder.SetTransientMap(null);
-        }
-
-        [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "IO Error")]
         public void TestBuild()
         {

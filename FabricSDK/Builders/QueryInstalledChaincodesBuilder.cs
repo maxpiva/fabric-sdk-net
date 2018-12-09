@@ -24,9 +24,9 @@ namespace Hyperledger.Fabric.SDK.Builders
             AddArg("getinstalledchaincodes");
         }
 
-        public new QueryInstalledChaincodesBuilder Context(TransactionContext context)
+        public new QueryInstalledChaincodesBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
 

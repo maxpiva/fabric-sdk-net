@@ -13,30 +13,19 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Google.Protobuf;
-using Grpc.Core;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.Utilities;
-using Org.BouncyCastle.Utilities.Encoders;
-using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
 using SharpCompress.Writers;
 
@@ -45,15 +34,37 @@ namespace Hyperledger.Fabric.SDK.Helper
     public static class Utils
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Utils));
-        private static readonly bool TRACE_ENABED = logger.IsTraceEnabled();
-
         private static readonly int MAX_LOG_STRING_LENGTH = Config.Instance.MaxLogStringLength();
+        private static readonly int NONONCE_LENGTH = 24;
+        private static readonly RNGCryptoServiceProvider RANDOM = new RNGCryptoServiceProvider();
 
+        public static string ToHyperDate(this DateTime dt)
+        {
+            return dt.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz");
+        }
+        public static DateTime ToHyperDate(this string str)
+        {
+            return DateTime.ParseExact(str,"yyyy-MM-dd'T'HH:mm:ss.fffzzz",CultureInfo.InvariantCulture);
+        }
         public static void WriteAllBytes(this Stream stream, byte[] data)
         {
             stream.Write(data, 0, data.Length);
         }
-        public static TValue GetOrNull<TKey, TValue>(this Dictionary<TKey, TValue> tr, TKey key)
+
+        /*
+        public static TValue GetOrNull<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> tr, TKey key)
+        {
+            if (tr.ContainsKey(key))
+                return tr[key];
+            return default(TValue);
+        }
+        public static TValue GetOrNull<TKey, TValue>(this IDictionary<TKey, TValue> tr, TKey key)
+        {
+            if (tr.ContainsKey(key))
+                return tr[key];
+            return default(TValue);
+        }*/
+        public static TValue GetOrNull<TKey, TValue>(this IReadOnlyDictionary<TKey, TValue> tr, TKey key)
         {
             if (tr.ContainsKey(key))
                 return tr[key];
@@ -75,17 +86,17 @@ namespace Hyperledger.Fabric.SDK.Helper
             provider.GetBytes(buf);
             uint value = BitConverter.ToUInt32(buf, 0);
             double maxint = 0x100000000D;
-            return (int)(max * (value / maxint));
+            return (int) (max * (value / maxint));
         }
 
         public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> shuffle)
         {
-            return shuffle.OrderBy<T, int>((a) => RANDOM.Next(int.MaxValue));
+            return shuffle.OrderBy((a) => RANDOM.Next(int.MaxValue));
         }
+
         public static Dictionary<string, string> Clone(this Dictionary<string, string> dic)
         {
-            return dic.ToDictionary(a => (string)a.Key.Clone(), a => (string)a.Value.Clone());
-
+            return dic.ToDictionary(a => (string) a.Key.Clone(), a => (string) a.Value.Clone());
         }
 
         public static long GetLongProperty(this Properties dic, string key, long def = 0)
@@ -99,24 +110,26 @@ namespace Hyperledger.Fabric.SDK.Helper
 
             return ret;
         }
+
         public static string LogString(this string str)
         {
             if (string.IsNullOrEmpty(str))
                 return str;
-            string ret = str;//Regex.Replace(str, "[^\\p{Print}]", "?");
+            string ret = str; //Regex.Replace(str, "[^\\p{Print}]", "?");
             ret = ret.Substring(0, Math.Min(ret.Length, MAX_LOG_STRING_LENGTH)) + (ret.Length > MAX_LOG_STRING_LENGTH ? "..." : "");
             return ret;
-
         }
 
         public static string ToHexString(this byte[] data)
         {
             return BitConverter.ToString(data).Replace("-", string.Empty).ToLowerInvariant();
         }
+
         public static string ToHexString(this ByteString data)
         {
             return BitConverter.ToString(data.ToByteArray()).Replace("-", string.Empty).ToLowerInvariant();
         }
+
         public static string ToUTF8String(this byte[] data)
         {
             return Encoding.UTF8.GetString(data);
@@ -128,7 +141,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         }
 
 
-
         public static byte[] ToBytes(this string data)
         {
             return Encoding.UTF8.GetBytes(data);
@@ -137,27 +149,31 @@ namespace Hyperledger.Fabric.SDK.Helper
         public static byte[] ToByteArray(this Stream stream)
         {
             if (stream is MemoryStream)
-                return ((MemoryStream)stream).ToArray();
+                return ((MemoryStream) stream).ToArray();
             using (MemoryStream ms = new MemoryStream())
             {
                 stream.CopyTo(ms);
                 return ms.ToArray();
             }
         }
+
         public static void UserContextCheck(this IUser userContext)
         {
             if (userContext == null)
-                throw new InvalidArgumentException("UserContext is null");
+                throw new ArgumentException("UserContext is null");
             if (string.IsNullOrEmpty(userContext.Name))
-                throw new InvalidArgumentException("UserContext user's name missing.");
+                throw new ArgumentException("UserContext user's name missing.");
             if (userContext.Enrollment == null)
-                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has no enrollment set.");
+                throw new ArgumentException($"UserContext for user {userContext.Name} has no enrollment set.");
+            if (userContext.Enrollment is X509Enrollment)
+            {
+                if (string.IsNullOrEmpty(userContext.Enrollment.Cert))
+                    throw new ArgumentException($"UserContext for user {userContext.Name} enrollment missing user certificate.");
+                if (userContext.Enrollment.Key == null)
+                    throw new ArgumentException($"UserContext for user {userContext.Name} has Enrollment missing signing key");
+            }
             if (string.IsNullOrEmpty(userContext.MspId))
-                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has user's MSPID missing.");
-            if (string.IsNullOrEmpty(userContext.Enrollment.Cert))
-                throw new InvalidArgumentException($"UserContext for user {userContext.Name} enrollment missing user certificate.");
-            if (userContext.Enrollment.Key == null)
-                throw new InvalidArgumentException($"UserContext for user {userContext.Name} has Enrollment missing signing key");
+                throw new ArgumentException($"UserContext for user {userContext.Name} has user's MSPID missing.");
         }
 
         /**
@@ -175,14 +191,8 @@ namespace Hyperledger.Fabric.SDK.Helper
             return retValue;
         }
 
-
-        private static readonly int NONONCE_LENGTH = 24;
-
-        private static RNGCryptoServiceProvider RANDOM = new RNGCryptoServiceProvider();
-
         public static byte[] GenerateNonce()
         {
-
             byte[] values = new byte[NONONCE_LENGTH];
             RANDOM.GetBytes(values);
             return values;
@@ -198,17 +208,39 @@ namespace Hyperledger.Fabric.SDK.Helper
          */
         public static string GenerateParameterHash(string path, string func, List<string> args)
         {
-            logger.Debug($"GenerateParameterHash : path={path}, func={func}, args={string.Join(",",args)}");
-                
+            logger.Debug($"GenerateParameterHash : path={path}, func={func}, args={string.Join(",", args)}");
+
             // Append the arguments
-            StringBuilder param = new StringBuilder(path.Replace("\\","/"));
+            StringBuilder param = new StringBuilder(path.Replace("\\", "/"));
             param.Append(func);
-            args.ForEach(a=>param.Append(a));
+            args.ForEach(a => param.Append(a));
 
             // Compute the hash
             return Hash(Encoding.UTF8.GetBytes(param.ToString()), new Sha3Digest()).ToHexString();
         }
 
+        public static TimeSpan TimeUnitToTimeSpan(string timeunit, long time)
+        {
+            switch (timeunit)
+            {
+                case "DAYS":
+                    return TimeSpan.FromDays(time);
+                case "HOURS":
+                    return TimeSpan.FromHours(time);
+                case "MINUTES":
+                    return TimeSpan.FromMinutes(time);
+                case "SECONDS":
+                    return TimeSpan.FromSeconds(time);
+                case "MILLISECONDS":
+                    return TimeSpan.FromMilliseconds(time);
+                case "MICROSECONDS":
+                    return TimeSpan.FromMilliseconds((double) time / 1000);
+                case "NANOSECONDS":
+                    return TimeSpan.FromMilliseconds((double) time / 1000000);
+            }
+
+            return TimeSpan.MaxValue;
+        }
         /**
          * Generate hash of a chaincode directory
          *
@@ -221,7 +253,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         public static string GenerateDirectoryHash(string rootDir, string chaincodeDir, string hash)
         {
             // Generate the project directory
-            string projectPath = null;
+            string projectPath;
             if (rootDir == null)
             {
                 projectPath = Path.Combine(chaincodeDir);
@@ -230,7 +262,8 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 projectPath = Path.Combine(rootDir, chaincodeDir);
             }
-            DirectoryInfo dir=new DirectoryInfo(projectPath);
+
+            DirectoryInfo dir = new DirectoryInfo(projectPath);
             if (!dir.Exists)
                 throw new IOException($"The chaincode path \"{projectPath}\" is invalid");
             FileInfo[] files = dir.GetFiles().Where(a => (a.Attributes & (FileAttributes.Normal | FileAttributes.ReadOnly)) != 0).OrderBy(a => a.Name).ToArray();
@@ -241,7 +274,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 {
                     byte[] buf = File.ReadAllBytes(f.FullName);
                     byte[] toHash = buf.Union(Encoding.UTF8.GetBytes(finalhash)).ToArray();
-                    finalhash=Hash(toHash, new Sha3Digest()).ToHexString();
+                    finalhash = Hash(toHash, new Sha3Digest()).ToHexString();
                 }
                 catch (IOException ex)
                 {
@@ -250,15 +283,16 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
 
 
-        // If original hash and final hash are the same, it indicates that no new contents were found
-        if (finalhash.Equals(hash)) {
-            throw new IOException($"The chaincode directory \"{projectPath}\" has no files");
-        }
+            // If original hash and final hash are the same, it indicates that no new contents were found
+            if (finalhash.Equals(hash))
+            {
+                throw new IOException($"The chaincode directory \"{projectPath}\" has no files");
+            }
 
             return finalhash;
-    }
+        }
 
-    /**
+        /**
      * Compress the contents of given directory using Tar and Gzip to an in-memory byte array.
      *
      * @param sourceDirectory  the source directory.
@@ -277,16 +311,19 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 using (var writer = WriterFactory.Open(bos, ArchiveType.Tar, CompressionType.GZip))
                 {
-                    foreach(string s in sfiles)
-                        writer.Write(Path.Combine(pathPrefix??"",s.Substring(sourcePath.Length+1)).Replace("\\","/"),s);
-                    foreach (string s in mfiles)
-                        writer.Write(Path.Combine("META-INF", s.Substring(chaincodeMetaInf.Length + 1)).Replace("\\","/"), s);
+                    foreach (string s in sfiles)
+                        writer.Write(Path.Combine(pathPrefix ?? "", s.Substring(sourcePath.Length + 1)).Replace("\\", "/"), s);
+                    if (chaincodeMetaInf != null)
+                    {
+                        foreach (string s in mfiles)
+                            writer.Write(Path.Combine("META-INF", s.Substring(chaincodeMetaInf.Length + 1)).Replace("\\", "/"), s);
+                    }
                     bos.Flush();
                 }
+
                 return bos.ToArray();
             }
         }
-
 
 
         /**
@@ -295,21 +332,21 @@ namespace Hyperledger.Fabric.SDK.Helper
          * @return String representation of {@link UUID}
          */
         public static string GenerateUUID()
-    {
-        return Guid.NewGuid().ToString().Replace("-", string.Empty);
-    }
+        {
+            return Guid.NewGuid().ToString().Replace("-", string.Empty);
+        }
 
-    /**
+        /**
      * Create a new {@link Timestamp} instance based on the current time
      *
      * @return timestamp
      */
-    public static DateTime GenerateTimestamp()
-    {
-        return DateTime.UtcNow;
-    }
+        public static DateTime GenerateTimestamp()
+        {
+            return DateTime.UtcNow;
+        }
 
-    /**
+        /**
      * Delete a file or directory
      *
      * @param file {@link File} representing file or directory
@@ -328,19 +365,17 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
             catch (Exception e)
             {
-                throw new Exception("File or directory does not exist",e);
+                throw new Exception("File or directory does not exist", e);
             }
-
         }
 
-  
 
         public static (string Protocol, string Host, int Port) ParseGrpcUrl(string url)
         {
             (string Protocol, string Host, int Port) ret;
             if (string.IsNullOrEmpty(url))
-                throw  new IllegalArgumentException("URL cannot be null or empty");
-            Dictionary<string, string> props = new Dictionary<string, string>();
+                throw new ArgumentException("URL cannot be null or empty");
+            //Dictionary<string, string> props = new Dictionary<string, string>();
             Regex p = new Regex("([^:]+)[:]//([^:]+)[:]([0-9]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             Match m = p.Match(url);
             if (m.Success)
@@ -349,31 +384,31 @@ namespace Hyperledger.Fabric.SDK.Helper
                 ret.Host = m.Groups[2].Value;
                 string ports = m.Groups[3].Value;
                 int port;
-                if (!int.TryParse(ports,out port))
-                    throw  new IllegalArgumentException("Invalid port");
+                if (!int.TryParse(ports, out port))
+                    throw new ArgumentException("Invalid port");
                 ret.Port = port;
-                if (!"grpc".Equals(ret.Protocol,StringComparison.InvariantCultureIgnoreCase) && !"grpcs".Equals(ret.Protocol, StringComparison.InvariantCultureIgnoreCase))
-                    throw  new IllegalArgumentException($"Invalid protocol expected grpc or grpcs and found {ret.Protocol}.");
+                if (!"grpc".Equals(ret.Protocol, StringComparison.InvariantCultureIgnoreCase) && !"grpcs".Equals(ret.Protocol, StringComparison.InvariantCultureIgnoreCase))
+                    throw new ArgumentException($"Invalid protocol expected grpc or grpcs and found {ret.Protocol}.");
                 return ret;
             }
-            throw  new IllegalArgumentException("URL must be of the format protocol://host:port");
+
+            throw new ArgumentException("URL must be of the format protocol://host:port. Found: '" + url + "'");
 
             // TODO: allow all possible formats of the URL
         }
+
         /**
  * Check if the strings Grpc url is valid
  *
  * @param url
  * @return Return the exception that indicates the error or null if ok.
  */
-        public static Exception CheckGrpcUrl(String url)
+        public static Exception CheckGrpcUrl(string url)
         {
             try
             {
-
                 ParseGrpcUrl(url);
                 return null;
-
             }
             catch (Exception e)
             {
@@ -403,22 +438,16 @@ byte[] data = ByteStreams.toByteArray(is);
     */
 
 
-
-
-
-
-
         /**
          * Private constructor to prevent instantiation.
          */
-
-
     }
-    class PeerPeerOptionsResolver : DefaultContractResolver
+
+    internal class PeerPeerOptionsResolver : DefaultContractResolver
     {
         protected override JsonContract CreateContract(Type objectType)
         {
-            if (objectType.Name.Equals(typeof(Dictionary<Peer,Channel.PeerOptions>).Name))
+            if (objectType.Name.Equals(typeof(Dictionary<Peer, Channel.PeerOptions>).Name))
             {
                 return base.CreateArrayContract(objectType);
             }
@@ -427,5 +456,5 @@ byte[] data = ByteStreams.toByteArray(is);
         }
     }
 
-}
 
+}

@@ -14,9 +14,9 @@
  *
  */
 
+using System;
 using System.IO;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -27,10 +27,10 @@ namespace Hyperledger.Fabric.Tests.SDK
     [TestCategory("SDK")]
     public class RequestTest
     {
-        private HFClient hfclient;
-        private Stream mockstream;
         private readonly string someFileLocation = "empty";
         private readonly string someFileLocation2 = "blah";
+        private HFClient hfclient;
+        private Stream mockstream;
 
         [TestInitialize]
         public void SetupClient()
@@ -40,7 +40,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode META-INF location may not be set with chaincode input stream set.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Chaincode META-INF location may not be set with chaincode input stream set.")]
         public void TestinstallProposalRequestStreamWithMeta()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -50,7 +50,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.")]
         public void TestinstallProposalRequestStreamWithSourceLocation()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -61,7 +61,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.")]
         public void TestinstallProposalRequestWithLocationSetStream()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -71,7 +71,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.")]
         public void TestinstallProposalRequestWithMetaInfSetStream()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -81,7 +81,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode META-INF location may not be null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Chaincode META-INF location may not be null.")]
         public void TestinstallProposalRequestWithMetaInfSetStreamNULL()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -89,7 +89,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode source location may not be null")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Chaincode source location may not be null")]
         public void TestinstallProposalRequestWithSourceNull()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();
@@ -98,7 +98,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Chaincode input stream may not be null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Chaincode input stream may not be null.")]
         public void TestinstallProposalRequestWithInputStreamNULL()
         {
             InstallProposalRequest installProposalRequest = hfclient.NewInstallProposalRequest();

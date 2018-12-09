@@ -19,7 +19,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
@@ -48,9 +47,9 @@ namespace Hyperledger.Fabric_CA.SDK
         public HFCAIdentity(string enrollmentID, HFCAClient client)
         {
             if (string.IsNullOrEmpty(enrollmentID))
-                throw new InvalidArgumentException("EnrollmentID cannot be null or empty");
+                throw new ArgumentException("EnrollmentID cannot be null or empty");
             if (client.CryptoSuite == null)
-                throw new InvalidArgumentException("Client's crypto primitives not set");
+                throw new ArgumentException("Client's crypto primitives not set");
             EnrollmentId = enrollmentID;
             this.client = client;
         }
@@ -142,16 +141,17 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return ReadAsync(registrar).RunAndUnwarp();
         }
+
         public async Task<int> ReadAsync(IUser registrar, CancellationToken token = default(CancellationToken))
         {
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string readIdURL = "";
             try
             {
                 readIdURL = HFCA_IDENTITY + "/" + EnrollmentId;
                 logger.Debug($"identity  url: {readIdURL}, registrar: {registrar.Name}");
-                JObject result = await client.HttpGetAsync(readIdURL, registrar, token);
+                JObject result = await client.HttpGetAsync(readIdURL, registrar, token).ConfigureAwait(false);
                 statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {
@@ -204,19 +204,20 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return CreateAsync(registrar).RunAndUnwarp();
         }
+
         public async Task<int> CreateAsync(IUser registrar, CancellationToken token = default(CancellationToken))
         {
             if (IsDeleted)
                 throw new IdentityException("Identity has been deleted");
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string createURL = "";
             try
             {
                 createURL = client.GetURL(HFCA_IDENTITY);
                 logger.Debug($"identity  url: {createURL}, registrar: {registrar.Name}");
                 string body = client.ToJson(IdToJsonObject());
-                JObject result = await client.HttpPostAsync(createURL, body, registrar, token);
+                JObject result = await client.HttpPostAsync(createURL, body, registrar, token).ConfigureAwait(false);
                 statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode >= 400)
                 {
@@ -255,19 +256,20 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return UpdateAsync(registrar).RunAndUnwarp();
         }
+
         public async Task<int> UpdateAsync(IUser registrar, CancellationToken token = default(CancellationToken))
         {
             if (IsDeleted)
                 throw new IdentityException("Identity has been deleted");
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string updateURL = "";
             try
             {
                 updateURL = client.GetURL(HFCA_IDENTITY + "/" + EnrollmentId);
                 logger.Debug($"identity  url: {updateURL}, registrar: {registrar.Name}");
                 string body = client.ToJson(IdToJsonObject());
-                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token);
+                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token).ConfigureAwait(false);
                 statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {
@@ -305,18 +307,19 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             return DeleteAsync(registrar).RunAndUnwarp();
         }
+
         public async Task<int> DeleteAsync(IUser registrar, CancellationToken token = default(CancellationToken))
         {
             if (IsDeleted)
                 throw new IdentityException("Identity has been deleted");
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string deleteURL = "";
             try
             {
                 deleteURL = client.GetURL(HFCA_IDENTITY + "/" + EnrollmentId);
                 logger.Debug($"identity  url: {deleteURL}, registrar: {registrar.Name}");
-                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token);
+                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token).ConfigureAwait(false);
                 statusCode = result["statusCode"]?.Value<int>() ?? 500;
                 if (statusCode < 400)
                 {

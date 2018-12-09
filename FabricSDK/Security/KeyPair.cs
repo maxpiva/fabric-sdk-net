@@ -1,32 +1,24 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Asn1.X509;
-using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Operators;
 using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Tls;
 using Org.BouncyCastle.Math;
+using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
-using Org.BouncyCastle.Utilities.IO.Pem;
-using Org.BouncyCastle.X509;
 using Org.BouncyCastle.X509.Extension;
 using CryptoException = Hyperledger.Fabric.SDK.Exceptions.CryptoException;
-using PemReader = Org.BouncyCastle.OpenSsl.PemReader;
-using PemWriter = Org.BouncyCastle.OpenSsl.PemWriter;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
-using X509Extension = System.Security.Cryptography.X509Certificates.X509Extension;
+using X509Extension = Org.BouncyCastle.Asn1.X509.X509Extension;
 
 namespace Hyperledger.Fabric.SDK.Security
 {
@@ -110,12 +102,12 @@ namespace Hyperledger.Fabric.SDK.Security
                     throw new CryptoException("Unable to generate csr, private key not found");
                 if (PublicKey == null)
                     throw new CryptoException("Unable to generate csr, public key not found");
-                var extensions = new Dictionary<DerObjectIdentifier, Org.BouncyCastle.Asn1.X509.X509Extension>();
-                extensions.Add(X509Extensions.SubjectKeyIdentifier, new Org.BouncyCastle.Asn1.X509.X509Extension(false, new DerOctetString(new SubjectKeyIdentifierStructure(PublicKey))));
+                var extensions = new Dictionary<DerObjectIdentifier, X509Extension>();
+                extensions.Add(X509Extensions.SubjectKeyIdentifier, new X509Extension(false, new DerOctetString(new SubjectKeyIdentifierStructure(PublicKey))));
                 DerSet exts = new DerSet(new AttributePkcs(PkcsObjectIdentifiers.Pkcs9AtExtensionRequest, new DerSet(new X509Extensions(extensions))));
                 var attributes = new Dictionary<DerObjectIdentifier, string> {{X509Name.CN, subject}};
-                ISignatureFactory sf = new Asn1SignatureFactory(signaturealgorithm, PrivateKey,new SecureRandom());
-                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(attributes.Keys.ToList(),attributes),publicKey, exts, PrivateKey);
+                ISignatureFactory sf = new Asn1SignatureFactory(signaturealgorithm, PrivateKey, new SecureRandom());
+                Pkcs10CertificationRequest csr = new Pkcs10CertificationRequest(sf, new X509Name(attributes.Keys.ToList(), attributes), publicKey, exts);
                 using (StringWriter str = new StringWriter())
                 {
                     PemWriter pemWriter = new PemWriter(str);
@@ -148,11 +140,11 @@ namespace Hyperledger.Fabric.SDK.Security
         public bool Verify(byte[] data, byte[] signature, string signatureAlgorithm)
         {
             if (PublicKey == null)
-                throw new IllegalArgumentException("Unable to verify signature, public key not found");
+                throw new ArgumentException("Unable to verify signature, public key not found");
             if (data == null || data.Length == 0)
-                throw new IllegalArgumentException("Unable to verify empty data");
+                throw new ArgumentException("Unable to verify empty data");
             if (signature == null || signature.Length == 0)
-                throw new IllegalArgumentException("Unable to verify with an empty signature");
+                throw new ArgumentException("Unable to verify with an empty signature");
             ISigner signer = SignerUtilities.GetSigner(signatureAlgorithm);
             signer.Init(false, PublicKey);
             signer.BlockUpdate(data, 0, data.Length);
@@ -162,9 +154,9 @@ namespace Hyperledger.Fabric.SDK.Security
         public byte[] Sign(byte[] data, string signatureAlgorithm)
         {
             if (PrivateKey == null)
-                throw new IllegalArgumentException("Unable to sign data, private key not found");
-            if (data==null || data.Length==0)
-                throw new IllegalArgumentException("Unable to sign empty data");
+                throw new ArgumentException("Unable to sign data, private key not found");
+            if (data == null || data.Length == 0)
+                throw new ArgumentException("Unable to sign empty data");
             ISigner signer = SignerUtilities.GetSigner(signatureAlgorithm);
             signer.Init(true, PrivateKey);
             signer.BlockUpdate(data, 0, data.Length);
@@ -220,6 +212,7 @@ namespace Hyperledger.Fabric.SDK.Security
                     }
                 }
             }
+
             if (count != 2)
                 throw new CryptoException($"Invalid ECDSA signature. Expected count of 2 but got: {count}. Signature is: {BitConverter.ToString(signature).Replace("-", string.Empty)}");
             return sigs;
@@ -249,7 +242,7 @@ namespace Hyperledger.Fabric.SDK.Security
         public static KeyPair Create(string pem)
         {
             if (string.IsNullOrEmpty(pem))
-                throw new IllegalArgumentException("Empty PEM Key provided");
+                throw new ArgumentException("Empty PEM Key provided");
             KeyPair kp = new KeyPair();
             kp.pem = pem;
             (AsymmetricKeyParameter pubKey, AsymmetricKeyParameter privKey, X509Certificate _) = PEMToAsymmetricCipherKeyPairAndCert(pem);
@@ -262,7 +255,7 @@ namespace Hyperledger.Fabric.SDK.Security
         public static KeyPair Create(X509Certificate2 cert)
         {
             if (cert == null)
-                throw new IllegalArgumentException("Empty Cerificatte provided");
+                throw new ArgumentException("Empty Cerificatte provided");
 
             KeyPair kp = new KeyPair();
             (AsymmetricKeyParameter pubKey, AsymmetricKeyParameter privKey) = X509Certificate2ToAsymmetricCipherKeyPair(cert);
@@ -275,7 +268,7 @@ namespace Hyperledger.Fabric.SDK.Security
         public static KeyPair Create(byte[] pkcs12, string password)
         {
             if (pkcs12 == null || pkcs12.Length == 0)
-                throw new IllegalArgumentException("Empty PKCS12 Cerificate provided");
+                throw new ArgumentException("Empty PKCS12 Cerificate provided");
 
             KeyPair kp = new KeyPair();
             (AsymmetricKeyParameter pubKey, AsymmetricKeyParameter privKey) = Pkcs12ArrayToAsymmetricCipherKeyPair(pkcs12, password);
@@ -371,6 +364,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
             return null;
         }
+
         public static (AsymmetricKeyParameter PubKey, AsymmetricKeyParameter PrivKey, X509Certificate Certificate) PEMToAsymmetricCipherKeyPairAndCert(string pemKey)
         {
             if (string.IsNullOrEmpty(pemKey))
@@ -407,6 +401,7 @@ namespace Hyperledger.Fabric.SDK.Security
                     }
                 }
             }
+
             if (pubkey != null || privkey != null)
             {
                 if (privkey != null && pubkey == null)

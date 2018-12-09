@@ -20,7 +20,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Logging;
@@ -50,7 +49,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             ValidateAffiliationNames(name);
             if (client.CryptoSuite == null)
-                throw new InvalidArgumentException("Crypto primitives not set.");
+                throw new ArgumentException("Crypto primitives not set.");
             Name = name;
             this.client = client;
         }
@@ -196,13 +195,13 @@ namespace Hyperledger.Fabric_CA.SDK
         public async Task<int> ReadAsync(IUser registrar, CancellationToken token=default(CancellationToken))
         {
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string readAffURL = "";
             try
             {
                 readAffURL = HFCA_AFFILIATION + "/" + Name;
                 logger.Debug($"affiliation  url: {readAffURL}, registrar: {registrar.Name}");
-                JObject result = await client.HttpGetAsync(readAffURL, registrar, token);
+                JObject result = await client.HttpGetAsync(readAffURL, registrar, token).ConfigureAwait(false);
                 logger.Debug($"affiliation  url: {readAffURL}, registrar: {registrar} done.");
                 HFCAAffiliationResp resp = GetResponse(result);
                 childHFCAAffiliations = resp.Children;
@@ -255,7 +254,7 @@ namespace Hyperledger.Fabric_CA.SDK
         public async Task<HFCAAffiliationResp> CreateAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
         {
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string createURL = "";
             try
             {
@@ -264,7 +263,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 queryParm.Add("force", force.ToString());
                 createURL = client.GetURL(HFCA_AFFILIATION,queryParm); //TODO Report bug into the JAVA version, force was never sent.
                 string body = client.ToJson(AffToJsonObject());
-                JObject result = await client.HttpPostAsync(createURL, body, registrar, token);
+                JObject result = await client.HttpPostAsync(createURL, body, registrar, token).ConfigureAwait(false);
                 logger.Debug($"identity  url: {createURL}, registrar: {registrar.Name} done.");
                 deleted = false;
                 return GetResponse(result);
@@ -320,9 +319,9 @@ namespace Hyperledger.Fabric_CA.SDK
             if (deleted)
                 throw new AffiliationException("Affiliation has been deleted");
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             if (string.IsNullOrEmpty(Name))
-                throw new InvalidArgumentException("Affiliation name cannot be null or empty");
+                throw new ArgumentException("Affiliation name cannot be null or empty");
             string updateURL = "";
             try
             {
@@ -331,7 +330,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 updateURL = client.GetURL(HFCA_AFFILIATION + "/" + Name, queryParm);
                 logger.Debug($"affiliation  url: {updateURL}, registrar: {registrar.Name}");
                 string body = client.ToJson(AffToJsonObject());
-                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token);
+                JObject result = await client.HttpPutAsync(updateURL, body, registrar, token).ConfigureAwait(false);
                 GenerateResponse(result);
                 logger.Debug($"identity  url: {updateURL}, registrar: {registrar.Name} done.");
                 HFCAAffiliationResp resp = GetResponse(result);
@@ -390,7 +389,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (deleted)
                 throw new AffiliationException("Affiliation has been deleted");
             if (registrar == null)
-                throw new InvalidArgumentException("Registrar should be a valid member");
+                throw new ArgumentException("Registrar should be a valid member");
             string deleteURL = "";
             try
             {
@@ -398,7 +397,7 @@ namespace Hyperledger.Fabric_CA.SDK
                 queryParm.Add("force", force.ToString());
                 deleteURL = client.GetURL(HFCA_AFFILIATION + "/" + Name, queryParm);
                 logger.Debug($"affiliation  url: {deleteURL}, registrar: {registrar.Name}");
-                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token);
+                JObject result = await client.HttpDeleteAsync(deleteURL, registrar, token).ConfigureAwait(false);
                 logger.Debug($"identity  url: {deleteURL}, registrar: {registrar.Name} done.");
                 deleted = true;
                 return GetResponse(result);
@@ -473,14 +472,14 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             CheckFormat(name);
             if (name.StartsWith("."))
-                throw new InvalidArgumentException("Affiliation name cannot start with a dot '.'");
+                throw new ArgumentException("Affiliation name cannot start with a dot '.'");
             if (name.EndsWith("."))
-                throw new InvalidArgumentException("Affiliation name cannot end with a dot '.'");
+                throw new ArgumentException("Affiliation name cannot end with a dot '.'");
             for (int i = 0; i < name.Length; i++)
             {
                 if (name[i] == '.' && name[i] == name[i - 1])
                 {
-                    throw new InvalidArgumentException("Affiliation name cannot contain multiple consecutive dots '.'");
+                    throw new ArgumentException("Affiliation name cannot contain multiple consecutive dots '.'");
                 }
             }
         }
@@ -495,15 +494,15 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             CheckFormat(name);
             if (name.Contains("."))
-                throw new InvalidArgumentException("Single affiliation name cannot contain any dots '.'");
+                throw new ArgumentException("Single affiliation name cannot contain any dots '.'");
         }
 
         public static void CheckFormat(string name)
         {
             if (string.IsNullOrEmpty(name))
-                throw new InvalidArgumentException("Affiliation name cannot be null or empty");
+                throw new ArgumentException("Affiliation name cannot be null or empty");
             if (name.Contains(" ") || name.Contains("\t"))
-                throw new InvalidArgumentException("Affiliation name cannot contain an empty space or tab");
+                throw new ArgumentException("Affiliation name cannot contain an empty space or tab");
         }
 
         /**

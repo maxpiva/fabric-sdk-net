@@ -39,7 +39,7 @@ namespace Hyperledger.Fabric.SDK.Deserializers
             return transactionActions.Get(index);
         }
 
-        private IEnumerable<TransactionActionDeserializer> TransactionActions => new EnumerableBuilder<TransactionActionDeserializer>(() => ActionsCount, GetTransactionAction);
+        public IEnumerable<TransactionActionDeserializer> TransactionActions => new EnumerableBuilder<TransactionActionDeserializer>(() => ActionsCount, GetTransactionAction);
 
     }
 }

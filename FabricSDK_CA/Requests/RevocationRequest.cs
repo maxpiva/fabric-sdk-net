@@ -15,7 +15,7 @@
  * A RevocationRequest defines the attributes required to revoke credentials with member service.
  */
 
-using Hyperledger.Fabric.SDK.Exceptions;
+using System;
 using Newtonsoft.Json.Linq;
 
 namespace Hyperledger.Fabric_CA.SDK.Requests
@@ -28,7 +28,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
             if (string.IsNullOrEmpty(id))
             {
                 if (string.IsNullOrEmpty(serial) || string.IsNullOrEmpty(aki))
-                    throw new IllegalArgumentException("Enrollment ID is empty, thus both aki and serial must have non-empty values");
+                    throw new ArgumentException("Enrollment ID is empty, thus both aki and serial must have non-empty values");
             }
             User = id;
             Serial = serial;

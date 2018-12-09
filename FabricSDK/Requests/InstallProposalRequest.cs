@@ -12,8 +12,8 @@
  *  limitations under the License.
  */
 
+using System;
 using System.IO;
-using Hyperledger.Fabric.SDK.Exceptions;
 
 namespace Hyperledger.Fabric.SDK.Requests
 {
@@ -46,9 +46,9 @@ namespace Hyperledger.Fabric.SDK.Requests
             set
             {
                 if (string.IsNullOrEmpty(value))
-                    throw new InvalidArgumentException("Chaincode META-INF location may not be null.");
+                    throw new ArgumentException("Chaincode META-INF location may not be null.");
                 if (chaincodeInputStream != null)
-                    throw new InvalidArgumentException("Chaincode META-INF location may not be set with chaincode input stream set.");
+                    throw new ArgumentException("Chaincode META-INF location may not be set with chaincode input stream set.");
                 chaincodeMetaInfLocation = value;
             }
         }
@@ -67,11 +67,11 @@ namespace Hyperledger.Fabric.SDK.Requests
             set
             {
                 if (value == null)
-                    throw new InvalidArgumentException("Chaincode input stream may not be null.");
+                    throw new ArgumentException("Chaincode input stream may not be null.");
                 if (chaincodeSourceLocation != null)
-                    throw new InvalidArgumentException("Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.");
+                    throw new ArgumentException("Error setting chaincode input stream. Chaincode source location already set. Only one or the other maybe set.");
                 if (chaincodeMetaInfLocation != null)
-                    throw new InvalidArgumentException("Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.");
+                    throw new ArgumentException("Error setting chaincode input stream. Chaincode META-INF location  already set. Only one or the other maybe set.");
                 chaincodeInputStream = value;
             }
         }
@@ -90,9 +90,9 @@ namespace Hyperledger.Fabric.SDK.Requests
             set
             {
                 if (string.IsNullOrEmpty(value))
-                    throw new InvalidArgumentException("Chaincode source location may not be null.");
+                    throw new ArgumentException("Chaincode source location may not be null.");
                 if (chaincodeInputStream != null)
-                    throw new InvalidArgumentException("Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.");
+                    throw new ArgumentException("Error setting chaincode location. Chaincode input stream already set. Only one or the other maybe set.");
                 chaincodeSourceLocation = value;
             }
         }
@@ -110,7 +110,6 @@ namespace Hyperledger.Fabric.SDK.Requests
             request.ChaincodeSourceLocation = chainCodeSourceLocation;
             return request;
         }
-
 
 
         public static T SetChaincodeInputStream<T>(this T request, Stream chaincodeInputStream) where T : InstallProposalRequest

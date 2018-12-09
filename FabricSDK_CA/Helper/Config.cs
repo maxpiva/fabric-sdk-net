@@ -21,49 +21,45 @@
  * with a java system property. Property hierarchy goes System property
  * overrides environment variable which overrides config file for default values specified here.
  */
+
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Hyperledger.Fabric.SDK.Helper;
-
 using Hyperledger.Fabric_CA.SDK.Logging;
 
-
-
 [assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
+
 namespace Hyperledger.Fabric_CA.SDK.Helper
 {
     public class Config
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Config));
+        private static readonly string BASE_PROP = "org.hyperledger.fabric_ca.sdk.";
 
         private static readonly string DEFAULT_CONFIG = "config.properties";
-        public static readonly string ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = "org.hyperledger.fabric.sdk.configuration";
-        public static readonly string SECURITY_LEVEL = "org.hyperledger.fabric.sdk.security_level";
-        public static readonly string HASH_ALGORITHM = "org.hyperledger.fabric.sdk.hash_algorithm";
-        public static readonly string CACERTS = "org.hyperledger.fabric.sdk.cacerts";
-        public static readonly string PROPOSAL_WAIT_TIME = "org.hyperledger.fabric.sdk.proposal.wait.time";
+        public static readonly string ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = BASE_PROP + "configuration";
+        public static readonly string SECURITY_LEVEL = BASE_PROP + "security_level";
+        public static readonly string HASH_ALGORITHM = BASE_PROP + "hash_algorithm";
+        public static readonly string CACERTS = "cacerts";
+        public static readonly string PROPOSAL_WAIT_TIME = BASE_PROP + "proposal.wait.time";
 
-        public static readonly string ASYMMETRIC_KEY_TYPE = "org.hyperledger.fabric.sdk.crypto.asymmetric_key_type";
-        public static readonly string KEY_AGREEMENT_ALGORITHM = "org.hyperledger.fabric.sdk.crypto.key_agreement_algorithm";
-        public static readonly string SYMMETRIC_KEY_TYPE = "org.hyperledger.fabric.sdk.crypto.symmetric_key_type";
-        public static readonly string SYMMETRIC_KEY_BYTE_COUNT = "org.hyperledger.fabric.sdk.crypto.symmetric_key_byte_count";
-        public static readonly string SYMMETRIC_ALGORITHM = "org.hyperledger.fabric.sdk.crypto.symmetric_algorithm";
-        public static readonly string MAC_KEY_BYTE_COUNT = "org.hyperledger.fabric.sdk.crypto.mac_key_byte_count";
-        public static readonly string CERTIFICATE_FORMAT = "org.hyperledger.fabric.sdk.crypto.certificate_format";
-        public static readonly string SIGNATURE_ALGORITHM = "org.hyperledger.fabric.sdk.crypto.default_signature_algorithm";
-        public static readonly string MAX_LOG_STRING_LENGTH = "org.hyperledger.fabric.sdk.log.stringlengthmax";
-        public static readonly string LOGGERLEVEL = "org.hyperledger.fabric_ca.sdk.loglevel"; // ORG_HYPERLEDGER_FABRIC_CA_SDK_LOGLEVEL=TRACE,DEBUG
+        public static readonly string ASYMMETRIC_KEY_TYPE = BASE_PROP + "crypto.asymmetric_key_type";
+        public static readonly string KEY_AGREEMENT_ALGORITHM = BASE_PROP + "crypto.key_agreement_algorithm";
+        public static readonly string SYMMETRIC_KEY_TYPE = BASE_PROP + "crypto.symmetric_key_type";
+        public static readonly string SYMMETRIC_KEY_BYTE_COUNT = BASE_PROP + "crypto.symmetric_key_byte_count";
+        public static readonly string SYMMETRIC_ALGORITHM = BASE_PROP + "crypto.symmetric_algorithm";
+        public static readonly string MAC_KEY_BYTE_COUNT = BASE_PROP + "crypto.mac_key_byte_count";
+        public static readonly string CERTIFICATE_FORMAT = BASE_PROP + "crypto.certificate_format";
+        public static readonly string SIGNATURE_ALGORITHM = BASE_PROP + "crypto.default_signature_algorithm";
+        public static readonly string MAX_LOG_STRING_LENGTH = BASE_PROP + "log.stringlengthmax";
+        public static readonly string LOGGERLEVEL = BASE_PROP + "loglevel"; // ORG_HYPERLEDGER_FABRIC_CA_SDK_LOGLEVEL=TRACE,DEBUG
+
+        public static readonly string CONNECTION_REQUEST_TIMEOUT = BASE_PROP + "connection.connection_request_timeout"; //ORG_HYPERLEDGER_FABRIC_CA_SDK_CONNECTION_CONNECTION_REQUEST_TIMEOUT
+        public static readonly string CONNECT_TIMEOUT = BASE_PROP + "connection.connect_timeout"; //ORG_HYPERLEDGER_FABRIC_CA_SDK_CONNECTION_CONNECT_TIMEOUT
+        public static readonly string SOCKET_TIMEOUT = BASE_PROP + "connection.socket_timeout"; //ORG_HYPERLEDGER_FABRIC_CA_SDK_CONNECTION_SOCKET_TIMEOUT
 
         internal static Config config;
-
-        /**
-         * getConfig return back singleton for SDK configuration.
-         *
-         * @return Global configuration
-         */
-        public static Config Instance => config ?? (config = new Config());
         internal static Properties sdkProperties = new Properties();
 
         private Config()
@@ -84,7 +80,6 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
             }
             finally
             {
-
                 // Default values
                 DefaultProperty(ASYMMETRIC_KEY_TYPE, "EC");
                 DefaultProperty(KEY_AGREEMENT_ALGORITHM, "ECDH");
@@ -96,6 +91,12 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
                 DefaultProperty(SIGNATURE_ALGORITHM, "SHA256withECDSA");
                 DefaultProperty(SECURITY_LEVEL, "256");
                 DefaultProperty(HASH_ALGORITHM, "SHA2");
+
+                DefaultProperty(CONNECTION_REQUEST_TIMEOUT, "-1");
+                DefaultProperty(CONNECT_TIMEOUT, "-1");
+                DefaultProperty(SOCKET_TIMEOUT, "-1");
+
+
                 // TODO remove this once we have implemented MSP and get the peer certs from the channel
                 DefaultProperty(CACERTS, "/genesisblock/peercacert.pem");
 
@@ -144,11 +145,14 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
                     }
                     */
             }
-
         }
 
-
-
+        /**
+         * getConfig return back singleton for SDK configuration.
+         *
+         * @return Global configuration
+         */
+        public static Config Instance => config ?? (config = new Config());
 
 
         /**
@@ -159,7 +163,6 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
          */
         private string GetProperty(string property)
         {
-
             string ret = sdkProperties.Get(property);
 
             if (null == ret)
@@ -189,11 +192,9 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
          */
         public int GetSecurityLevel()
         {
-
             if (int.TryParse(GetProperty(SECURITY_LEVEL), out int sec))
                 return sec;
             return 0;
-
         }
 
         /**
@@ -204,12 +205,11 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
         public string GetHashAlgorithm()
         {
             return GetProperty(HASH_ALGORITHM);
-
         }
 
         public string[] GetPeerCACerts()
         {
-            return GetProperty(CACERTS).Split(new char[] {'\''}, StringSplitOptions.RemoveEmptyEntries);
+            return GetProperty(CACERTS).Split(new [] {'\''}, StringSplitOptions.RemoveEmptyEntries);
         }
 
         /**
@@ -274,6 +274,39 @@ namespace Hyperledger.Fabric_CA.SDK.Helper
                 return p;
             return 0;
         }
+        /**
+ * milliseconds used when requesting a connection.
+ *
+ * @return
+ */
 
+        public int GetConnectionRequestTimeout()
+        {
+            if (int.TryParse(GetProperty(CONNECTION_REQUEST_TIMEOUT), out int p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * Determines the timeout in milliseconds until a connection is established.
+         * @return
+         */
+        public int GetConnectTimeout()
+        {
+            if (int.TryParse(GetProperty(CONNECT_TIMEOUT), out int p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * Defines the socket timeout (SO_TIMEOUT) in milliseconds, which is the timeout for waiting for data
+         * @return
+         */
+        public int GetSocketTimeout()
+        {
+            if (int.TryParse(GetProperty(SOCKET_TIMEOUT), out int p))
+                return p;
+            return 0;
+        }
     }
 }

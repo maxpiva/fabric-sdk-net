@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
@@ -9,11 +8,13 @@ namespace Hyperledger.Fabric.SDK.Helper
     {
         private readonly Func<int> cntF;
         private readonly Func<int, T> yieldF;
+
         public EnumerableBuilder(Func<int> countFunction, Func<int, T> yieldFunction)
         {
             cntF = countFunction;
             yieldF = yieldFunction;
         }
+
         public IEnumerator<T> GetEnumerator()
         {
             for (int x = 0; x < cntF(); x++)

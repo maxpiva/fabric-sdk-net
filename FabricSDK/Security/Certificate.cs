@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using Hyperledger.Fabric.SDK.Exceptions;
-using Hyperledger.Fabric.SDK.Helper;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
@@ -18,9 +16,11 @@ namespace Hyperledger.Fabric.SDK.Security
 {
     public class Certificate
     {
+        private X509Certificate entry;
+
+
         private X509Certificate2 msone;
         private string pem;
-        private X509Certificate entry;
 
         public X509Certificate X509Certificate
         {
@@ -36,6 +36,7 @@ namespace Hyperledger.Fabric.SDK.Security
                         entry = PEMToX509Certificate(pem);
                     }
                 }
+
                 return entry;
             }
         }
@@ -74,8 +75,8 @@ namespace Hyperledger.Fabric.SDK.Security
 
         public static Certificate Create(X509Certificate2 cert)
         {
-            if (cert==null)
-                throw new IllegalArgumentException("Empty cert provided");
+            if (cert == null)
+                throw new ArgumentException("Empty cert provided");
             Certificate kp = new Certificate();
             kp.msone = cert;
             kp.Pem = X509Certificate2ToPEM(cert);
@@ -85,17 +86,21 @@ namespace Hyperledger.Fabric.SDK.Security
         public static Certificate Create(string pem)
         {
             if (string.IsNullOrEmpty(pem))
-                throw new IllegalArgumentException("Empty PEM provided");
+                throw new ArgumentException("Empty PEM provided");
             Certificate kp = new Certificate();
             kp.pem = pem;
             kp.msone = PEMToX509Certificate2(pem);
             return kp;
         }
 
+        public static Certificate Create(X509Certificate cert, AsymmetricKeyParameter privkey)
+        {
+            return Create(DumpOnePEM(cert, privkey));
+        }
 
         public static X509Certificate2 PEMToX509Certificate2(string pemCertificate)
         {
-            (AsymmetricKeyParameter pubKey, AsymmetricKeyParameter privKey, X509Certificate certificate) = KeyPair.PEMToAsymmetricCipherKeyPairAndCert(pemCertificate);
+            (AsymmetricKeyParameter _, AsymmetricKeyParameter privKey, X509Certificate certificate) = KeyPair.PEMToAsymmetricCipherKeyPairAndCert(pemCertificate);
             if (certificate == null)
                 throw new CryptoException("Invalid Certificate");
             if (privKey == null)
@@ -111,7 +116,7 @@ namespace Hyperledger.Fabric.SDK.Security
             }
         }
 
-        private static string DumpOnePEM(X509Certificate cert, AsymmetricKeyParameter privkey)
+        public static string DumpOnePEM(X509Certificate cert, AsymmetricKeyParameter privkey)
         {
             using (StringWriter sw = new StringWriter())
             {
@@ -128,6 +133,7 @@ namespace Hyperledger.Fabric.SDK.Security
         {
             return ExtractDER(Pem);
         }
+
         public static byte[] ExtractDER(string pemcert)
         {
             byte[] content = null;
@@ -139,18 +145,19 @@ namespace Hyperledger.Fabric.SDK.Security
                     PemReader pemReader = new PemReader(sr);
                     PemObject pemObject = pemReader.ReadPemObject();
                     content = pemObject.Content;
-
                 }
             }
             catch (Exception)
             {
                 // best attempt
             }
+
             return content;
         }
+
         public static List<string> PEMCertificateListToPEMs(string pemList)
         {
-            List<string> pems=new List<string>();
+            List<string> pems = new List<string>();
             if (string.IsNullOrEmpty(pemList))
                 throw new CryptoException("private key cannot be null");
             AsymmetricKeyParameter privkey = null;
@@ -163,14 +170,14 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     if (o is AsymmetricKeyParameter)
                     {
-                        AsymmetricKeyParameter par = (AsymmetricKeyParameter)o;
+                        AsymmetricKeyParameter par = (AsymmetricKeyParameter) o;
                         if (par.IsPrivate)
                             privkey = par;
                     }
 
                     if (o is AsymmetricCipherKeyPair)
                     {
-                        privkey = ((AsymmetricCipherKeyPair)o).Private;
+                        privkey = ((AsymmetricCipherKeyPair) o).Private;
                     }
 
                     if (o is X509Certificate)
@@ -180,31 +187,34 @@ namespace Hyperledger.Fabric.SDK.Security
                             pems.Add(DumpOnePEM(cert, privkey));
                             privkey = null;
                         }
-                        X509Certificate cc = (X509Certificate)o;
+
+                        X509Certificate cc = (X509Certificate) o;
                         cert = cc;
                     }
                 }
-                if (cert!=null)
+
+                if (cert != null)
                     pems.Add(DumpOnePEM(cert, privkey));
             }
+
             return pems;
         }
+
         public static string X509Certificate2ToPEM(X509Certificate2 cert)
         {
             try
             {
                 if (cert.HasPrivateKey)
                 {
-                  
                     byte[] pkcsarray = cert.Export(X509ContentType.Pkcs12);
-                    if (pkcsarray == null || pkcsarray.Length == 0)
+                    if (pkcsarray.Length == 0)
                         throw new CryptoException("Empty PKCS12 Array");
                     X509Certificate certout = null;
                     AsymmetricKeyParameter priv = null;
                     using (MemoryStream ms = new MemoryStream(pkcsarray))
                     {
                         Pkcs12Store pkstore = new Pkcs12Store();
-                        pkstore.Load(ms, new char[]{});
+                        pkstore.Load(ms, new char[] { });
                         foreach (string s in pkstore.Aliases.Cast<string>())
                         {
                             X509CertificateEntry entry = pkstore.GetCertificate(s);
@@ -232,10 +242,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
                 X509Certificate c = DotNetUtilities.FromX509Certificate(cert);
                 return DumpOnePEM(c, null);
-                {
-                    
-                }
-               // return cert.Export(X509ContentType.SerializedCert).ToUTF8String();               
+                // return cert.Export(X509ContentType.SerializedCert).ToUTF8String();               
             }
             catch (Exception e)
             {
@@ -251,6 +258,7 @@ namespace Hyperledger.Fabric.SDK.Security
                 throw new CryptoException("Invalid Certificate");
             return certificate;
         }
+
         /*
         public static X509Certificate2 X509CertificateToX509Certificate2(X509Certificate certificate)
         {

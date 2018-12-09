@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -53,14 +54,14 @@ namespace Hyperledger.Fabric.Tests.SDK
                 peer = hfclient.NewPeer(PEER_NAME, "grpc://localhost:4");
                 Assert.AreEqual(PEER_NAME, peer.Name);
             }
-            catch (InvalidArgumentException e)
+            catch (ArgumentException e)
             {
                 Assert.Fail($"Unexpected Exeception {e.Message}");
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSetNullName()
         {
             peer = hfclient.NewPeer(null, "grpc://localhost:4");
@@ -68,7 +69,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSetEmptyName()
         {
             peer = hfclient.NewPeer("", "grpc://localhost:4");
@@ -83,7 +84,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadURL()
         {
             hfclient.NewPeer(PEER_NAME, " ");
@@ -91,7 +92,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not add peer peertest to channel duplicate because it already belongs to channel duplicate.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Can not add peer peertest to channel duplicate because it already belongs to channel duplicate.")]
         public void TestDuplicateChannel()
         {
             Channel duplicate = hfclient.NewChannel("duplicate");

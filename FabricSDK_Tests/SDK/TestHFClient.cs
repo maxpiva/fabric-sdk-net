@@ -26,7 +26,8 @@ namespace Hyperledger.Fabric.Tests.SDK
 {
     public class TestHFClient
     {
-
+   
+            
         internal string tempFile;
 
         public TestHFClient(string tempFile)
@@ -49,6 +50,8 @@ namespace Hyperledger.Fabric.Tests.SDK
 
         public static void SetupClient(HFClient hfclient)
         {
+            ICryptoSuite cryptoSuite = Factory.GetCryptoSuite();
+
             string props = Path.Combine(GetHomePath(), "test.properties");
             if (File.Exists(props))
                 File.Delete(props);
@@ -57,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             //src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/
 
             //SampleUser someTestUSER = sampleStore.getMember("someTestUSER", "someTestORG");
-            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem").Locate());
+            SampleUser someTestUSER = sampleStore.GetMember("someTestUSER", "someTestORG", "mspid", FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.Instance.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.Instance.FAB_CONFIG_GEN_VERS + "/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem").Locate());
             someTestUSER.MspId = "testMSPID?";
 
             hfclient.CryptoSuite = Factory.Instance.GetCryptoSuite();

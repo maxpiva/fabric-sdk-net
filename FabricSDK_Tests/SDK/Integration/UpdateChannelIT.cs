@@ -21,10 +21,13 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
@@ -45,10 +48,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private static readonly string UPDATED_BATCH_TIMEOUT = "\"timeout\": \"5s\""; // What we want to change it to.
 
         private static readonly string FOO_CHANNEL_NAME = "foo";
+        private static readonly string PEER_0_ORG_1_EXAMPLE_COM_7051 = "peer0.org1.example.com:7051";
+        private static readonly string REGX_S_HOST_PEER_0_ORG_1_EXAMPLE_COM = "(?s).*\"host\":[ \t]*\"peer0\\.org1\\.example\\.com\".*";
+        private static readonly string REGX_S_ANCHOR_PEERS = "(?s).*\"*AnchorPeers\":[ \t]*\\{.*";
+
 
         private readonly TestConfigHelper configHelper = new TestConfigHelper();
-        private int eventCountBlock = 0;
-        private int eventCountFilteredBlock = 0;
+        private int eventCountBlock;
+        private int eventCountFilteredBlock;
 
         private IReadOnlyList<SampleOrg> testSampleOrgs;
 
@@ -103,11 +110,9 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 // Getting foo channels current configuration bytes.
                 byte[] channelConfigurationBytes = fooChannel.GetChannelConfigurationBytes();
-                (int statuscode, byte[] data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", channelConfigurationBytes);
-                Util.COut("Got {0} status for decoding current channel config bytes", statuscode);
-                Assert.AreEqual(200, statuscode);
 
-                string responseAsString = data.ToUTF8String();
+                string responseAsString = ConfigTxlatorDecode(channelConfigurationBytes);
+
 
                 //responseAsString is JSON but use just string operations for this test.
 
@@ -118,7 +123,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 //Now modify the batch timeout
                 string updateString = responseAsString.Replace(ORIGINAL_BATCH_TIMEOUT, UPDATED_BATCH_TIMEOUT);
-                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/encode/common.Config", updateString.ToBytes());
+                (int statuscode, byte[] data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/encode/common.Config", updateString.ToBytes());
                 Util.COut("Got {0} status for encoding the new desired channel config bytes", statuscode);
                 Assert.AreEqual(200, statuscode);
                 byte[] newConfigBytes = data;
@@ -141,12 +146,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 //certificate:  src/test/fixture/sdkintegration/e2e-2Orgs/channel/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem
 
                 string sampleOrgName = sampleOrg.Name;
-                SampleUser ordererAdmin = sampleStore.GetMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP", Util.FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem").Locate());
+                SampleUser ordererAdmin = sampleStore.GetMember(sampleOrgName + "OrderAdmin", sampleOrgName, "OrdererMSP", Util.FindFileSk("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.Instance.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/"), ("fixture/sdkintegration/e2e-2Orgs/" + TestConfig.Instance.FAB_CONFIG_GEN_VERS + "/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem").Locate());
 
                 client.UserContext = ordererAdmin;
 
                 //Ok now do actual channel update.
                 fooChannel.UpdateChannelConfiguration(updateChannelConfiguration, client.GetUpdateChannelConfigurationSignature(updateChannelConfiguration, ordererAdmin));
+
+                Thread.Sleep(3000); // give time for events to happen
 
                 //Let's add some additional verification...
 
@@ -155,10 +162,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 byte[] modChannelBytes = fooChannel.GetChannelConfigurationBytes();
 
                 //Now decode the new channel config bytes to json...
-                (statuscode, data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", modChannelBytes);
-                Assert.AreEqual(200, statuscode);
+                responseAsString = ConfigTxlatorDecode(modChannelBytes);
 
-                responseAsString = data.ToUTF8String();
 
                 if (!responseAsString.Contains(UPDATED_BATCH_TIMEOUT))
                 {
@@ -173,12 +178,70 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     Assert.Fail($"Found original batch timeout '{ORIGINAL_BATCH_TIMEOUT}', when it was not expected in:{responseAsString}");
                 }
 
-                Util.COut("\n");
-
-                Thread.Sleep(3000); // give time for events to happen
 
                 Assert.IsTrue(eventCountFilteredBlock > 0); // make sure we got blockevent that were tested.
                 Assert.IsTrue(eventCountBlock > 0); // make sure we got blockevent that were tested.
+
+                //Should be no anchor peers defined.
+                Assert.IsFalse(new Regex(REGX_S_HOST_PEER_0_ORG_1_EXAMPLE_COM).Match(responseAsString).Success);
+                Assert.IsFalse(new Regex(REGX_S_ANCHOR_PEERS).Match(responseAsString).Success);
+
+                // Get config update for adding an anchor peer.
+                Channel.AnchorPeersConfigUpdateResult configUpdateAnchorPeers = fooChannel.GetConfigUpdateAnchorPeers(fooChannel.Peers.First(), sampleOrg.PeerAdmin, new List<string> {PEER_0_ORG_1_EXAMPLE_COM_7051}, null);
+
+                Assert.IsNotNull(configUpdateAnchorPeers.UpdateChannelConfiguration);
+                Assert.IsTrue(configUpdateAnchorPeers.PeersAdded.Contains(PEER_0_ORG_1_EXAMPLE_COM_7051));
+
+                //Now add anchor peer to channel configuration.
+                fooChannel.UpdateChannelConfiguration(configUpdateAnchorPeers.UpdateChannelConfiguration, client.GetUpdateChannelConfigurationSignature(configUpdateAnchorPeers.UpdateChannelConfiguration, sampleOrg.PeerAdmin));
+
+                Thread.Sleep(3000); // give time for events to happen
+
+                // Getting foo channels current configuration bytes to check with configtxlator
+                channelConfigurationBytes = fooChannel.GetChannelConfigurationBytes();
+                responseAsString = ConfigTxlatorDecode(channelConfigurationBytes);
+
+                // Check is anchor peer in config block?
+                Assert.IsTrue(new Regex(REGX_S_HOST_PEER_0_ORG_1_EXAMPLE_COM).Match(responseAsString).Success);
+                Assert.IsTrue(new Regex(REGX_S_ANCHOR_PEERS).Match(responseAsString).Success);
+
+                //Should see what's there.
+                configUpdateAnchorPeers = fooChannel.GetConfigUpdateAnchorPeers(fooChannel.Peers.First(), sampleOrg.PeerAdmin, null, null);
+
+                Assert.IsNull(configUpdateAnchorPeers.UpdateChannelConfiguration); // not updating anything.
+                Assert.IsTrue(configUpdateAnchorPeers.CurrentPeers.Contains(PEER_0_ORG_1_EXAMPLE_COM_7051)); // peer should   be there.
+                Assert.IsTrue(configUpdateAnchorPeers.PeersRemoved.Count == 0); // not removing any
+                Assert.IsTrue(configUpdateAnchorPeers.PeersAdded.Count == 0); // not adding anything.
+                Assert.IsTrue(configUpdateAnchorPeers.UpdatedPeers.Count == 0); // not updating anyting.
+
+                //Now remove the anchor peer -- get the config update block.
+                configUpdateAnchorPeers = fooChannel.GetConfigUpdateAnchorPeers(fooChannel.Peers.First(), sampleOrg.PeerAdmin, null, new List<string> {PEER_0_ORG_1_EXAMPLE_COM_7051});
+
+                Assert.IsNotNull(configUpdateAnchorPeers.UpdateChannelConfiguration);
+                Assert.IsTrue(configUpdateAnchorPeers.CurrentPeers.Contains(PEER_0_ORG_1_EXAMPLE_COM_7051)); // peer should still be there.
+                Assert.IsTrue(configUpdateAnchorPeers.PeersRemoved.Contains(PEER_0_ORG_1_EXAMPLE_COM_7051)); // peer to remove.
+                Assert.IsTrue(configUpdateAnchorPeers.PeersAdded.Count == 0); // not adding anything.
+                Assert.IsTrue(configUpdateAnchorPeers.UpdatedPeers.Count == 0); // no peers should be left.
+
+                // Now do the actual update.
+                fooChannel.UpdateChannelConfiguration(configUpdateAnchorPeers.UpdateChannelConfiguration, client.GetUpdateChannelConfigurationSignature(configUpdateAnchorPeers.UpdateChannelConfiguration, sampleOrg.PeerAdmin));
+                Thread.Sleep(3000); // give time for events to happen
+                // Getting foo channels current configuration bytes to check with configtxlator.
+                channelConfigurationBytes = fooChannel.GetChannelConfigurationBytes();
+                responseAsString = ConfigTxlatorDecode(channelConfigurationBytes);
+
+                Assert.IsFalse(new Regex(REGX_S_HOST_PEER_0_ORG_1_EXAMPLE_COM).Match(responseAsString).Success); // should be gone!
+                Assert.IsTrue(new Regex(REGX_S_ANCHOR_PEERS).Match(responseAsString).Success); //ODDLY we still want this even if it's empty!
+
+                //Should see what's there.
+                configUpdateAnchorPeers = fooChannel.GetConfigUpdateAnchorPeers(fooChannel.Peers.First(), sampleOrg.PeerAdmin, null, null);
+
+                Assert.IsNull(configUpdateAnchorPeers.UpdateChannelConfiguration); // not updating anything.
+                Assert.IsTrue(configUpdateAnchorPeers.CurrentPeers.Count == 0); // peer should be now gone.
+                Assert.IsTrue(configUpdateAnchorPeers.PeersRemoved.Count == 0); // not removing any
+                Assert.IsTrue(configUpdateAnchorPeers.PeersAdded.Count == 0); // not adding anything.
+                Assert.IsTrue(configUpdateAnchorPeers.UpdatedPeers.Count == 0); // no peers should be left
+
 
                 Util.COut("That's all folks!");
             }
@@ -186,6 +249,13 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             {
                 Assert.Fail(e.Message);
             }
+        }
+
+        private string ConfigTxlatorDecode(byte[] channelConfigurationBytes)
+        {
+            (int statuscode, byte[] data) = HttpPost(CONFIGTXLATOR_LOCATION + "/protolator/decode/common.Config", channelConfigurationBytes);
+            Assert.AreEqual(200, statuscode);
+            return data.ToUTF8String();
         }
 
         private (int, byte[]) HttpPost(string url, byte[] body)
@@ -313,7 +383,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Assert.AreEqual(0, blockEvent.TransactionCount);
                     Assert.AreEqual(1, blockEvent.EnvelopeCount);
-                    foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
+                    foreach (BlockEvent.TransactionEvent _ in blockEvent.TransactionEvents)
                     {
                         Assert.Fail("Got transaction event in a block update"); // only events for update should not have transactions.
                     }

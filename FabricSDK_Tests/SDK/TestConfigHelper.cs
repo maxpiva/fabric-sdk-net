@@ -72,11 +72,11 @@ namespace Hyperledger.Fabric.Tests.SDK
             string fabricSdkConfig = Environment.GetEnvironmentVariable(CONFIG_OVERRIDES);
             if (!string.IsNullOrEmpty(fabricSdkConfig))
             {
-                string[] configs = fabricSdkConfig.Split(new char[] {','});
+                string[] configs = fabricSdkConfig.Split(new [] {','});
                 string[] configKeyValue;
                 foreach (string config in configs)
                 {
-                    configKeyValue = config.Split(new char[] {'='});
+                    configKeyValue = config.Split(new [] {'='});
                     if (configKeyValue.Length == 2)
                     {
                         Environment.SetEnvironmentVariable(configKeyValue[0], configKeyValue[1]);

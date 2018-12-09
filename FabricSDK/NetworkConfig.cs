@@ -24,29 +24,29 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
-
+using System.Threading;
+using System.Threading.Tasks;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Logging;
-
 using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Hyperledger.Fabric.SDK
 {
     public class NetworkConfig
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(NetworkConfig));
+        private static readonly Dictionary<PeerRole, string> roleNameRemapHash = new Dictionary<PeerRole, string> {{PeerRole.SERVICE_DISCOVERY, "discover"}};
+
+        private readonly OrgInfo clientOrganization;
 
 
         private readonly JObject jsonConfig;
-
-        private readonly OrgInfo clientOrganization;
         private Dictionary<string, Node> eventHubs;
 
         private Dictionary<string, Node> orderers;
@@ -64,13 +64,13 @@ namespace Hyperledger.Fabric.SDK
             string configName = jsonConfig["name"]?.Value<string>();
             if (string.IsNullOrEmpty(configName))
             {
-                throw new InvalidArgumentException("Network config must have a name");
+                throw new ArgumentException("Network config must have a name");
             }
 
             string configVersion = jsonConfig["version"]?.Value<string>();
             if (string.IsNullOrEmpty(configVersion))
             {
-                throw new InvalidArgumentException("Network config must have a version");
+                throw new ArgumentException("Network config must have a version");
                 // TODO: Validate the version
             }
 
@@ -87,13 +87,13 @@ namespace Hyperledger.Fabric.SDK
             string orgName = jsonClient == null ? null : jsonClient["organization"]?.Value<string>();
             if (string.IsNullOrEmpty(orgName))
             {
-                throw new InvalidArgumentException("A client organization must be specified");
+                throw new ArgumentException("A client organization must be specified");
             }
 
             clientOrganization = GetOrganizationInfo(orgName);
             if (clientOrganization == null)
             {
-                throw new InvalidArgumentException("Client organization " + orgName + " is not defined");
+                throw new ArgumentException("Client organization " + orgName + " is not defined");
             }
         }
 
@@ -124,11 +124,11 @@ namespace Hyperledger.Fabric.SDK
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw new InvalidArgumentException("Parameter name is null or empty.");
+                throw new ArgumentException("Parameter name is null or empty.");
             }
 
             if (!nodes.ContainsKey(name))
-                throw new InvalidArgumentException($"{type} {name} not found.");
+                throw new ArgumentException($"{type} {name} not found.");
             Node node = nodes[name];
             if (null == node.Properties)
             {
@@ -144,16 +144,16 @@ namespace Hyperledger.Fabric.SDK
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw new InvalidArgumentException("Parameter name is null or empty.");
+                throw new ArgumentException("Parameter name is null or empty.");
             }
 
             if (properties == null)
             {
-                throw new InvalidArgumentException("Parameter properties is null.");
+                throw new ArgumentException("Parameter properties is null.");
             }
 
             if (!nodes.ContainsKey(name))
-                throw new InvalidArgumentException($"{type} {name} not found.");
+                throw new ArgumentException($"{type} {name} not found.");
             Node node = nodes[name];
             node.Properties = properties.Clone();
         }
@@ -271,7 +271,7 @@ namespace Hyperledger.Fabric.SDK
             // Sanity check
             if (configStream == null)
             {
-                throw new InvalidArgumentException("configStream must be specified");
+                throw new ArgumentException("configStream must be specified");
             }
 
             var r = new StreamReader(configStream);
@@ -297,7 +297,7 @@ namespace Hyperledger.Fabric.SDK
             // Sanity check
             if (configStream == null)
             {
-                throw new InvalidArgumentException("configStream must be specified");
+                throw new ArgumentException("configStream must be specified");
             }
 
             return FromJsonObject(JObject.Parse(Encoding.UTF8.GetString(configStream.ToByteArray())));
@@ -315,12 +315,12 @@ namespace Hyperledger.Fabric.SDK
             // Sanity check
             if (jsonConfig == null)
             {
-                throw new InvalidArgumentException("jsonConfig must be specified");
+                throw new ArgumentException("jsonConfig must be specified");
             }
 
             if (logger.IsTraceEnabled())
             {
-                logger.Trace($"NetworkConfig.fromJsonObject: {jsonConfig.ToString()}x");
+                logger.Trace($"NetworkConfig.fromJsonObject: {jsonConfig}x");
             }
 
             return Load(jsonConfig);
@@ -332,14 +332,13 @@ namespace Hyperledger.Fabric.SDK
             // Sanity check
             if (string.IsNullOrEmpty(configFile))
             {
-                throw new InvalidArgumentException("configFile must be specified");
+                throw new ArgumentException("configFile must be specified");
             }
 
             if (logger.IsTraceEnabled())
             {
                 logger.Trace($"NetworkConfig.fromFile: {configFile}  isJson = {isJson}");
             }
-
 
 
             // Json file
@@ -361,7 +360,7 @@ namespace Hyperledger.Fabric.SDK
             // Sanity check
             if (jsonConfig == null)
             {
-                throw new InvalidArgumentException("config must be specified");
+                throw new ArgumentException("config must be specified");
             }
 
             return new NetworkConfig(jsonConfig);
@@ -419,14 +418,14 @@ namespace Hyperledger.Fabric.SDK
          * @param channelName The name of the channel
          * @return A configured Channel instance
          */
-        public Channel LoadChannel(HFClient client, string channelName)
+        public async Task<Channel> LoadChannelAsync(HFClient client, string channelName, CancellationToken token = default(CancellationToken))
         {
             if (logger.IsTraceEnabled())
             {
                 logger.Trace($"NetworkConfig.loadChannel: {channelName}");
             }
 
-            Channel channel = null;
+            Channel channel;
 
             JToken channels = jsonConfig["channels"];
 
@@ -443,7 +442,7 @@ namespace Hyperledger.Fabric.SDK
                         throw new NetworkConfigurationException($"Channel {channelName} is already configured in the client!");
                     }
 
-                    channel = ReconstructChannel(client, channelName, jsonChannel);
+                    channel = await ReconstructChannelAsync(client, channelName, jsonChannel, token).ConfigureAwait(false); 
                 }
                 else
                 {
@@ -461,7 +460,7 @@ namespace Hyperledger.Fabric.SDK
                             sb.Append(", ");
                         sb.Append(s);
                     });
-                    throw new NetworkConfigurationException($"Channel {channelName} not found in configuration file. Found channel names: {sb.ToString()}");
+                    throw new NetworkConfigurationException($"Channel {channelName} not found in configuration file. Found channel names: {sb}");
                 }
             }
             else
@@ -617,9 +616,9 @@ namespace Hyperledger.Fabric.SDK
         }
 
         // Reconstructs an existing channel
-        private Channel ReconstructChannel(HFClient client, string channelName, JToken jsonChannel)
+        private async Task<Channel> ReconstructChannelAsync(HFClient client, string channelName, JToken jsonChannel, CancellationToken token = default(CancellationToken))
         {
-            Channel channel = null;
+            Channel channel;
 
 
             channel = client.NewChannel(channelName);
@@ -681,10 +680,10 @@ namespace Hyperledger.Fabric.SDK
 
                     // Set the various roles
                     Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions();
-                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.ENDORSING_PEER);
-                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.CHAINCODE_QUERY);
-                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.LEDGER_QUERY);
-                    SetPeerRole(channelName, peerOptions, jsonPeer, PeerRole.EVENT_SOURCE);
+                    foreach (PeerRole peerRole in Enum.GetValues(typeof(PeerRole)))
+                    {
+                        SetPeerRole(peerOptions, jsonPeer, peerRole);
+                    }
 
                     foundPeer = true;
 
@@ -692,7 +691,7 @@ namespace Hyperledger.Fabric.SDK
                     EventHub eventHub = GetEventHub(client, peerName);
                     if (eventHub != null)
                     {
-                        channel.AddEventHub(eventHub);
+                        await channel.AddEventHubAsync(eventHub, token).ConfigureAwait(false);
                         if (!peerOptions.HasPeerRoles())
                         {
                             // means no roles were found but there is an event hub so define all roles but eventing.
@@ -700,7 +699,7 @@ namespace Hyperledger.Fabric.SDK
                         }
                     }
 
-                    channel.AddPeer(peer, peerOptions);
+                    await channel.AddPeerAsync(peer, peerOptions, token).ConfigureAwait(false);
                 }
             }
 
@@ -709,13 +708,20 @@ namespace Hyperledger.Fabric.SDK
                 // peers is a required field
                 throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one peer must be specified");
             }
- 
+
             return channel;
         }
 
-        private static void SetPeerRole(string channelName, Channel.PeerOptions peerOptions, JToken jsonPeer, PeerRole role)
+        private static string RoleNameRemap(PeerRole peerRole)
         {
-            string propName = role.ToValue();
+            string remap = roleNameRemapHash.GetOrNull(peerRole);
+            return remap ?? peerRole.ToValue();
+        }
+
+        // ReSharper disable once UnusedParameter.Local
+        private static void SetPeerRole(Channel.PeerOptions peerOptions, JToken jsonPeer, PeerRole role)
+        {
+            string propName = RoleNameRemap(role);
             JToken val = jsonPeer[propName];
             if (val != null)
             {
@@ -762,7 +768,7 @@ namespace Hyperledger.Fabric.SDK
             ReplaceNettyOptions(props);
 
             // Extract the pem details
-            GetTLSCerts(nodeName, jsonNode, props);
+            GetTLSCerts(jsonNode, props);
 
             return new Node(nodeName, url, props);
         }
@@ -771,7 +777,7 @@ namespace Hyperledger.Fabric.SDK
         {
             if (null != props)
             {
-                String value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTime");
+                string value = props.Get("grpc.NettyChannelBuilderOption.keepAliveTime");
                 if (null != value)
                 {
                     props.GetAndRemove("grpc.NettyChannelBuilderOption.keepAliveTime");
@@ -784,17 +790,18 @@ namespace Hyperledger.Fabric.SDK
                     props.GetAndRemove("grpc.NettyChannelBuilderOption.keepAliveTimeout");
                     props.Set("grpc.keepalive_timeout_ms", value);
                 }
+
                 value = props.Get("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                 if (null != value)
                 {
                     props.GetAndRemove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                     props.Set("grpc.max_receive_message_length", value);
                 }
-
             }
-
         }
-        private void GetTLSCerts(string nodeName, JToken jsonOrderer,Properties props)
+
+        // ReSharper disable once UnusedParameter.Local
+        private void GetTLSCerts(JToken jsonOrderer, Properties props)
         {
             JToken jsonTlsCaCerts = jsonOrderer["tlsCACerts"];
             if (jsonTlsCaCerts != null)
@@ -866,7 +873,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (!string.IsNullOrEmpty(adminPrivateKeyString) && !string.IsNullOrEmpty(signedCert))
             {
-                KeyPair privateKey = null;
+                KeyPair privateKey;
 
                 try
                 {
@@ -876,15 +883,19 @@ namespace Hyperledger.Fabric.SDK
                 {
                     throw new NetworkConfigurationException($"{msgPrefix}: Invalid private key", ioe);
                 }
-
-
-                org.PeerAdmin = new UserInfo(mspId, "PeerAdmin_" + mspId + "_" + orgName, null);
-                org.PeerAdmin.Enrollment = new Enrollment(privateKey.Pem, signedCert);
+                try
+                {
+                    org.PeerAdmin = new UserInfo(Factory.GetCryptoSuite(), mspId, "PeerAdmin_" + mspId + "_" + orgName, null);
+                }
+                catch (Exception e)
+                {
+                    throw new NetworkConfigurationException(e.Message, e);
+                }
+                org.PeerAdmin.Enrollment=new X509Enrollment(privateKey, signedCert);
             }
 
             return org;
         }
-
 
 
         // Returns the PEM (as a String) from either a path or a pem field
@@ -926,11 +937,12 @@ namespace Hyperledger.Fabric.SDK
 
             return pemString;
         }
+
         private static JArray GetJsonValueAsArray(JToken value)
         {
             if (value is JArray)
                 return (JArray) value;
-            JArray r=new JArray();
+            JArray r = new JArray();
             r.Add(value);
             return r;
         }
@@ -942,18 +954,24 @@ namespace Hyperledger.Fabric.SDK
             string url = jsonCA["url"]?.Value<string>();
             Properties httpOptions = ExtractProperties(jsonCA, "httpOptions");
 
-            string enrollId = null;
-            string enrollSecret = null;
+            string enrollId;
+            string enrollSecret;
             List<UserInfo> regUsers = new List<UserInfo>();
             JToken registrar = jsonCA["registrar"];
             if (registrar != null)
             {
-                
                 foreach (JToken reg in GetJsonValueAsArray(jsonCA["registrar"]))
                 {
                     enrollId = reg["enrollId"]?.Value<string>();
                     enrollSecret = reg["enrollSecret"]?.Value<string>();
-                    regUsers.Add(new UserInfo(org.MspId, enrollId, enrollSecret));
+                    try
+                    {
+                        regUsers.Add(new UserInfo(Factory.GetCryptoSuite(), org.MspId, enrollId, enrollSecret));
+                    }
+                    catch (Exception e)
+                    {
+                        throw new NetworkConfigurationException(e.Message, e);
+                    }
                 }
             }
 
@@ -966,12 +984,12 @@ namespace Hyperledger.Fabric.SDK
             }
 
             Properties properties = new Properties();
-            if (null != httpOptions && "false".Equals((string) httpOptions["verify"], StringComparison.CurrentCultureIgnoreCase))
+            if (null != httpOptions && "false".Equals(httpOptions["verify"], StringComparison.CurrentCultureIgnoreCase))
             {
                 properties["allowAllHostNames"] = "true";
             }
 
-            GetTLSCerts(name, jsonCA, properties);
+            GetTLSCerts(jsonCA, properties);
             caInfo.Properties = properties;
 
             return caInfo;
@@ -1145,11 +1163,12 @@ namespace Hyperledger.Fabric.SDK
          */
         public class UserInfo : IUser
         {
-            public UserInfo(string mspid, string name, string enrollSecret)
+            public UserInfo(ICryptoSuite suite, string mspid, string name, string enrollSecret)
             {
                 Name = name;
                 EnrollSecret = enrollSecret;
                 MspId = mspid;
+                Suite = suite;
             }
 
             public string EnrollSecret { get; set; }
@@ -1160,6 +1179,8 @@ namespace Hyperledger.Fabric.SDK
             public string Affiliation { get; set; }
             public IEnrollment Enrollment { get; set; }
             public string MspId { get; set; }
+
+            public ICryptoSuite Suite { get; }
         }
 
 
@@ -1198,11 +1219,11 @@ namespace Hyperledger.Fabric.SDK
 
             public string Name { get; set; }
             public string Url { get; set; }
-            public Properties HttpOptions { get; set; } = new Properties();
+            public Properties HttpOptions { get; set; }
 
             public string MspId { get; set; }
             public string CAName { get; set; }
-            public Properties Properties { get; set; } = new Properties();
+            public Properties Properties { get; set; }
 
             public List<UserInfo> Registrars { get; set; }
         }

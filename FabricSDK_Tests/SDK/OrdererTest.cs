@@ -15,9 +15,9 @@
 using System;
 using System.IO;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+// ReSharper disable ObjectCreationAsStatement
 
 namespace Hyperledger.Fabric.Tests.SDK
 {
@@ -25,8 +25,8 @@ namespace Hyperledger.Fabric.Tests.SDK
     [TestCategory("SDK")]
     public class OrdererTest
     {
-        private static HFClient hfclient = null;
-        private static Orderer orderer = null;
+        private static HFClient hfclient;
+        private static Orderer orderer;
         private static string tempFile;
 
         private static readonly string DEFAULT_CHANNEL_NAME = "channel";
@@ -51,7 +51,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not add orderer testorderer to channel channel2 because it already belongs to channel channel.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Can not add orderer testorderer to channel channel2 because it already belongs to channel channel.")]
         public void TestSetDuplicateChannnel()
         {
             Channel channel = hfclient.NewChannel(DEFAULT_CHANNEL_NAME);
@@ -62,7 +62,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel can not be null")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel can not be null")]
         public void TestSetNullChannel()
         {
             orderer.Channel = null;
@@ -84,14 +84,14 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Invalid name")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Invalid name")]
         public void TestNullOrdererName()
         {
             new Orderer(null, "url", null);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadAddress()
         {
             orderer = hfclient.NewOrderer("badorderer", "xxxxxx");
@@ -99,7 +99,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestMissingAddress()
         {
             orderer = hfclient.NewOrderer("badaddress", "");
@@ -125,14 +125,14 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(IllegalArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSendNullTransactionThrowsException()
         {
             try
             {
                 orderer = hfclient.NewOrderer(ORDERER_NAME, "grpc://localhost:5151");
             }
-            catch (InvalidArgumentException e)
+            catch (ArgumentException e)
             {
                 Assert.Fail("Failed to create new orderer: " + e);
             }

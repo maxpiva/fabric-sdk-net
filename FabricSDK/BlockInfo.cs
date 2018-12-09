@@ -24,7 +24,7 @@ using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-
+// ReSharper disable NotResolvedInText
 
 
 namespace Hyperledger.Fabric.SDK
@@ -58,10 +58,7 @@ namespace Hyperledger.Fabric.SDK
                 Block respBlock = resp.Block;
                 filteredBlock = null;
                 if (respBlock == null)
-                {
                     throw new ArgumentNullException("DeliverResponse type block but block is null");
-                }
-
                 block = new BlockDeserializer(respBlock);
             }
             else if (resp.TypeCase == DeliverResponse.TypeOneofCase.FilteredBlock)
@@ -69,13 +66,11 @@ namespace Hyperledger.Fabric.SDK
                 filteredBlock = resp.FilteredBlock;
                 block = null;
                 if (filteredBlock == null)
-                {
                     throw new ArgumentNullException("DeliverResponse type filter block but filter block is null");
-                }
             }
             else
             {
-                throw new IllegalArgumentException($"DeliverResponse type has unexpected type");
+                throw new ArgumentException($"DeliverResponse type has unexpected type");
             }
         }
 
@@ -85,12 +80,12 @@ namespace Hyperledger.Fabric.SDK
             {
                 if (filteredBlock == null && block == null)
                 {
-                    throw new IllegalArgumentException("Both block and filter is null.");
+                    throw new ArgumentException("Both block and filter is null.");
                 }
 
                 if (filteredBlock != null && block != null)
                 {
-                    throw new IllegalArgumentException("Both block and filter are set.");
+                    throw new ArgumentException("Both block and filter are set.");
                 }
 
                 return filteredBlock != null;
@@ -214,43 +209,36 @@ namespace Hyperledger.Fabric.SDK
 
         public EnvelopeInfo GetEnvelopeInfo(int envelopeIndex)
         {
-            try
+            EnvelopeInfo ret;
+
+            if (IsFiltered)
             {
-                EnvelopeInfo ret;
-
-                if (IsFiltered)
+                switch (filteredBlock.FilteredTransactions[envelopeIndex].Type)
                 {
-                    switch (filteredBlock.FilteredTransactions[envelopeIndex].Type)
-                    {
-                        case HeaderType.EndorserTransaction:
-                            ret = new TransactionEnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
-                            break;
-                        default: //just assume base properties.
-                            ret = new EnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
-                            break;
-                    }
+                    case HeaderType.EndorserTransaction:
+                        ret = new TransactionEnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
+                        break;
+                    default: //just assume base properties.
+                        ret = new EnvelopeInfo(this, filteredBlock.FilteredTransactions[envelopeIndex]);
+                        break;
                 }
-                else
-                {
-                    EnvelopeDeserializer ed = EnvelopeDeserializer.Create(block.Block.Data.Data[envelopeIndex], block.TransActionsMetaData[envelopeIndex]);
-
-                    switch (ed.Type)
-                    {
-                        case (int) HeaderType.EndorserTransaction:
-                            ret = new TransactionEnvelopeInfo(this, (EndorserTransactionEnvDeserializer) ed);
-                            break;
-                        default: //just assume base properties.
-                            ret = new EnvelopeInfo(this, ed);
-                            break;
-                    }
-                }
-
-                return ret;
             }
-            catch (Exception)
+            else
             {
-                throw;
+                EnvelopeDeserializer ed = EnvelopeDeserializer.Create(block.Block.Data.Data[envelopeIndex], block.TransActionsMetaData[envelopeIndex]);
+
+                switch (ed.Type)
+                {
+                    case (int)HeaderType.EndorserTransaction:
+                        ret = new TransactionEnvelopeInfo(this, (EndorserTransactionEnvDeserializer)ed);
+                        break;
+                    default: //just assume base properties.
+                        ret = new EnvelopeInfo(this, ed);
+                        break;
+                }
             }
+
+            return ret;
         }
 
 
@@ -485,11 +473,38 @@ namespace Hyperledger.Fabric.SDK
                 public int ProposalResponseStatus => IsFiltered ? -1 : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ResponseStatus;
 
                 /**
-                 * Get read write set for this transaction. Will return null on for Eventhub events.
-                 * For eventhub events find the block by block number to get read write set if needed.
+                 * get name of chaincode with this transaction action
                  *
-                 * @return Read write set.
+                 * @return name of chaincode.  Maybe null if no chaincode or if block is filtered.
                  */
+                public string ChaincodeIDName => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ChaincodeID?.Name;
+
+                /**
+                 * get path of chaincode with this transaction action
+                 *
+                 * @return path of chaincode.  Maybe null if no chaincode or if block is filtered.
+                 */
+                public string ChaincodeIDPath => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ChaincodeID?.Path;
+
+
+                /**
+                 * get version of chaincode with this transaction action
+                 *
+                 * @return version of chaincode.  Maybe null if no chaincode or if block is filtered.
+                 */
+
+                public string ChaincodeIDVersion => IsFiltered ? null : transactionAction.Payload.Action.ProposalResponsePayload.Extension.ChaincodeID?.Version;
+ 
+
+                /**
+
+
+                    /**
+                     * Get read write set for this transaction. Will return null on for Eventhub events.
+                     * For eventhub events find the block by block number to get read write set if needed.
+                     *
+                     * @return Read write set.
+                     */
 
                 public TxReadWriteSetInfo TxReadWriteSet
                 {

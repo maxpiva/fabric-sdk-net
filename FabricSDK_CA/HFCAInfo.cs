@@ -22,15 +22,25 @@ namespace Hyperledger.Fabric_CA.SDK
      */
     public class HFCAInfo
     {
-
         // Contains server/ca information
         public HFCAInfo(string caName, string caChain, string version)
         {
             CAName = caName;
             CACertificateChain = caChain;
             Version = version;
+            IdemixIssuerPublicKey = "";
+            IdemixIssuerRevocationPublicKey = "";
         }
 
+        // Contains server/ca information
+        public HFCAInfo(string caName, string caChain, string version, string issuerPublicKey, string issuerRevocationPublicKey)
+        {
+            CAName = caName;
+            CACertificateChain = caChain;
+            Version = version;
+            IdemixIssuerPublicKey = issuerPublicKey;
+            IdemixIssuerRevocationPublicKey = issuerRevocationPublicKey;
+        }
         /**
          * The CAName for the Fabric Certificate Authority.
          *
@@ -56,5 +66,19 @@ namespace Hyperledger.Fabric_CA.SDK
          */
 
         public string Version { get; }
+        /**
+         * Get the idemix issuer public key.
+         *
+         * @return The idemix issuer public key, or null if not supported by
+         * this version of idemix.
+         */
+        public string IdemixIssuerPublicKey { get; }
+        /**
+         * Get the idemix issuer revocation public key.
+         *
+         * @return The idemix issuer revocation public key, or null if not supported by
+         * this version of idemix.
+         */
+        public string IdemixIssuerRevocationPublicKey { get; }
     }
 }

@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
@@ -50,6 +51,7 @@ namespace Hyperledger.Fabric.SDK
         private readonly Dictionary<string, Channel> channels = new Dictionary<string, Channel>();
         private ICryptoSuite cryptoSuite;
         private IUser userContext;
+       
 
         private HFClient()
         {
@@ -61,9 +63,9 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (null == value)
-                    throw new InvalidArgumentException("CryptoSuite paramter is null.");
+                    throw new ArgumentException("CryptoSuite paramter is null.");
                 if (cryptoSuite != null && value != cryptoSuite)
-                    throw new InvalidArgumentException("CryptoSuite may only be set once.");
+                    throw new ArgumentException("CryptoSuite may only be set once.");
                 cryptoSuite = value;
             }
         }
@@ -75,7 +77,7 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (null == cryptoSuite)
-                    throw new InvalidArgumentException("No cryptoSuite has been set.");
+                    throw new ArgumentException("No cryptoSuite has been set.");
                 value.UserContextCheck();
                 userContext = value;
                 logger.Debug($"Setting user context to MSPID: {userContext.MspId} user: {userContext.Name}");
@@ -104,18 +106,23 @@ namespace Hyperledger.Fabric.SDK
      */
         public Channel LoadChannelFromConfig(string channelName, NetworkConfig networkConfig)
         {
+            return LoadChannelFromConfigAsync(channelName, networkConfig).RunAndUnwarp();
+        }
+
+        public Task<Channel> LoadChannelFromConfigAsync(string channelName, NetworkConfig networkConfig, CancellationToken token=default(CancellationToken))
+        {
             ClientCheck();
             // Sanity checks
             if (string.IsNullOrEmpty(channelName))
-                throw new InvalidArgumentException("channelName must be specified");
+                throw new ArgumentException("channelName must be specified");
             if (networkConfig == null)
-                throw new InvalidArgumentException("networkConfig must be specified");
+                throw new ArgumentException("networkConfig must be specified");
             using (_channelLock.Lock())
             {
                 if (channels.ContainsKey(channelName))
-                    throw new InvalidArgumentException($"Channel with name {channelName} already exists");
+                    throw new ArgumentException($"Channel with name {channelName} already exists");
             }
-            return networkConfig.LoadChannel(this, channelName);
+            return networkConfig.LoadChannelAsync(this, channelName, token);
         }
 
 
@@ -130,11 +137,11 @@ namespace Hyperledger.Fabric.SDK
         {
             ClientCheck();
             if (string.IsNullOrEmpty(name))
-                throw new InvalidArgumentException("Channel name can not be null or empty string.");
+                throw new ArgumentException("Channel name can not be null or empty string.");
             using (_channelLock.Lock())
             {
                 if (channels.ContainsKey(name))
-                    throw new InvalidArgumentException($"Channel by the name {name} already exists");
+                    throw new ArgumentException($"Channel by the name {name} already exists");
                 logger.Trace($"Creating channel : {name}");
                 Channel newChannel = Channel.Create(name, this);
                 channels.Add(name, newChannel);
@@ -146,14 +153,14 @@ namespace Hyperledger.Fabric.SDK
         {
             ClientCheck();
             if (string.IsNullOrEmpty(name))
-                throw new InvalidArgumentException("Channel name can not be null or empty string.");
+                throw new ArgumentException("Channel name can not be null or empty string.");
 
-            using (await _channelLock.LockAsync(token))
+            using (await _channelLock.LockAsync(token).ConfigureAwait(false))
             {
                 if (channels.ContainsKey(name))
-                    throw new InvalidArgumentException($"Channel by the name {name} already exits");
+                    throw new ArgumentException($"Channel by the name {name} already exits");
                 logger.Trace("Creating channel :" + name);
-                Channel newChannel = await Channel.CreateAsync(name, this, orderer, channelConfiguration, token, channelConfigurationSignatures);
+                Channel newChannel = await Channel.CreateAsync(name, this, orderer, channelConfiguration, token, channelConfigurationSignatures).ConfigureAwait(false);
                 channels.Add(name, newChannel);
                 return newChannel;
             }
@@ -172,7 +179,7 @@ namespace Hyperledger.Fabric.SDK
         public Channel DeSerializeChannelFromFile(string file)
         {
             if (string.IsNullOrEmpty(file))
-                throw new InvalidArgumentException("File parameter may not be null");
+                throw new ArgumentException("File parameter may not be null");
             return DeSerializeChannel(File.ReadAllText(file, Encoding.UTF8));
         }
 
@@ -196,51 +203,52 @@ namespace Hyperledger.Fabric.SDK
                 if (null != GetChannel(name))
                 {
                     channel.Shutdown(true);
-                    throw new InvalidArgumentException($"Channel {name} already exists in the client");
+                    throw new ArgumentException($"Channel {name} already exists in the client");
                 }
                 channels.Add(name, channel);
                 channel.client = this;
             }
             return channel;
         }
-     /**
-     * newPeer create a new peer
-     *
-     * @param name       name of peer.
-     * @param grpcURL    to the peer's location
-     * @param properties <p>
-     *                   Supported properties
-     *                   <ul>
-     *                   <li>pemFile - File location for x509 pem certificate for SSL.</li>
-     *                   <li>trustServerCertificate - boolen(true/false) override CN to match pemFile certificate -- for development only.
-     *                   If the pemFile has the target server's certificate (instead of a CA Root certificate),
-     *                   instruct the TLS client to trust the CN value of the certificate in the pemFile,
-     *                   useful in development to get past default server hostname verification during
-     *                   TLS handshake, when the server host name does not match the certificate.
-     *                   </li>
-     *                   <li>clientKeyFile - File location for private key pem for mutual TLS</li>
-     *                   <li>clientCertFile - File location for x509 pem certificate for mutual TLS</li>
-     *                   <li>clientKeyBytes - Private key pem bytes for mutual TLS</li>
-     *                   <li>clientCertBytes - x509 pem certificate bytes for mutual TLS</li>
-     *                   <li>hostnameOverride - Specify the certificates CN -- for development only.
-     *                   <li>sslProvider - Specify the SSL provider, openSSL or JDK.</li>
-     *                   <li>negotiationType - Specify the type of negotiation, TLS or plainText.</li>
-     *                   <li>If the pemFile does not represent the server certificate, use this property to specify the URI authority
-     *                   (a.k.a hostname) expected in the target server's certificate. This is required to get past default server
-     *                   hostname verifications during TLS handshake.
-     *                   </li>
-     *                   <li>
-     *                   peerEventRegistrationWaitTime - Time in milliseconds to wait for peer eventing service registration.
-     *                   </li>
-     *                   <li>
-     *                   grpc.NettyChannelBuilderOption.&lt;methodName&gt;  where methodName is any method on
-     *                   grpc ManagedChannelBuilder.  If more than one argument to the method is needed then the
-     *                   parameters need to be supplied in an array of Objects.
-     *                   </li>
-     *                   </ul>
-     * @return Peer
-     * @throws InvalidArgumentException
-     */
+        /**
+        * newPeer create a new peer
+        *
+        * @param name       name of peer.
+        * @param grpcURL    to the peer's location
+        * @param properties <p>
+        *                   Supported properties
+        *                   <ul>
+        *                   <li>pemFile - File location for x509 pem certificate for SSL.</li>
+        *                   <li>pemBytes - byte array for x509 pem certificates for SSL</li>
+        *                   <li>trustServerCertificate - boolen(true/false) override CN to match pemFile certificate -- for development only.
+        *                   If the pemFile has the target server's certificate (instead of a CA Root certificate),
+        *                   instruct the TLS client to trust the CN value of the certificate in the pemFile,
+        *                   useful in development to get past default server hostname verification during
+        *                   TLS handshake, when the server host name does not match the certificate.
+        *                   </li>
+        *                   <li>clientKeyFile - File location for private key pem for mutual TLS</li>
+        *                   <li>clientCertFile - File location for x509 pem certificate for mutual TLS</li>
+        *                   <li>clientKeyBytes - Private key pem bytes for mutual TLS</li>
+        *                   <li>clientCertBytes - x509 pem certificate bytes for mutual TLS</li>
+        *                   <li>hostnameOverride - Specify the certificates CN -- for development only.
+        *                   <li>sslProvider - Specify the SSL provider, openSSL or JDK.</li>
+        *                   <li>negotiationType - Specify the type of negotiation, TLS or plainText.</li>
+        *                   <li>If the pemFile does not represent the server certificate, use this property to specify the URI authority
+        *                   (a.k.a hostname) expected in the target server's certificate. This is required to get past default server
+        *                   hostname verifications during TLS handshake.
+        *                   </li>
+        *                   <li>
+        *                   peerEventRegistrationWaitTime - Time in milliseconds to wait for peer eventing service registration.
+        *                   </li>
+        *                   <li>
+        *                   grpc.NettyChannelBuilderOption.&lt;methodName&gt;  where methodName is any method on
+        *                   grpc ManagedChannelBuilder.  If more than one argument to the method is needed then the
+        *                   parameters need to be supplied in an array of Objects.
+        *                   </li>
+        *                   </ul>
+        * @return Peer
+        * @throws InvalidArgumentException
+        */
 
         public Peer NewPeer(string name, string grpcURL, Properties properties)
         {
@@ -320,12 +328,13 @@ namespace Hyperledger.Fabric.SDK
         /**
      * Create a new Eventhub.
      *
-     * @param name       name of Orderer.
+     * @param name       name of EventHub.
      * @param grpcURL    url location of orderer grpc or grpcs protocol.
      * @param properties <p>
      *                   Supported properties
      *                   <ul>
      *                   <li>pemFile - File location for x509 pem certificate for SSL.</li>
+     *                   <li>pemBytes - byte array for x509 pem certificates for SSL</li>
      *                   <li>trustServerCertificate - boolean(true/false) override CN to match pemFile certificate -- for development only.
      *                   If the pemFile has the target server's certificate (instead of a CA Root certificate),
      *                   instruct the TLS client to trust the CN value of the certificate in the pemFile,
@@ -388,6 +397,7 @@ namespace Hyperledger.Fabric.SDK
      *                   Supported properties
      *                   <ul>
      *                   <li>pemFile - File location for x509 pem certificate for SSL.</li>
+     *                   <li>pemBytes - byte array for x509 pem certificates for SSL</li>
      *                   <li>trustServerCertificate - boolean(true/false) override CN to match pemFile certificate -- for development only.
      *                   If the pemFile has the target server's certificate (instead of a CA Root certificate),
      *                   instruct the TLS client to trust the CN value of the certificate in the pemFile,
@@ -426,10 +436,10 @@ namespace Hyperledger.Fabric.SDK
         }
 
         /**
-     * Query the channels for peers
+     * Query the joined channels for peers
      *
      * @param peer the peer to query
-     * @return A set of strings with the peer names.
+     * @return A set of strings with the peer names of the channels the peer has joined.
      * @throws InvalidArgumentException
      * @throws ProposalException
      */
@@ -439,12 +449,12 @@ namespace Hyperledger.Fabric.SDK
         {
             ClientCheck();
             if (null == peer)
-                throw new InvalidArgumentException("peer set to null");
+                throw new ArgumentException("peer set to null");
             //Run this on a system channel.
             try
             {
                 Channel systemChannel = Channel.CreateSystemChannel(this);
-                return await systemChannel.QueryChannelsAsync(peer, token);
+                return await systemChannel.QueryChannelsAsync(peer, token).ConfigureAwait(false);
             }
             catch (ProposalException e)
             {
@@ -469,12 +479,12 @@ namespace Hyperledger.Fabric.SDK
             ClientCheck();
 
             if (null == peer)
-                throw new InvalidArgumentException("peer set to null");
+                throw new ArgumentException("peer set to null");
             try
             {
                 //Run this on a system channel.
                 Channel systemChannel = Channel.CreateSystemChannel(this);
-                return await systemChannel.QueryInstalledChaincodesAsync(peer, token);
+                return await systemChannel.QueryInstalledChaincodesAsync(peer, token).ConfigureAwait(false);
             }
             catch (ProposalException e)
             {
@@ -527,19 +537,19 @@ namespace Hyperledger.Fabric.SDK
 
         public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers) => SendInstallProposalAsync(installProposalRequest, peers).RunAndUnwarp();
 
-        public async Task<List<ProposalResponse>> SendInstallProposalAsync(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
+        public Task<List<ProposalResponse>> SendInstallProposalAsync(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
         {
             ClientCheck();
             installProposalRequest.SetSubmitted();
             Channel systemChannel = Channel.CreateSystemChannel(this);
-            return await systemChannel.SendInstallProposalAsync(installProposalRequest, peers, token);
+            return systemChannel.SendInstallProposalAsync(installProposalRequest, peers, token);
         }
 
 
         private void ClientCheck()
         {
             if (null == cryptoSuite)
-                throw new InvalidArgumentException("No cryptoSuite has been set.");
+                throw new ArgumentException("No cryptoSuite has been set.");
             userContext.UserContextCheck();
         }
 

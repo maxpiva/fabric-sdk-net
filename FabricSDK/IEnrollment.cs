@@ -12,21 +12,16 @@
  *  limitations under the License.
  */
 
-using System;
-using System.Runtime.Serialization;
-using System.Security.Cryptography;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK
-{ 
-
+{
 /**
  * Interface which is the contract between the Certificate Authority provider and the SDK.
  */
     public interface IEnrollment
     {
-
         /**
          * Get the user's private key
          *
@@ -40,23 +35,23 @@ namespace Hyperledger.Fabric.SDK
          * @return a certificate.
          */
         string Cert { get; }
-
     }
+
     public class Enrollment : IEnrollment
     {
-        public string Key { get; }
-        public string Cert { get; }
-
         public Enrollment(string key, string cert)
         {
             Key = key;
             Cert = cert;
         }
+
+        public string Key { get; }
+        public string Cert { get; }
     }
 
     public static class EnrollmentExtensions
     {
-        private static WeakDictionary<string, KeyPair> cache= new WeakDictionary<string, KeyPair>(KeyPair.Create);
+        private static readonly WeakDictionary<string, KeyPair> cache = new WeakDictionary<string, KeyPair>(KeyPair.Create);
 
         public static KeyPair GetKeyPair(this IEnrollment enrolment)
         {

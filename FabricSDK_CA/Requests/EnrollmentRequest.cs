@@ -12,10 +12,9 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -136,7 +135,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
         public void AddAttrReq()
         {
             if (attrreqs != null && attrreqs.Count > 0)
-                throw new InvalidArgumentException("Attributes have already been defined.");
+                throw new ArgumentException("Attributes have already been defined.");
             attrreqs = new Dictionary<string, AttrReq>();
         }
 
@@ -150,7 +149,7 @@ namespace Hyperledger.Fabric_CA.SDK.Requests
         public AttrReq AddAttrReq(string name)
         {
             if (string.IsNullOrEmpty(name))
-                throw new InvalidArgumentException("name may not be null or empty.");
+                throw new ArgumentException("name may not be null or empty.");
             return new AttrReq(this, name);
         }
 

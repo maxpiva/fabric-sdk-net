@@ -18,6 +18,9 @@ Alpha Version (not for production)
 
 [.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net)
 
+Integration Testing How-To
+
+* Coming soon
 
 **TODO**
 
@@ -29,9 +32,14 @@ On FABRIC (Help requested)
 On this SDK
 - Add .NET chaincode upload (source and/or compiled)
 - More Cleanup, and .NET Design Guidelines.
+- Remove JAVA idiosyncrasies 
+- Continue with the split and re-order of the source code, some files are becoming unmanageable.
+- Better Multi-Thread and Locking approach on some Methods.
 
 On the SHIM
 - Maybe Visual Studio Templates
+
+
 
 
 

@@ -14,7 +14,7 @@ Alpha Version (not for production)
 * Unit testing SDK_CA_Integration passing
 * Unit testing SDK passing.
 * Unit testing SDK_Integration passing
-
+* All the code is async to the bone. But Sync methods are presented on both sdk for easy porting.
 
 [.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net)
 

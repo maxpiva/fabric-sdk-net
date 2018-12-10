@@ -41,7 +41,7 @@
 
 
   <PropertyGroup>
-    <GrpcToolsVersion>1.12.0</GrpcToolsVersion>
+    <GrpcToolsVersion>1.17.0</GrpcToolsVersion>
     <GrpcIncludeFolders>$(SolutionDir)\ProtoBuf;$(SolutionDir)\FabricSDK\Proto</GrpcIncludeFolders>
   </PropertyGroup>
   <ItemGroup>

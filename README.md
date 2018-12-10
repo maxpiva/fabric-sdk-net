@@ -20,8 +20,10 @@ Alpha Version (not for production)
 
 **Integration Testing on Windows 10 and Visual Studio How-To**
 
-1) Install Docker For Windows https://docs.docker.com/docker-for-windows/install/
+1) Install Docker For Windows https://docs.docker.com/docker-for-windows/install
+
    Install Ubuntu Store App https://www.microsoft.com/en-us/p/ubuntu/9nblggh4msv6?activetab=pivot:overviewtab
+   
 
 2) Follow this Guide replacing "1.1.0" with "1.3.0" if you targeting Fabric 1.3.0
 

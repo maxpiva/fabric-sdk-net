@@ -55,10 +55,3 @@ On this SDK
 
 On the SHIM
 - Maybe Visual Studio Templates
-
-
-
-
-
-
-

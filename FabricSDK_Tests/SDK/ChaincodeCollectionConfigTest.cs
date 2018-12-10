@@ -75,7 +75,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsNotNull(colConfig);
             StaticCollectionConfig staticCollectionConfig = colConfig.StaticCollectionConfig;
             Assert.IsNotNull(staticCollectionConfig);
-            Assert.AreEqual(staticCollectionConfig.BlockToLive, 3);
+            Assert.AreEqual(staticCollectionConfig.BlockToLive, (ulong)3);
             Assert.AreEqual(staticCollectionConfig.Name, "rick");
             Assert.AreEqual(staticCollectionConfig.MaximumPeerCount, 9);
             Assert.AreEqual(staticCollectionConfig.RequiredPeerCount, 7);

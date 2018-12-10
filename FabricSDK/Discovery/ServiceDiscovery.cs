@@ -536,7 +536,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
                         foreach (SDEndorser sdEndorser in group.Endorsers)
                         {
                             if (matchCount.ContainsKey(sdEndorser))
-                                matchCount[sdEndorser] = matchCount[sdEndorser]++;
+                                matchCount[sdEndorser] = matchCount[sdEndorser]+1;
                             else
                                 matchCount[sdEndorser] = 1;
                         }

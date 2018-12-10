@@ -207,10 +207,15 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 		{
 			return z;
 		}
-	/* convert to byte array */
-		public void ToBytes(byte[] b)
+
+        public void ToBytes(byte[] b)
+        {
+            ToBytes((sbyte[])(Array)b);
+        }
+    /* convert to byte array */
+        public void ToBytes(sbyte[] b)
 		{
-			byte[] t = new byte[BIG.MODBYTES];
+			sbyte[] t = new sbyte[BIG.MODBYTES];
 			ECP2 W = new ECP2(this);
 			W.Affine();
 			W.x.A.ToBytes(t);
@@ -238,9 +243,9 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 
 
 	/* convert from byte array to point */
-		public static ECP2 FromBytes(byte[] b)
+		public static ECP2 FromBytes(sbyte[] b)
 		{
-			byte[] t = new byte[BIG.MODBYTES];
+			sbyte[] t = new sbyte[BIG.MODBYTES];
 			BIG ra;
 			BIG rb;
 
@@ -564,7 +569,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 			ECP2 Q = new ECP2();
 			ECP2 C = new ECP2();
 			ECP2[] W = new ECP2[8];
-			byte[] w = new byte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
+			sbyte[] w = new sbyte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
 
 			if (IsInfinity())
 			{
@@ -603,12 +608,12 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 	/* convert exponent to signed 4-bit window */
 			for (i = 0;i < nb;i++)
 			{
-				w[i] = (byte)(t.LastBits(5) - 16);
+				w[i] = (sbyte)(t.LastBits(5) - 16);
 				t.Dec(w[i]);
 				t.Norm();
 				t.FShr(4);
 			}
-			w[nb] = (byte)t.LastBits(5);
+			w[nb] = (sbyte)t.LastBits(5);
 
 			P.Copy(W[(w[nb] - 1) / 2]);
 			for (i = nb - 1;i >= 0;i--)
@@ -640,8 +645,8 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 			BIG mt = new BIG();
 			BIG[] t = new BIG[4];
 
-			byte[] w = new byte[BIG.NLEN * BIG.BASEBITS + 1];
-			byte[] s = new byte[BIG.NLEN * BIG.BASEBITS + 1];
+			sbyte[] w = new sbyte[BIG.NLEN * BIG.BASEBITS + 1];
+			sbyte[] s = new sbyte[BIG.NLEN * BIG.BASEBITS + 1];
 
 			for (i = 0;i < 4;i++)
 			{
@@ -692,7 +697,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 			for (i = 0;i < nb - 1;i++)
 			{
 				t[0].FShr(1);
-				s[i] = (byte)(2 * t[0].Parity() - 1);
+				s[i] = (sbyte)(2 * t[0].Parity() - 1);
 			}
 
 		// Recoded exponent
@@ -702,11 +707,11 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 				int k = 1;
 				for (j = 1; j < 4; j++)
 				{
-					byte bt = (byte)(s[i] * t[j].Parity());
+					sbyte bt = (sbyte)(s[i] * t[j].Parity());
 					t[j].FShr(1);
 					t[j].Dec((int)(bt) >> 1);
 					t[j].Norm();
-					w[i] += (byte)(bt * (byte)k);
+					w[i] += (sbyte)(bt * (sbyte)k);
 					k *= 2;
 				}
 			}
@@ -815,7 +820,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 	*/
 
 	/* needed for SOK */
-		public static ECP2 MapIt(byte[] h)
+		public static ECP2 MapIt(sbyte[] h)
 		{
 			BIG q = new BIG(ROM.Modulus);
 			BIG x = BIG.FromBytes(h);

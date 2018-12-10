@@ -97,7 +97,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Channel testchannel = new Channel(channelName, hfclient);
             Peer peer = hfclient.NewPeer("peer_", "grpc://localhost:7051");
 
-            testchannel.AddPeerAsync(peer);
+            testchannel.AddPeer(peer);
 
             Assert.AreEqual(testchannel.Peers.Count, 1);
             Assert.AreEqual(testchannel.Peers.First(), peer);
@@ -131,7 +131,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             {
                 testChannel = new Channel(CHANNEL_NAME, hfclient);
 
-                testChannel.AddPeerAsync(null);
+                testChannel.AddPeer(null);
 
                 Assert.Fail("Expected set null peer to throw exception.");
             }
@@ -152,7 +152,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 testChannel = new Channel(CHANNEL_NAME, hfclient);
                 Peer peer = hfclient.NewPeer(null, "grpc://localhost:7051");
 
-                testChannel.AddPeerAsync(peer);
+                testChannel.AddPeer(peer);
                 Assert.Fail("Expected no named peer to throw exception.");
             }
             catch (ArgumentException)
@@ -254,7 +254,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestChannelShutdownAddPeer()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
-            shutdownChannel.AddPeerAsync(hfclient.NewPeer("name", "grpc://myurl:90"));
+            shutdownChannel.AddPeer(hfclient.NewPeer("name", "grpc://myurl:90"));
         }
 
         [TestMethod]
@@ -402,14 +402,14 @@ namespace Hyperledger.Fabric.Tests.SDK
             if (peers == null)
             {
                 Peer peer = hfclient.NewPeer("peer1", "grpc://localhost:22");
-                channel.AddPeerAsync(peer);
+                channel.AddPeer(peer);
                 channel.AddOrderer(hfclient.NewOrderer("order1", "grpc://localhost:22"));
             }
             else
             {
                 foreach (Peer peer in peers)
                 {
-                    channel.AddPeerAsync(peer);
+                    channel.AddPeer(peer);
                 }
             }
 

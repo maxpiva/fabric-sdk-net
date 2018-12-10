@@ -33,7 +33,11 @@ namespace Hyperledger.Fabric.SDK.Security
         private KeyPair()
         {
         }
-
+        public static byte[] PemToDer(string pem)
+        {
+            PemReader pemReader = new PemReader(new StringReader(pem));
+            return pemReader.ReadPemObject().Content;
+        }
 
         public AsymmetricKeyParameter PublicKey
         {

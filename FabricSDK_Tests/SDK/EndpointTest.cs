@@ -59,7 +59,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             }
             catch (System.Exception rex)
             {
-                Assert.AreEqual("URL must be of the format protocol://host:port", rex.Message);
+                Assert.AreEqual("URL must be of the format protocol://host:port. Found: 'grpcs://localhost'", rex.Message);
             }
 
             try
@@ -200,7 +200,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Failed endpoint grpcs://localhost:594 to parse TLS client private key")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Failed to parse TLS client key and/or cert")]
         public void TestBadClientKeyFile()
         {
             Properties testprops = new Properties();
@@ -216,7 +216,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Failed endpoint grpcs://localhost:594 to parse TLS client key")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Failed to parse TLS client key and/or cert")]
         public void TestBadClientCertFile()
         {
             Properties testprops = new Properties();
@@ -274,7 +274,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             }
             catch (System.Exception e)
             {
-                Assert.AreEqual("Failed endpoint grpcs://localhost:594 to parse TLS client private key", e.Message);
+                Assert.AreEqual("Failed to parse TLS client certificate", e.Message);
             }
         }
 

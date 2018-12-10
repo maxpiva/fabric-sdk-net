@@ -208,7 +208,7 @@ namespace Hyperledger.Fabric.SDK.Configuration
                     throw new ChaincodeCollectionConfigurationException($"Expected StaticCollectionConfig to be Object type but got: {j.Type.ToString()}");
                 }
                 StaticCollectionConfig ssc = new StaticCollectionConfig();
-                ssc.Name = scf["Name"].Value<string>();
+                ssc.Name = scf["name"].Value<string>();
                 ssc.BlockToLive = scf["blockToLive"].Value<ulong>();
                 ssc.MaximumPeerCount = scf["maximumPeerCount"].Value<int>();
                 CollectionPolicyConfig cpc = new CollectionPolicyConfig();
@@ -246,7 +246,7 @@ namespace Hyperledger.Fabric.SDK.Configuration
                 throw new ChaincodeCollectionConfigurationException($"Expected policy size of 1 but got {policy.Count}");
             }
 
-            JObject jo = policy["signed-by"] as JObject;
+            JToken jo = policy["signed-by"];
             if (jo != null)
             {
                 string vo = jo.ToObject<string>();
@@ -261,7 +261,7 @@ namespace Hyperledger.Fabric.SDK.Configuration
                 JArray vo = policy[key] as JArray;
                 if (vo==null)
                     throw new ChaincodeCollectionConfigurationException($"{key} expected to have at least an array of items");
-                if (match.Success && match.Groups.Count == 1)
+                if (match.Success && match.Groups.Count >= 1)
                 {
                     string matchStingNo = match.Groups[1].Value.Trim();
                     int matchNo = int.Parse(matchStingNo);

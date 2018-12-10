@@ -199,13 +199,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Idemix
 
             public Task<bool> Call()
             {
-                return new Task<bool>(() =>
+                return Task.Run(() =>
                 {
                     for (int i = ITERATIONS; i > 0; --i)
-                    {
                         Test();
-                    }
-
                     return true;
                 });
             }

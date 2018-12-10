@@ -14,6 +14,7 @@
  *
  */
 
+using System;
 using System.Linq;
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK.AMCL;
@@ -91,7 +92,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
                 hash.Process(b);
             }
 
-            byte[] hasheddata = hash.Hash();
+            byte[] hasheddata = (byte[])(Array)hash.Hash();
 
             BIG ret = BIG.FromBytes(hasheddata);
             ret.Mod(GROUP_ORDER);

@@ -99,10 +99,9 @@ namespace Hyperledger.Fabric.SDK.Configuration
             set
             {
                 if (_channelConfigurationBytes == null)
-                {
                     throw new ArgumentException("ChannelConfiguration channelConfigurationAsBytes must be non-null");
-                }
                 logger.Trace("Creating setChannelConfiguration from bytes");
+                _channelConfigurationBytes = value;
             }
         }
     }

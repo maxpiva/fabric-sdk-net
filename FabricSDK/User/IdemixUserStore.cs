@@ -102,8 +102,8 @@ namespace Hyperledger.Fabric.SDK.User
          */
         protected KeyPair ReadIdemixRevocationPublicKey(string id)
         {
-            string path = Path.Combine(mspId, VERIFIER_PATH + id);
-            AsymmetricKeyParameter pub = PublicKeyFactory.CreateKey(File.ReadAllBytes(path));
+            string path = Path.Combine(mspId, VERIFIER_PATH, id);
+            AsymmetricKeyParameter pub = PublicKeyFactory.CreateKey(KeyPair.PemToDer(File.ReadAllText(path)));
             return KeyPair.Create(pub, null);
         }
     }

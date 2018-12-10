@@ -138,7 +138,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
         public void AddGroup(string key, int required, List<SDEndorser> endorsers)
         {
             SDGroup grp = new SDGroup(key, required, endorsers);
-            Groups.Add(grp);
+            groups.Add(grp);
         }
     }
 }

@@ -112,7 +112,7 @@ namespace Hyperledger.Fabric.SDK.Builders
             catch (ArgumentException exp)
             {
                 logger.ErrorException(exp.Message, exp);
-                throw;
+                throw new ProposalException("IO Error while creating install transaction", exp);
             }
             catch (Exception exp)
             {
@@ -124,12 +124,7 @@ namespace Hyperledger.Fabric.SDK.Builders
         private void CreateNetModeTransaction()
         {
             logger.Debug("NetModeTransaction");
-            /*
-            if (chaincodeType == null)
-            {
-                throw new InvalidIllegalArgumentException("Chaincode type is required");
-            }
-            */
+
             LinkedList<string> modlist = new LinkedList<string>();
             modlist.AddFirst("init");
             iargList.ForEach(a => modlist.AddAfter(modlist.Last, a));

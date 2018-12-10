@@ -518,12 +518,12 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 		}
 
 	/* convert from byte array to FP12 */
-		public static FP12 FromBytes(byte[] w)
+		public static FP12 FromBytes(sbyte[] w)
 		{
 			BIG a, b;
 			FP2 c, d;
 			FP4 e, f, g;
-			byte[] t = new byte[BIG.MODBYTES];
+			sbyte[] t = new sbyte[BIG.MODBYTES];
 
 			for (int i = 0;i < BIG.MODBYTES;i++)
 			{
@@ -609,9 +609,9 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 		}
 
 	/* convert this to byte array */
-		public void ToBytes(byte[] w)
+		public void ToBytes(sbyte[] w)
 		{
-			byte[] t = new byte[BIG.MODBYTES];
+			sbyte[] t = new sbyte[BIG.MODBYTES];
 			a.GetA().A.ToBytes(t);
 			for (int i = 0;i < BIG.MODBYTES;i++)
 			{
@@ -799,8 +799,8 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 			FP12 p = new FP12(0);
 			BIG[] t = new BIG[4];
 			BIG mt = new BIG(0);
-			byte[] w = new byte[BIG.NLEN * BIG.BASEBITS + 1];
-			byte[] s = new byte[BIG.NLEN * BIG.BASEBITS + 1];
+			sbyte[] w = new sbyte[BIG.NLEN * BIG.BASEBITS + 1];
+			sbyte[] s = new sbyte[BIG.NLEN * BIG.BASEBITS + 1];
 
 			for (i = 0;i < 4;i++)
 			{
@@ -841,7 +841,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 			for (i = 0;i < nb - 1;i++)
 			{
 				t[0].FShr(1);
-				s[i] = (byte)(2 * t[0].Parity() - 1);
+				s[i] = (sbyte)(2 * t[0].Parity() - 1);
 			}
 
 		// Recoded exponent
@@ -851,11 +851,11 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 				int k = 1;
 				for (j = 1; j < 4; j++)
 				{
-					byte bt = (byte)(s[i] * t[j].Parity());
+					sbyte bt = (sbyte)(s[i] * t[j].Parity());
 					t[j].FShr(1);
 					t[j].Dec((int)(bt) >> 1);
 					t[j].Norm();
-					w[i] += (byte)(bt * (byte)k);
+					w[i] += (sbyte)(bt * (sbyte)k);
 					k *= 2;
 				}
 			}

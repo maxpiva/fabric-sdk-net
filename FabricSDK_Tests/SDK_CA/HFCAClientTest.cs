@@ -445,7 +445,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(ArgumentException), "mspID cannot be null or empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment type must be x509")]
         public void TestIdemixWrongEnrollment()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);

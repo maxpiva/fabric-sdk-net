@@ -427,7 +427,7 @@ namespace Hyperledger.Fabric.SDK
 
             Channel channel;
 
-            JToken channels = jsonConfig["channels"];
+            JObject channels = jsonConfig["channels"] as JObject;
 
             if (channels != null)
             {
@@ -642,12 +642,6 @@ namespace Hyperledger.Fabric.SDK
                     channel.AddOrderer(orderer);
                     foundOrderer = true;
                 }
-            }
-
-            if (!foundOrderer)
-            {
-                // orderers is a required field
-                throw new NetworkConfigurationException($"Error constructing channel {channelName}. At least one orderer must be specified");
             }
 
             // peers is an object containing a nested object for each peer

@@ -663,6 +663,10 @@ namespace Hyperledger.Fabric.SDK
         {
             return AddPeerAsync(peer, PeerOptions.CreatePeerOptions(),token);
         }
+        public Channel AddPeer(Peer peer)
+        {
+            return AddPeerAsync(peer).RunAndUnwarp();
+        }
         public Channel AddPeer(Peer peer, PeerOptions peerOptions)
         {
             return AddPeerAsync(peer, peerOptions).RunAndUnwarp();

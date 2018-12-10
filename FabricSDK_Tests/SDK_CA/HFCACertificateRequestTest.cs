@@ -24,7 +24,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         private readonly string sampleStoreFile = Path.Combine(Path.GetTempPath(), "HFCSampletest.properties");
 
         [ClassInitialize]
-        public static void setupBeforeClass()
+        public static void setupBeforeClass(TestContext context)
         {
             try
             {
@@ -63,7 +63,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        public void testHFCACertificateNewInstance()
+        public void TestHFCACertificateNewInstance()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;
@@ -75,7 +75,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(HFCACertificateException), "Error while getting certificates")]
-        public void getCertificateNoServerResponse()
+        public void GetCertificateNoServerResponse()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
             client.CryptoSuite = crypto;

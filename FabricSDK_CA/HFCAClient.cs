@@ -1074,7 +1074,7 @@ namespace Hyperledger.Fabric_CA.SDK
         {
             if (string.IsNullOrEmpty(str))
                 throw new EnrollmentException("fabric-ca-server did not return 'issuerPublicKey' in the response from " + HFCA_IDEMIXCRED);
-            AsymmetricKeyParameter pub = PublicKeyFactory.CreateKey(Convert.FromBase64String(str));
+            AsymmetricKeyParameter pub = PublicKeyFactory.CreateKey(KeyPair.PemToDer(str));
             return KeyPair.Create(pub, null);
         }
         /* 

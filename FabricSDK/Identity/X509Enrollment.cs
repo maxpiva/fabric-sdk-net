@@ -17,6 +17,8 @@ namespace Hyperledger.Fabric.SDK.Identity
 
         public X509Enrollment(KeyPair signingKeyPair, string signedPem)
         {
+            if (signingKeyPair==null)
+                throw new ArgumentException("KeyPair cannot be null");
             this.Key = KeyPair.AsymmetricCipherKeyPairToPEM(null, signingKeyPair.PrivateKey);
             this.Cert = signedPem;
         }

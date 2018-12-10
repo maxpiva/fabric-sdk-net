@@ -20,6 +20,8 @@ under the License.
 /* AMCL BIG number class */
 // ReSharper disable All
 
+using System;
+
 #pragma warning disable 162
 namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 {
@@ -685,20 +687,20 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
         }
 
         /* convert this BIG to byte array */
-        public virtual void ToByteArray(byte[] b, int n)
+        public virtual void ToByteArray(sbyte[] b, int n)
         {
             BIG c = new BIG(this);
             c.Norm();
 
             for (int i = MODBYTES - 1; i >= 0; i--)
             {
-                b[i + n] = (byte) c.w[0];
+                b[i + n] = (sbyte) c.w[0];
                 c.FShr(8);
             }
         }
 
         /* convert from byte array to BIG */
-        public static BIG FromByteArray(byte[] b, int n)
+        public static BIG FromByteArray(sbyte[] b, int n)
         {
             BIG m = new BIG(0);
 
@@ -712,16 +714,23 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
             return m;
         }
 
-        public virtual void ToBytes(byte[] b)
+        public virtual void ToBytes(sbyte[] b)
         {
             ToByteArray(b, 0);
         }
+        public virtual void ToBytes(byte[] b)
+        {
+            ToByteArray((sbyte[])(Array)b, 0);
+        }
 
-        public static BIG FromBytes(byte[] b)
+        public static BIG FromBytes(sbyte[] b)
         {
             return FromByteArray(b, 0);
         }
-
+        public static BIG FromBytes(byte[] b)
+        {
+            return FromByteArray((sbyte[])(Array)b, 0);
+        }
         /* Compare a and b, return 0 if a==b, -1 if a<b, +1 if a>b. Inputs must be normalised */
         public static int Comp(BIG a, BIG b)
         {

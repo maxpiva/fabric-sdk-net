@@ -48,7 +48,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
         /**
          * @return A digest of this issuer public key
          */
-        public byte[] Hash { get; }
+        public byte[] Hash { get; private set; }=new byte[0];
             
         /**
          * Constructor

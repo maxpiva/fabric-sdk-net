@@ -153,8 +153,8 @@ namespace Hyperledger.Fabric.SDK
         {
             if (Properties == null)
                 Properties = new Properties();
-            Properties.Set("clientKeyBytes", tlsCertificateKeyPair.KeyPEMBytes);
-            Properties.Set("clientCertBytes", tlsCertificateKeyPair.CertPEMBytes);
+            Properties.Set("clientKeyBytes", tlsCertificateKeyPair.KeyPEMBytes.ToUTF8String());
+            Properties.Set("clientCertBytes", tlsCertificateKeyPair.CertPEMBytes.ToUTF8String());
             Endpoint endpoint = SDK.Endpoint.Create(Url, Properties);
             foundClientTLSCertificateDigest = true;
             clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();

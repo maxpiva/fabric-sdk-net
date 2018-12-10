@@ -448,7 +448,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 
 		public FP Pow(BIG e)
 		{
-			byte[] w = new byte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
+			sbyte[] w = new sbyte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
 			FP[] tb = new FP[16];
 			BIG t = new BIG(e);
 			t.Norm();
@@ -459,7 +459,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 				int lsbs = t.LastBits(4);
 				t.Dec(lsbs);
 				t.Norm();
-				w[i] = (byte)lsbs;
+				w[i] = (sbyte)lsbs;
 				t.FShr(4);
 			}
 			tb[0] = new FP(1);

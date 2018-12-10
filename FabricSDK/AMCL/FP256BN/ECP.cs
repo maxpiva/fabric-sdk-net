@@ -20,6 +20,8 @@ under the License.
 /* Elliptic Curve Point class */
 // ReSharper disable All
 
+using System;
+
 #pragma warning disable 162
 namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 {
@@ -468,10 +470,14 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
             return z;
         }
 
-        /* convert to byte array */
         public void ToBytes(byte[] b, bool compress)
         {
-            byte[] t = new byte[BIG.MODBYTES];
+            ToBytes((sbyte[])(Array)b,compress);
+        }
+        /* convert to byte array */
+        public void ToBytes(sbyte[] b, bool compress)
+        {
+            sbyte[] t = new sbyte[BIG.MODBYTES];
             ECP W = new ECP(this);
             W.Affine();
 
@@ -494,7 +500,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
                 {
                     b[0] = 0x03;
                 }
-
+                
                 return;
             }
 
@@ -509,9 +515,9 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
 
 
         /* convert from byte array to point */
-        public static ECP FromBytes(byte[] b)
+        public static ECP FromBytes(sbyte[] b)
         {
-            byte[] t = new byte[BIG.MODBYTES];
+            sbyte[] t = new sbyte[BIG.MODBYTES];
             BIG p = new BIG(ROM.Modulus);
 
             for (int i = 0; i < BIG.MODBYTES; i++)
@@ -1241,7 +1247,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
                 ECP Q = new ECP();
                 ECP C = new ECP();
                 ECP[] W = new ECP[8];
-                byte[] w = new byte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
+                sbyte[] w = new sbyte[1 + (BIG.NLEN * BIG.BASEBITS + 3) / 4];
 
                 //affine();
 
@@ -1277,13 +1283,13 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
                 // convert exponent to signed 4-bit window 
                 for (i = 0; i < nb; i++)
                 {
-                    w[i] = (byte) (t.LastBits(5) - 16);
+                    w[i] = (sbyte) (t.LastBits(5) - 16);
                     t.Dec(w[i]);
                     t.Norm();
                     t.FShr(4);
                 }
 
-                w[nb] = (byte) t.LastBits(5);
+                w[nb] = (sbyte) t.LastBits(5);
 
                 P.Copy(W[(w[nb] - 1) / 2]);
                 for (i = nb - 1; i >= 0; i--)
@@ -1314,9 +1320,9 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
             ECP T = new ECP();
             ECP C = new ECP();
             ECP[] W = new ECP[8];
-            byte[] w = new byte[1 + (BIG.NLEN * BIG.BASEBITS + 1) / 2];
+            sbyte[] w = new sbyte[1 + (BIG.NLEN * BIG.BASEBITS + 1) / 2];
             int i, s, ns, nb;
-            byte a, b;
+            sbyte a, b;
 
             //affine();
             //Q.affine();
@@ -1386,18 +1392,18 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
             // convert exponent to signed 2-bit window 
             for (i = 0; i < nb; i++)
             {
-                a = (byte) (te.LastBits(3) - 4);
+                a = (sbyte) (te.LastBits(3) - 4);
                 te.Dec(a);
                 te.Norm();
                 te.FShr(2);
-                b = (byte) (tf.LastBits(3) - 4);
+                b = (sbyte) (tf.LastBits(3) - 4);
                 tf.Dec(b);
                 tf.Norm();
                 tf.FShr(2);
-                w[i] = (byte) (4 * a + b);
+                w[i] = (sbyte) (4 * a + b);
             }
 
-            w[nb] = (byte) (4 * te.LastBits(3) + tf.LastBits(3));
+            w[nb] = (sbyte) (4 * te.LastBits(3) + tf.LastBits(3));
             S.Copy(W[(w[nb] - 1) / 2]);
 
             for (i = nb - 1; i >= 0; i--)
@@ -1444,7 +1450,7 @@ namespace Hyperledger.Fabric.SDK.AMCL.FP256BN
         }
 
         /* Map byte string to curve point */
-        public static ECP MapIt(byte[] h)
+        public static ECP MapIt(sbyte[] h)
         {
             BIG q = new BIG(ROM.Modulus);
             BIG x = BIG.FromBytes(h);

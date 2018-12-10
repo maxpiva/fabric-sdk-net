@@ -29,9 +29,11 @@ under the License.
 /* Marsaglia & Zaman Random number generator constants */
 
 
+using System;
+
 namespace Hyperledger.Fabric.SDK.AMCL
 {
-	public class RAND
+	public sealed class RAND
 	{
 	/* Cryptographically strong pseudo-random number generator */
 
@@ -42,7 +44,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
 		private int rndptr; // ...array & pointer
 		private int borrow;
 		private int pool_ptr;
-		private byte[] pool = new byte[32]; // random pool
+		private sbyte[] pool = new sbyte[32]; // random pool
 
 		public RAND()
 		{
@@ -66,8 +68,8 @@ namespace Hyperledger.Fabric.SDK.AMCL
 				{
 					k = 0;
 				}
-				t = ((long)ira[k]) & 0xffffffffL;
-				pdiff = (t - (((long)ira[i]) & 0xffffffffL) - (long)borrow) & 0xffffffffL;
+				t = (ira[k]) & 0xffffffffL;
+				pdiff = (t - (ira[i] & 0xffffffffL) - borrow) & 0xffffffffL;
 				if (pdiff < t)
 				{
 					borrow = 0;
@@ -82,7 +84,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
 			return ira[0];
 		}
 
-		public virtual void SIRand(int seed)
+		public void SIRand(int seed)
 		{
 			int i, @in;
 			int t, m = 1;
@@ -114,18 +116,21 @@ namespace Hyperledger.Fabric.SDK.AMCL
 			pool_ptr = 0;
 		}
 
-		private static int pack(byte[] b)
+		private static int pack(sbyte[] b)
 		{ // pack 4 bytes into a 32-bit Word
-			return ((((int)b[3]) & 0xff) << 24) | (((int)b[2] & 0xff) << 16) | (((int)b[1] & 0xff) << 8) | ((int)b[0] & 0xff);
+			return ((b[3] & 0xff) << 24) | ((b[2] & 0xff) << 16) | ((b[1] & 0xff) << 8) | (b[0] & 0xff);
 		}
 
- 
+        public void Seed(int rawlen, byte[] raw)
+        {
+            Seed(rawlen,(sbyte[])(Array)raw);
+        }
     /* Initialize RNG with some real entropy from some external source */
-        public virtual void Seed(int rawlen, byte[] raw)
+        public void Seed(int rawlen, sbyte[] raw)
 		{ // initialise from at least 128 byte string of raw random entropy
 			int i;
-			byte[] digest;
-			byte[] b = new byte[4];
+			sbyte[] digest;
+			sbyte[] b = new sbyte[4];
 			HASH256 sh = new HASH256();
 			pool_ptr = 0;
 			for (i = 0;i < NK;i++)
@@ -155,7 +160,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
 		}
 
 	/* Terminate and clean up */
-		public virtual void Clean()
+		public void Clean()
 		{ // kill internal state
 			int i;
 			pool_ptr = rndptr = 0;
@@ -171,7 +176,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
 		}
 
 	/* get random byte */
-		public virtual int Byte
+		public int Byte
 		{
 			get
 			{

@@ -185,7 +185,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
         }
 
         /* process an array of bytes */
-        public void ProcessArray(byte[] b)
+        public void ProcessArray(sbyte[] b)
         {
             for (int i = 0; i < b.Length; i++)
             {
@@ -203,11 +203,11 @@ namespace Hyperledger.Fabric.SDK.AMCL
         }
 
         /* Generate 32-byte Hash */
-        public byte[] Hash()
+        public sbyte[] Hash()
         {
             // pad message and finish - supply digest
             int i;
-            byte[] digest = new byte[32];
+            sbyte[] digest = new sbyte[32];
             int len0, len1;
             len0 = length[0];
             len1 = length[1];
@@ -223,7 +223,7 @@ namespace Hyperledger.Fabric.SDK.AMCL
             for (i = 0; i < LEN; i++)
             {
                 // convert to bytes
-                digest[i] = (byte) ((h[i / 4] >> (8 * (3 - i % 4))) & 0xff);
+                digest[i] = (sbyte) ((h[i / 4] >> (8 * (3 - i % 4))) & 0xff);
             }
 
             Init();

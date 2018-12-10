@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.Tests.Helper;
@@ -25,6 +26,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Transaction
     {
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "IO Error")]
+        
         public void TestBuild()
         {
             InstantiateProposalBuilder builder = InstantiateProposalBuilder.Create();

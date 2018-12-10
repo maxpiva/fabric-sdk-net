@@ -49,6 +49,9 @@ namespace Hyperledger.Fabric.SDK.Security
                         KeyPEMBytes = File.ReadAllBytes(Path.GetFullPath(properties["clientKeyFile"]));
                         logger.Trace($"Reading clientCertFile: {properties["clientCertFile"]}");
                         CertPEMBytes = File.ReadAllBytes(Path.GetFullPath(properties["clientCertFile"]));
+                        //Check if both right
+                        GetCertificate();
+                        GetPrivateKey();
                     }
                     catch (Exception e)
                     {
@@ -67,6 +70,9 @@ namespace Hyperledger.Fabric.SDK.Security
                     throw new ArgumentException($"Thumbprint {properties["clientKeyThumbprint"]} not found in KeyStore");
                 CertPEMBytes = ExportToPEMCert(certi);
                 KeyPEMBytes = ExportToPEMKey(certi);
+                //Check if both right
+                GetCertificate();
+                GetPrivateKey();
             }
             else if (properties.Contains("clientKeySubject"))
             {
@@ -75,6 +81,9 @@ namespace Hyperledger.Fabric.SDK.Security
                     throw new ArgumentException($"Subject {properties["clientKeySubject"]} not found in KeyStore");
                 CertPEMBytes = ExportToPEMCert(certi);
                 KeyPEMBytes = ExportToPEMKey(certi);
+                //Check if both right
+                GetCertificate();
+                GetPrivateKey();
             }
             else if (properties.Contains("clientKeyBytes") || properties.Contains("clientCertBytes"))
             {
@@ -84,6 +93,9 @@ namespace Hyperledger.Fabric.SDK.Security
                 {
                     throw new ArgumentException("Properties \"clientKeyBytes\" and \"clientCertBytes\" must both be set or both be null");
                 }
+                //Check if both right
+                GetCertificate();
+                GetPrivateKey();
             }
 
             if (CertPEMBytes != null)

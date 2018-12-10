@@ -1152,7 +1152,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         // Tests getting certificates
         [TestMethod]
         [DoNotParallelize]
-        public void TestGetCertificates()
+        public void T27estGetCertificates()
         {
             if (testConfig.IsRunningAgainstFabric10())
             {
@@ -1211,7 +1211,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 // Get certificates that expired before a specific date
 // In this case, using a really old date should return 0 certificates
             certReq = client.NewHFCACertificateRequest();
-            certReq.ExpiredEnd = DateTime.ParseExact("2014-30-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            certReq.ExpiredEnd = DateTime.ParseExact("2014-03-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
             resp = client.GetHFCACertificates(admin, certReq);
             Assert.AreEqual(0, resp.Certs.Count);
 
@@ -1228,7 +1228,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
             // In this case, using a really old date should return all certificates that the caller is
             // allowed to see because they all have a future expiration date
             certReq = client.NewHFCACertificateRequest();
-            certReq.ExpiredStart = DateTime.ParseExact("2014-30-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            certReq.ExpiredStart = DateTime.ParseExact("2014-03-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
             resp = client.GetHFCACertificates(admin2, certReq);
             Assert.AreEqual(2, resp.Certs.Count);
 
@@ -1243,12 +1243,12 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
 
             // Get certificates that were revoked after specific date
             certReq = client.NewHFCACertificateRequest();
-            certReq.RevokedStart = DateTime.ParseExact("2014-30-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            certReq.RevokedStart = DateTime.ParseExact("2014-03-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
             resp = client.GetHFCACertificates(admin2, certReq);
             Assert.AreEqual(1, resp.Certs.Count);
 
             certReq = client.NewHFCACertificateRequest();
-            certReq.RevokedEnd = DateTime.ParseExact("2014-30-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            certReq.RevokedEnd = DateTime.ParseExact("2014-03-31", "yyyy-MM-dd", CultureInfo.InvariantCulture);
             resp = client.GetHFCACertificates(admin2, certReq);
             Assert.AreEqual(0, resp.Certs.Count);
 
@@ -1362,7 +1362,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Integration
         // Tests getting an Idemix credential using an x509 enrollment credential
         [TestMethod]
         [DoNotParallelize]
-        public void t31estGetIdemixCred()
+        public void T31estGetIdemixCred()
         {
             if (testConfig.IsFabricVersionBefore("1.3"))
                 return; // needs v1.3

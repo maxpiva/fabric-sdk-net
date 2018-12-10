@@ -18,16 +18,31 @@ Alpha Version (not for production)
 
 [.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net)
 
-Integration Testing How-To
+**Integration Testing on Windows 10 and Visual Studio How-To**
 
-* Coming soon
+1) Install Docker For Windows https://docs.docker.com/docker-for-windows/install/
+   Install Ubuntu Store App https://www.microsoft.com/en-us/p/ubuntu/9nblggh4msv6?activetab=pivot:overviewtab
+
+2) Follow this Guide replacing "1.1.0" with "1.3.0" if you targeting Fabric 1.3.0
+
+   https://medium.com/coinmonks/hyperledger-fabric-1-1-0-on-windows-fd142651a904
+
+
+3) In Bash
+
+   cd "/c/[FABRIC-SDK-NET-REPO]/TestData/Fixture/SdkIntegration"
+
+   For Every SDK Integration Playlist or Test
+
+   ./fabric.sh restart (since a clean sheet is needed for the tests)
 
 **TODO**
 
 On FABRIC (Help requested)
 - Creation of the docker script for microsoft/dotnet:sdk   (Fabric will call it, will build the .net chaincode).
-- Creation of the docker script for dotnet:runtime-deps into fabric (the .net chaincode build will be injected into bin/chaincode of this image)
-- Add the required platform code in fabric.
+- Creation of the docker script for dotnet:runtime into fabric (the .net chaincode build will be injected into bin/chaincode of this image)
+- Add the required platform code in fabric to support the above.
+
 
 On this SDK
 - Add .NET chaincode upload (source and/or compiled)

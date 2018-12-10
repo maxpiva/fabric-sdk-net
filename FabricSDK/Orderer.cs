@@ -109,7 +109,7 @@ namespace Hyperledger.Fabric.SDK
 
         public BroadcastResponse SendTransaction(Envelope transaction)
         {
-            return SendTransactionAsync(transaction).RunAndUnwarp();
+            return SendTransactionAsync(transaction).RunAndUnwrap();
         }
 
         public async Task<BroadcastResponse> SendTransactionAsync(Envelope transaction, CancellationToken token = default(CancellationToken))
@@ -167,7 +167,7 @@ namespace Hyperledger.Fabric.SDK
         }
         public List<DeliverResponse> SendDeliver(Envelope transaction)
         {
-            return SendDeliverAsync(transaction).RunAndUnwarp();
+            return SendDeliverAsync(transaction).RunAndUnwrap();
         }
 
         public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope transaction, CancellationToken token = default(CancellationToken))

@@ -106,7 +106,7 @@ namespace Hyperledger.Fabric.SDK
      */
         public Channel LoadChannelFromConfig(string channelName, NetworkConfig networkConfig)
         {
-            return LoadChannelFromConfigAsync(channelName, networkConfig).RunAndUnwarp();
+            return LoadChannelFromConfigAsync(channelName, networkConfig).RunAndUnwrap();
         }
 
         public Task<Channel> LoadChannelFromConfigAsync(string channelName, NetworkConfig networkConfig, CancellationToken token=default(CancellationToken))
@@ -148,7 +148,7 @@ namespace Hyperledger.Fabric.SDK
                 return newChannel;
             }
         }
-        public Channel NewChannel(string name, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] channelConfigurationSignatures) => NewChannelAsync(name, orderer, channelConfiguration, new CancellationToken(), channelConfigurationSignatures).RunAndUnwarp();
+        public Channel NewChannel(string name, Orderer orderer, ChannelConfiguration channelConfiguration, params byte[][] channelConfigurationSignatures) => NewChannelAsync(name, orderer, channelConfiguration, new CancellationToken(), channelConfigurationSignatures).RunAndUnwrap();
         public async Task<Channel> NewChannelAsync(string name, Orderer orderer, ChannelConfiguration channelConfiguration, CancellationToken token = default(CancellationToken), params byte[][] channelConfigurationSignatures)
         {
             ClientCheck();
@@ -443,7 +443,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws InvalidArgumentException
      * @throws ProposalException
      */
-        public HashSet<string> QueryChannels(Peer peer) => QueryChannelsAsync(peer).RunAndUnwarp();
+        public HashSet<string> QueryChannels(Peer peer) => QueryChannelsAsync(peer).RunAndUnwrap();
 
         public async Task<HashSet<string>> QueryChannelsAsync(Peer peer, CancellationToken token = default(CancellationToken))
         {
@@ -472,7 +472,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws ProposalException
      */
 
-        public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer) => QueryInstalledChaincodesAsync(peer).RunAndUnwarp();
+        public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer) => QueryInstalledChaincodesAsync(peer).RunAndUnwrap();
 
         public async Task<List<ChaincodeInfo>> QueryInstalledChaincodesAsync(Peer peer, CancellationToken token = default(CancellationToken))
         {
@@ -535,7 +535,7 @@ namespace Hyperledger.Fabric.SDK
      * @throws ProposalException
      */
 
-        public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers) => SendInstallProposalAsync(installProposalRequest, peers).RunAndUnwarp();
+        public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers) => SendInstallProposalAsync(installProposalRequest, peers).RunAndUnwrap();
 
         public Task<List<ProposalResponse>> SendInstallProposalAsync(InstallProposalRequest installProposalRequest, IEnumerable<Peer> peers, CancellationToken token = default(CancellationToken))
         {

@@ -3,6 +3,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
+    [TestClass]
+    [TestCategory("SDK_INTEGRATION")]
     public class End2endJavaIT : End2endIT
     {
         internal override string testName { get; } = "End2endJavaIT"; //Just print out what test is really running.

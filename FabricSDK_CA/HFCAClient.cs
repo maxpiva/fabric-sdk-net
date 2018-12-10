@@ -282,7 +282,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public string Register(RegistrationRequest request, IUser registrar)
         {
-            return RegisterAsync(request, registrar).RunAndUnwarp();
+            return RegisterAsync(request, registrar).RunAndUnwrap();
         }
 
         public async Task<string> RegisterAsync(RegistrationRequest request, IUser registrar, CancellationToken token = default(CancellationToken))
@@ -347,7 +347,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public IEnrollment Enroll(string user, string secret, EnrollmentRequest req)
         {
-            return EnrollAsync(user, secret, req).RunAndUnwarp();
+            return EnrollAsync(user, secret, req).RunAndUnwrap();
         }
 
         public async Task<IEnrollment> EnrollAsync(string user, string secret, EnrollmentRequest req, CancellationToken token = default(CancellationToken))
@@ -425,7 +425,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAInfo Info()
         {
-            return InfoAsync().RunAndUnwarp();
+            return InfoAsync().RunAndUnwrap();
         }
 
         public async Task<HFCAInfo> InfoAsync(CancellationToken token = default(CancellationToken))
@@ -496,7 +496,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public IEnrollment Reenroll(IUser user, EnrollmentRequest req)
         {
-            return ReenrollAsync(user, req).RunAndUnwarp();
+            return ReenrollAsync(user, req).RunAndUnwrap();
         }
 
         public async Task<IEnrollment> ReenrollAsync(IUser user, EnrollmentRequest req, CancellationToken token = default(CancellationToken))
@@ -557,7 +557,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public void Revoke(IUser revoker, IEnrollment enrollment, string reason)
         {
-            RevokeAsync(revoker, enrollment, reason).RunAndUnwarp();
+            RevokeAsync(revoker, enrollment, reason).RunAndUnwrap();
         }
 
         public Task RevokeAsync(IUser revoker, IEnrollment enrollment, string reason, CancellationToken token = default(CancellationToken))
@@ -577,7 +577,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public string Revoke(IUser revoker, IEnrollment enrollment, string reason, bool genCRL)
         {
-            return RevokeAsync(revoker, enrollment, reason, genCRL).RunAndUnwarp();
+            return RevokeAsync(revoker, enrollment, reason, genCRL).RunAndUnwrap();
         }
 
         public Task<string> RevokeAsync(IUser revoker, IEnrollment enrollment, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
@@ -651,7 +651,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public void Revoke(IUser revoker, string revokee, string reason)
         {
-            RevokeAsync(revoker, revokee, reason).RunAndUnwarp();
+            RevokeAsync(revoker, revokee, reason).RunAndUnwrap();
         }
 
         public Task RevokeAsync(IUser revoker, string revokee, string reason, CancellationToken token = default(CancellationToken))
@@ -671,7 +671,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public string Revoke(IUser revoker, string revokee, string reason, bool genCRL)
         {
-            return RevokeAsync(revoker, revokee, reason, genCRL).RunAndUnwarp();
+            return RevokeAsync(revoker, revokee, reason, genCRL).RunAndUnwrap();
         }
 
         public Task<string> RevokeAsync(IUser revoker, string revokee, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
@@ -727,7 +727,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public void Revoke(IUser revoker, string serial, string aki, string reason)
         {
-            RevokeAsync(revoker, serial, aki, reason).RunAndUnwarp();
+            RevokeAsync(revoker, serial, aki, reason).RunAndUnwrap();
         }
 
         public Task RevokeAsync(IUser revoker, string serial, string aki, string reason, CancellationToken token = default(CancellationToken))
@@ -748,7 +748,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public string Revoke(IUser revoker, string serial, string aki, string reason, bool genCRL)
         {
-            return RevokeAsync(revoker, serial, aki, reason, genCRL).RunAndUnwarp();
+            return RevokeAsync(revoker, serial, aki, reason, genCRL).RunAndUnwrap();
         }
 
         public Task<string> RevokeAsync(IUser revoker, string serial, string aki, string reason, bool genCRL, CancellationToken token = default(CancellationToken))
@@ -813,7 +813,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public string GenerateCRL(IUser registrar, DateTime? revokedBefore, DateTime? revokedAfter, DateTime? expireBefore, DateTime? expireAfter)
         {
-            return GenerateCRLAsync(registrar, revokedBefore, revokedAfter, expireBefore, expireAfter).RunAndUnwarp();
+            return GenerateCRLAsync(registrar, revokedBefore, revokedAfter, expireBefore, expireAfter).RunAndUnwrap();
         }
 
         public async Task<string> GenerateCRLAsync(IUser registrar, DateTime? revokedBefore, DateTime? revokedAfter, DateTime? expireBefore, DateTime? expireAfter, CancellationToken token = default(CancellationToken))
@@ -873,7 +873,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public List<HFCAIdentity> GetHFCAIdentities(IUser registrar)
         {
-            return GetHFCAIdentitiesAsync(registrar).RunAndUnwarp();
+            return GetHFCAIdentitiesAsync(registrar).RunAndUnwrap();
         }
 
         public async Task<List<HFCAIdentity>> GetHFCAIdentitiesAsync(IUser registrar, CancellationToken token = default(CancellationToken))
@@ -924,7 +924,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliation GetHFCAAffiliations(IUser registrar)
         {
-            return GetHFCAAffiliationsAsync(registrar).RunAndUnwarp();
+            return GetHFCAAffiliationsAsync(registrar).RunAndUnwrap();
         }
 
         public async Task<HFCAAffiliation> GetHFCAAffiliationsAsync(IUser registrar, CancellationToken token = default(CancellationToken))
@@ -966,7 +966,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public IEnrollment IdemixEnroll(IEnrollment enrollment, string mspID)
         {
-            return IdemixEnrollAsync(enrollment, mspID).RunAndUnwarp();
+            return IdemixEnrollAsync(enrollment, mspID).RunAndUnwrap();
         }
         public async Task<IEnrollment> IdemixEnrollAsync(IEnrollment enrollment, string mspID, CancellationToken token=default(CancellationToken))
         {
@@ -1104,7 +1104,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCACertificateResponse GetHFCACertificates(IUser registrar, HFCACertificateRequest req)
         {
-            return GetHFCACertificatesAsync(registrar, req).RunAndUnwarp();
+            return GetHFCACertificatesAsync(registrar, req).RunAndUnwrap();
         }
 
         public async Task<HFCACertificateResponse> GetHFCACertificatesAsync(IUser registrar, HFCACertificateRequest req, CancellationToken token = default(CancellationToken))
@@ -1230,7 +1230,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public string HttpPost(string murl, string body, NetworkCredential credentials)
         {
-            return HttpPostAsync(murl, body, credentials).RunAndUnwarp();
+            return HttpPostAsync(murl, body, credentials).RunAndUnwrap();
         }
 
 
@@ -1274,7 +1274,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpPost(string murl, string body, IUser registrar)
         {
-            return HttpPostAsync(murl, body, registrar).RunAndUnwarp();
+            return HttpPostAsync(murl, body, registrar).RunAndUnwrap();
         }
 
         public virtual Task<JObject> HttpPostAsync(string murl, string body, IUser registrar, CancellationToken token = default(CancellationToken))
@@ -1284,7 +1284,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpPost(string murl, string body, IEnrollment enrollment)
         {
-            return HttpPostAsync(murl, body, enrollment).RunAndUnwarp();
+            return HttpPostAsync(murl, body, enrollment).RunAndUnwrap();
         }
 
         public virtual Task<JObject> HttpPostAsync(string murl, string body, IEnrollment enrollment, CancellationToken token = default(CancellationToken))
@@ -1341,7 +1341,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpGet(string murl, IUser registrar)
         {
-            return HttpGetAsync(murl, registrar).RunAndUnwarp();
+            return HttpGetAsync(murl, registrar).RunAndUnwrap();
         }
 
         public Task<JObject> HttpGetAsync(string murl, IUser registrar, CancellationToken token = default(CancellationToken))
@@ -1352,7 +1352,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpGet(string murl, IUser registrar, IDictionary<string, string> querymap)
         {
-            return HttpGetAsync(murl, registrar, querymap).RunAndUnwarp();
+            return HttpGetAsync(murl, registrar, querymap).RunAndUnwrap();
         }
 
         public Task<JObject> HttpGetAsync(string murl, IUser registrar, IDictionary<string, string> querymap, CancellationToken token = default(CancellationToken))
@@ -1364,7 +1364,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpPut(string murl, string body, IUser registrar)
         {
-            return HttpPutAsync(murl, body, registrar).RunAndUnwarp();
+            return HttpPutAsync(murl, body, registrar).RunAndUnwrap();
         }
 
         public Task<JObject> HttpPutAsync(string murl, string body, IUser registrar, CancellationToken token = default(CancellationToken))
@@ -1374,7 +1374,7 @@ namespace Hyperledger.Fabric_CA.SDK
 
         public JObject HttpDelete(string murl, IUser registrar)
         {
-            return HttpDeleteAsync(murl, registrar).RunAndUnwarp();
+            return HttpDeleteAsync(murl, registrar).RunAndUnwrap();
         }
 
         public Task<JObject> HttpDeleteAsync(string murl, IUser registrar, CancellationToken token = default(CancellationToken))

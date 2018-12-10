@@ -161,7 +161,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Response SendDiscoveryRequest(SignedRequest signedRequest, int? milliseconds = null)
         {
-            return SendDiscoveryRequestAsync(signedRequest, milliseconds).RunAndUnwarp();
+            return SendDiscoveryRequestAsync(signedRequest, milliseconds).RunAndUnwrap();
         }
 
         private async Task<Response> SendDiscoveryRequestInternalAsync(SignedRequest signedRequest, CancellationToken token)

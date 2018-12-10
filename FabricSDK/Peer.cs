@@ -46,27 +46,27 @@ namespace Hyperledger.Fabric.SDK
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
         private static IPeerEventingServiceDisconnected _disconnectedHandler;
+        private string channelName; // used for logging.
         private byte[] clientTLSCertificateDigest;
         internal EndorserClient endorserClent;
-        private string endPoint ;
+        private string endPoint;
         private bool foundClientTLSCertificateDigest;
         private long lastBlockNumber = -1;
         private PeerEventServiceClient peerEventingClient;
         private string protocol;
-        private string channelName;  // used for logging.
         [JsonIgnore] private long reconnectCount;
         private TransactionContext transactionContext;
 
 
         public Peer(string name, string url, Properties properties) : base(name, url, properties)
         {
-
             _disconnectedHandler = DefaultDisconnectHandler;
             reconnectCount = 0L;
             logger.Debug("Created " + ToString());
         }
 
-        public bool HasConnected { get; set; }  // has this peer connected.
+        [JsonIgnore]
+        public bool HasConnected { get; set; } // has this peer connected.
 
 
         [JsonIgnore]
@@ -85,7 +85,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 if (null != base.Channel)
                     throw new ArgumentException($"Can not add peer {Name} to channel {value.Name} because it already belongs to channel {base.Channel.Name}.");
-                logger.Debug($"{ToString()} setting channel to {value}, from {base.Channel}");                    
+                logger.Debug($"{ToString()} setting channel to {value}, from {base.Channel}");
                 base.Channel = value;
                 channelName = Channel.Name;
             }
@@ -100,6 +100,7 @@ namespace Hyperledger.Fabric.SDK
         [JsonIgnore]
         public long LastConnectTime { get; set; }
 
+        [JsonIgnore]
         public long ReconnectCount => reconnectCount;
 
 
@@ -132,6 +133,20 @@ namespace Hyperledger.Fabric.SDK
                 return protocol;
             }
         }
+        [JsonIgnore]
+        public string EventingStatus
+        {
+            get
+            {
+                PeerEventServiceClient lpeerEventingClient = peerEventingClient;
+                if (null == lpeerEventingClient)
+                {
+                    return " eventing client service not active.";
+                }
+
+                return lpeerEventingClient.Status;
+            }
+        }
 
 
         public bool Equals(Peer other)
@@ -148,6 +163,7 @@ namespace Hyperledger.Fabric.SDK
 
             return Name.Equals(other.Name) && Url.Equals(other.Url);
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void SetTLSCertificateKeyPair(TLSCertificateKeyPair tlsCertificateKeyPair)
         {
@@ -209,6 +225,7 @@ namespace Hyperledger.Fabric.SDK
                 throw;
             }
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         private EndorserClient GetEndorserClient()
         {
@@ -217,8 +234,8 @@ namespace Hyperledger.Fabric.SDK
             if (null == localEndorserClient || !localEndorserClient.IsChannelActive)
             {
                 if (IS_TRACE_LEVEL)
-                   logger.Trace($"Channel {channelName} creating new endorser client {ToString()}");
-                       
+                    logger.Trace($"Channel {channelName} creating new endorser client {ToString()}");
+
                 Endpoint endpoint = SDK.Endpoint.Create(Url, Properties);
                 foundClientTLSCertificateDigest = true;
                 clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
@@ -230,6 +247,7 @@ namespace Hyperledger.Fabric.SDK
 
             return localEndorserClient;
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void RemoveEndorserClient(bool force)
         {
@@ -250,6 +268,7 @@ namespace Hyperledger.Fabric.SDK
                 }
             }
         }
+
         public async Task<Response> SendDiscoveryRequestAsync(SignedRequest discoveryRequest, int? milliseconds = null, CancellationToken token = default(CancellationToken))
         {
             logger.Debug($"peer.sendDiscoveryRequstAsync name: {Name}, url: {Url}");
@@ -307,7 +326,7 @@ namespace Hyperledger.Fabric.SDK
             LastBlockEvent = null;
             lastBlockNumber = -1;
             RemoveEndorserClient(force);
-           
+
 
             PeerEventServiceClient lpeerEventingClient = peerEventingClient;
             peerEventingClient = null;
@@ -322,19 +341,7 @@ namespace Hyperledger.Fabric.SDK
 
             lpeerEventingClient?.Shutdown(force);
         }
-        public string EventingStatus
-        {
-            get
-            {
-                PeerEventServiceClient lpeerEventingClient = peerEventingClient;
-                if (null == lpeerEventingClient)
-                {
-                    return " eventing client service not active.";
 
-                }
-                return lpeerEventingClient.Status;
-            }
-        }
         ~Peer()
         {
             if (!shutdown)
@@ -537,7 +544,8 @@ namespace Hyperledger.Fabric.SDK
                 {
                     try
                     {
-                        await Task.Delay((int) sleepTime,token).ConfigureAwait(false); ;
+                        await Task.Delay((int) sleepTime, token).ConfigureAwait(false);
+                        ;
                     }
                     catch (Exception e)
                     {

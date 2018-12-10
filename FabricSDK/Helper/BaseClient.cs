@@ -1,4 +1,5 @@
 ﻿using System;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
@@ -15,6 +16,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         public virtual Channel Channel { get; set; }
 
         internal bool shutdown = false;
+        [JsonIgnore]
         public HFClient Client => Channel.Client;
         public BaseClient(string name, string url, Properties properties)
         {

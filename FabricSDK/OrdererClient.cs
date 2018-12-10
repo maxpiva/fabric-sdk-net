@@ -136,7 +136,7 @@ namespace Hyperledger.Fabric.SDK
 
         public BroadcastResponse SendTransaction(Envelope envelope)
         {
-            return SendTransactionAsync(envelope).RunAndUnwarp();
+            return SendTransactionAsync(envelope).RunAndUnwrap();
         }
 
         private async Task<BroadcastResponse> BroadcastAsync(ADStreamingCall<Envelope, BroadcastResponse> call, Envelope envelope, CancellationToken token)
@@ -270,7 +270,7 @@ namespace Hyperledger.Fabric.SDK
 
         public List<DeliverResponse> SendDeliver(Envelope envelope)
         {
-            return SendDeliverAsync(envelope).RunAndUnwarp();
+            return SendDeliverAsync(envelope).RunAndUnwrap();
         }
 
         public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope envelope, CancellationToken token = default(CancellationToken))

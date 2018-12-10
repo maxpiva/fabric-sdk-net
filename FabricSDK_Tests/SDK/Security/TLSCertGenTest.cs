@@ -36,8 +36,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             Endorser.EndorserClient cl = new Endorser.EndorserClient(chan);
             cl.ProcessProposal(prop);
             Assert.IsTrue(handshakeOccured, "Handshake didn't occur");
-            chan.ShutdownAsync().RunAndUnwarp();
-            sv.ShutdownAsync().RunAndUnwarp();
+            chan.ShutdownAsync().RunAndUnwrap();
+            sv.ShutdownAsync().RunAndUnwrap();
         }
 
         private class MockEndorser : Endorser.EndorserBase

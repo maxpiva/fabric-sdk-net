@@ -179,6 +179,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             client.UserContext = sampleOrg.PeerAdmin;
             Util.COut("Creating install proposal");
             ChaincodeID chaincodeID = new ChaincodeID();
+            chaincodeID.Name = CHAIN_CODE_NAME;
             chaincodeID.Version = CHAIN_CODE_VERSION;
             if (null != CHAIN_CODE_PATH)
                 chaincodeID.Path = CHAIN_CODE_PATH;
@@ -343,7 +344,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             SampleOrg sampleOrg2 = testConfig.GetIntegrationTestsSampleOrg("peerOrg2");
             Channel barChannel = ConstructChannel(BAR_CHANNEL_NAME, client, sampleOrg2);
             futures.Add(InstallInstantiateAsync(barChannel, client, sampleOrg2));
-            Task.WhenAll(futures).RunAndUnwarp();
+            Task.WhenAll(futures).RunAndUnwrap();
 
             TestPair[] testPairs = {new TestPair(fooChannel, sampleOrg1), new TestPair(barChannel, sampleOrg2)};
             CancellationTokenSource src = new CancellationTokenSource();
@@ -354,7 +355,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 Task.Run(() => Worker(k, client, token, testPairs));
                 try
                 {
-                    Task.Delay(random.Next(3000)).RunAndUnwarp();
+                    Task.Delay(random.Next(3000)).RunAndUnwrap();
                 }
                 catch (ThreadInterruptedException e)
                 {
@@ -510,7 +511,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 //transactionProposalRequest.SetFcn("invoke");
                 transactionProposalRequest.Fcn = "move";
                 transactionProposalRequest.ProposalWaitTime = testConfig.GetProposalWaitTime();
-                transactionProposalRequest.SetArgs("a", "b", "100");
+                transactionProposalRequest.SetArgs("a" + workerId, "b" + workerId, delta + "");
 
                 Dictionary<string, byte[]> tm2 = new Dictionary<string, byte[]>();
                 tm2.Add("HyperLedgerFabric", "TransactionProposalRequest:JavaSDK".ToBytes()); //Just some extra junk in transient map
@@ -777,14 +778,21 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 peerProperties.Set("grpc.max_receive_message_length", 9000000);
 
                 Peer peer = client.NewPeer(peerName, peerLocation, peerProperties);
-                if (doPeerEventing && everyother)
+                if (testConfig.IsFabricVersionAtOrAfter("1.3"))
                 {
-                    newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions()); //Default is all roles.
+                    newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)); //Default is all roles.
                 }
                 else
                 {
-                    // Set peer to not be all roles but eventing.
-                    newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRoleExtensions.NoEventSource()));
+                    if (doPeerEventing && everyother)
+                    {
+                        newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions()); //Default is all roles.
+                    }
+                    else
+                    {
+                        // Set peer to not be all roles but eventing.
+                        newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRoleExtensions.NoEventSource()));
+                    }
                 }
 
                 Util.COut("Peer %s joined channel %s", peerName, name);
@@ -792,7 +800,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
 
             //just for testing ...
-            if (doPeerEventing)
+            if (doPeerEventing || testConfig.IsFabricVersionAtOrAfter("1.3"))
             {
                 // Make sure there is one of each type peer at the very least.
                 Assert.IsFalse(newChannel.GetPeers(PeerRole.EVENT_SOURCE).Count == 0);

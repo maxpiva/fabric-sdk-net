@@ -812,7 +812,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Orderer anOrderer = orderers.First();
             orderers.Remove(anOrderer);
 
-            string path = Path.Combine(TEST_FIXTURES_PATH.Locate() + "sdkintegration","e2e-2Orgs" , testConfig.FAB_CONFIG_GEN_VERS , name + ".tx");
+            string path = Path.Combine(TEST_FIXTURES_PATH.Locate() , "sdkintegration","e2e-2Orgs" , testConfig.FAB_CONFIG_GEN_VERS , name + ".tx");
             ChannelConfiguration channelConfiguration = new ChannelConfiguration(path);
 
             //Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.

@@ -7,7 +7,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 {
     public static class SyncExtensions
     {
-        public static T RunAndUnwarp<T>(this Task<T> func)
+        public static T RunAndUnwrap<T>(this Task<T> func)
         {
             try
             {
@@ -19,7 +19,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
         }
 
-        public static void RunAndUnwarp(this Task func)
+        public static void RunAndUnwrap(this Task func)
         {
             try
             {

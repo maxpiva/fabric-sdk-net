@@ -80,7 +80,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [ExpectedException(typeof(PeerException))]
         public void TestSendAsyncNullProposal()
         {
-            peer.SendProposalAsync(null).RunAndUnwarp();
+            peer.SendProposalAsync(null).RunAndUnwrap();
         }
 
         [TestMethod]

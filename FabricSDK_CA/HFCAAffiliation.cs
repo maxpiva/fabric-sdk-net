@@ -190,7 +190,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public int Read(IUser registrar)
         {
-            return ReadAsync(registrar).RunAndUnwarp();
+            return ReadAsync(registrar).RunAndUnwrap();
         }
         public async Task<int> ReadAsync(IUser registrar, CancellationToken token=default(CancellationToken))
         {
@@ -235,7 +235,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliationResp Create(IUser registrar)
         {
-            return CreateAsync(registrar).RunAndUnwarp();
+            return CreateAsync(registrar).RunAndUnwrap();
         }
         public Task<HFCAAffiliationResp> CreateAsync(IUser registrar, CancellationToken token=default(CancellationToken))
         {
@@ -312,7 +312,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliationResp Update(IUser registrar, bool force)
         {
-            return UpdateAsync(registrar,force).RunAndUnwarp();
+            return UpdateAsync(registrar,force).RunAndUnwrap();
         }
         public async Task<HFCAAffiliationResp> UpdateAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
         {
@@ -382,7 +382,7 @@ namespace Hyperledger.Fabric_CA.SDK
          */
         public HFCAAffiliationResp Delete(IUser registrar, bool force)
         {
-            return DeleteAsync(registrar, force).RunAndUnwarp();
+            return DeleteAsync(registrar, force).RunAndUnwrap();
         }
         public async Task<HFCAAffiliationResp> DeleteAsync(IUser registrar, bool force, CancellationToken token = default(CancellationToken))
         {

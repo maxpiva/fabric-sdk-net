@@ -523,7 +523,7 @@ namespace Hyperledger.Fabric.SDK
 
         public void UpdateChannelConfiguration(UpdateChannelConfiguration updateChannelConfiguration, Orderer orderer, params byte[][] signers)
         {
-            UpdateChannelConfigurationAsync(updateChannelConfiguration, orderer, new CancellationToken(), signers).RunAndUnwarp();
+            UpdateChannelConfigurationAsync(updateChannelConfiguration, orderer, new CancellationToken(), signers).RunAndUnwrap();
         }
 
         public async Task UpdateChannelConfigurationAsync(UpdateChannelConfiguration updateChannelConfiguration, Orderer orderer, CancellationToken token = default(CancellationToken), params byte[][] signers)
@@ -665,11 +665,11 @@ namespace Hyperledger.Fabric.SDK
         }
         public Channel AddPeer(Peer peer)
         {
-            return AddPeerAsync(peer).RunAndUnwarp();
+            return AddPeerAsync(peer).RunAndUnwrap();
         }
         public Channel AddPeer(Peer peer, PeerOptions peerOptions)
         {
-            return AddPeerAsync(peer, peerOptions).RunAndUnwarp();
+            return AddPeerAsync(peer, peerOptions).RunAndUnwrap();
         }
         /**
          * Add a peer to the channel
@@ -783,7 +783,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public Channel JoinPeer(Peer peer, PeerOptions peerOptions)
         {
-            return JoinPeerAsync(peer, peerOptions).RunAndUnwarp();
+            return JoinPeerAsync(peer, peerOptions).RunAndUnwrap();
         }
 
         public async Task<Channel> JoinPeerAsync(Peer peer, PeerOptions peerOptions, CancellationToken token = default(CancellationToken))
@@ -813,7 +813,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public Channel JoinPeer(Orderer orderer, Peer peer, PeerOptions peerOptions)
         {
-            return JoinPeerAsync(orderer, peer, peerOptions).RunAndUnwarp();
+            return JoinPeerAsync(orderer, peer, peerOptions).RunAndUnwrap();
         }
 
         public async Task<Channel> JoinPeerAsync(Orderer orderer, Peer peer, PeerOptions peerOptions, CancellationToken token = default(CancellationToken))
@@ -1008,7 +1008,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public Channel AddEventHub(EventHub eventHub)
         {
-            return AddEventHubAsync(eventHub).RunAndUnwarp();
+            return AddEventHubAsync(eventHub).RunAndUnwrap();
         }
 
         public async Task<Channel> AddEventHubAsync(EventHub eventHub, CancellationToken token = default(CancellationToken))
@@ -1075,7 +1075,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public PeerOptions SetPeerOptions(Peer peer, PeerOptions peerOptions)
         {
-            return SetPeerOptionsAsync(peer, peerOptions).RunAndUnwarp();
+            return SetPeerOptionsAsync(peer, peerOptions).RunAndUnwrap();
         }
         public async Task<PeerOptions> SetPeerOptionsAsync(Peer peer, PeerOptions peerOptions, CancellationToken token=default(CancellationToken))
         {
@@ -1110,7 +1110,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public Channel Initialize()
         {
-            return InitializeAsync().RunAndUnwarp();
+            return InitializeAsync().RunAndUnwrap();
         }
 
         public async Task<Channel> InitializeAsync(CancellationToken token = default(CancellationToken))
@@ -1501,7 +1501,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public AnchorPeersConfigUpdateResult GetConfigUpdateAnchorPeers(Peer peer, IUser userContext, List<string> peersToAdd, List<string> peersToRemove)
         {
-            return GetConfigUpdateAnchorPeersAsync(peer, userContext, peersToAdd, peersToRemove).RunAndUnwarp();
+            return GetConfigUpdateAnchorPeersAsync(peer, userContext, peersToAdd, peersToRemove).RunAndUnwrap();
         }
 
         public async Task<AnchorPeersConfigUpdateResult> GetConfigUpdateAnchorPeersAsync(Peer peer, IUser userContext, List<string> peersToAdd, List<string> peersToRemove, CancellationToken token=default(CancellationToken))
@@ -1819,7 +1819,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public byte[] GetChannelConfigurationBytes()
         {
-            return GetChannelConfigurationBytesAsync().RunAndUnwarp();
+            return GetChannelConfigurationBytesAsync().RunAndUnwrap();
         }
 
         public async Task<byte[]> GetChannelConfigurationBytesAsync(CancellationToken token = default(CancellationToken))
@@ -2001,7 +2001,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> SendInstantiationProposal(InstantiateProposalRequest instantiateProposalRequest, IEnumerable<Peer> pers)
         {
-            return SendInstantiationProposalAsync(instantiateProposalRequest, pers).RunAndUnwarp();
+            return SendInstantiationProposalAsync(instantiateProposalRequest, pers).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> SendInstantiationProposalAsync(InstantiateProposalRequest instantiateProposalRequest, IEnumerable<Peer> pers, CancellationToken token = default(CancellationToken))
@@ -2076,7 +2076,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> SendInstallProposal(InstallProposalRequest installProposalRequest, IEnumerable<Peer> pers)
         {
-            return SendInstallProposalAsync(installProposalRequest, pers).RunAndUnwarp();
+            return SendInstallProposalAsync(installProposalRequest, pers).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> SendInstallProposalAsync(InstallProposalRequest installProposalRequest, IEnumerable<Peer> pers, CancellationToken token = default(CancellationToken))
@@ -2138,7 +2138,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> SendUpgradeProposal(UpgradeProposalRequest upgradeProposalRequest, IEnumerable<Peer> pers)
         {
-            return SendUpgradeProposalAsync(upgradeProposalRequest, pers).RunAndUnwarp();
+            return SendUpgradeProposalAsync(upgradeProposalRequest, pers).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> SendUpgradeProposalAsync(UpgradeProposalRequest upgradeProposalRequest, IEnumerable<Peer> pers, CancellationToken token = default(CancellationToken))
@@ -2283,7 +2283,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockInfo QueryBlockByHash(IEnumerable<Peer> pers, byte[] blockHash, IUser userContext)
         {
-            return QueryBlockByHashAsync(pers, blockHash, userContext).RunAndUnwarp();
+            return QueryBlockByHashAsync(pers, blockHash, userContext).RunAndUnwrap();
         }
 
         public async Task<BlockInfo> QueryBlockByHashAsync(IEnumerable<Peer> pers, byte[] blockHash, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -2500,7 +2500,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockInfo QueryBlockByNumber(IEnumerable<Peer> pers, long blockNumber, IUser userContext)
         {
-            return QueryBlockByNumberAsync(pers, blockNumber, userContext).RunAndUnwarp();
+            return QueryBlockByNumberAsync(pers, blockNumber, userContext).RunAndUnwrap();
         }
 
         public async Task<BlockInfo> QueryBlockByNumberAsync(IEnumerable<Peer> pers, long blockNumber, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -2642,7 +2642,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockInfo QueryBlockByTransactionID(IEnumerable<Peer> pers, string txID, IUser userContext)
         {
-            return QueryBlockByTransactionIDAsync(pers, txID, userContext).RunAndUnwarp();
+            return QueryBlockByTransactionIDAsync(pers, txID, userContext).RunAndUnwrap();
         }
 
         public async Task<BlockInfo> QueryBlockByTransactionIDAsync(IEnumerable<Peer> pers, string txID, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -2760,7 +2760,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockchainInfo QueryBlockchainInfo(IEnumerable<Peer> pers, IUser userContext)
         {
-            return QueryBlockchainInfoAsync(pers, userContext).RunAndUnwarp();
+            return QueryBlockchainInfoAsync(pers, userContext).RunAndUnwrap();
         }
 
         public async Task<BlockchainInfo> QueryBlockchainInfoAsync(IEnumerable<Peer> pers, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -2886,7 +2886,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public TransactionInfo QueryTransactionByID(IEnumerable<Peer> pers, string txID, IUser userContext)
         {
-            return QueryTransactionByIDAsync(pers, txID, userContext).RunAndUnwarp();
+            return QueryTransactionByIDAsync(pers, txID, userContext).RunAndUnwrap();
         }
 
         public async Task<TransactionInfo> QueryTransactionByIDAsync(IEnumerable<Peer> pers, string txID, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -2916,7 +2916,7 @@ namespace Hyperledger.Fabric.SDK
         // transactions order
         public HashSet<string> QueryChannels(Peer peer)
         {
-            return QueryChannelsAsync(peer).RunAndUnwarp();
+            return QueryChannelsAsync(peer).RunAndUnwrap();
         }
 
         public async Task<HashSet<string>> QueryChannelsAsync(Peer peer, CancellationToken token = default(CancellationToken))
@@ -2967,7 +2967,7 @@ namespace Hyperledger.Fabric.SDK
 
         public List<ChaincodeInfo> QueryInstalledChaincodes(Peer peer)
         {
-            return QueryInstalledChaincodesAsync(peer).RunAndUnwarp();
+            return QueryInstalledChaincodesAsync(peer).RunAndUnwrap();
         }
 
         public async Task<List<ChaincodeInfo>> QueryInstalledChaincodesAsync(Peer peer, CancellationToken token = default(CancellationToken))
@@ -3043,7 +3043,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ChaincodeInfo> QueryInstantiatedChaincodes(Peer peer, IUser userContext)
         {
-            return QueryInstantiatedChaincodesAsync(peer, userContext).RunAndUnwarp();
+            return QueryInstantiatedChaincodesAsync(peer, userContext).RunAndUnwrap();
         }
 
         public async Task<List<ChaincodeInfo>> QueryInstantiatedChaincodesAsync(Peer peer, IUser userContext, CancellationToken token = default(CancellationToken))
@@ -3099,7 +3099,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public CollectionConfigPackage QueryCollectionsConfig(string chaincodeName, Peer peer, IUser userContext)
         {
-            return QueryCollectionsConfigAsync(chaincodeName, peer, userContext).RunAndUnwarp();
+            return QueryCollectionsConfigAsync(chaincodeName, peer, userContext).RunAndUnwrap();
         }
         public async Task<CollectionConfigPackage> QueryCollectionsConfigAsync(string chaincodeName, Peer peer, IUser userContext, CancellationToken token=default(CancellationToken))
         {
@@ -3161,7 +3161,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> SendTransactionProposal(TransactionProposalRequest transactionProposalRequest)
         {
-            return SendTransactionProposalAsync(transactionProposalRequest).RunAndUnwarp();
+            return SendTransactionProposalAsync(transactionProposalRequest).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> SendTransactionProposalAsync(TransactionProposalRequest transactionProposalRequest, CancellationToken token = default(CancellationToken))
@@ -3180,7 +3180,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> SendTransactionProposal(TransactionProposalRequest transactionProposalRequest, IEnumerable<Peer> pers)
         {
-            return SendTransactionProposalAsync(transactionProposalRequest, pers).RunAndUnwarp();
+            return SendTransactionProposalAsync(transactionProposalRequest, pers).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> SendTransactionProposalAsync(TransactionProposalRequest transactionProposalRequest, IEnumerable<Peer> pers, CancellationToken token = default(CancellationToken))
@@ -3199,7 +3199,7 @@ namespace Hyperledger.Fabric.SDK
         */
         public List<ProposalResponse> SendTransactionProposalToEndorsers(TransactionProposalRequest transactionProposalRequest, DiscoveryOptions discoveryOptions)
         {
-            return SendTransactionProposalToEndorsersAsync(transactionProposalRequest, discoveryOptions).RunAndUnwarp();
+            return SendTransactionProposalToEndorsersAsync(transactionProposalRequest, discoveryOptions).RunAndUnwrap();
         }
 
         public async Task<List<ProposalResponse>> SendTransactionProposalToEndorsersAsync(TransactionProposalRequest transactionProposalRequest, DiscoveryOptions discoveryOptions, CancellationToken token = default(CancellationToken))
@@ -3487,7 +3487,7 @@ namespace Hyperledger.Fabric.SDK
      */
         public List<string> GetDiscoveredChaincodeNames()
         {
-            return serviceDiscovery.GetDiscoveredChaincodeNamesAsync().RunAndUnwarp();
+            return serviceDiscovery.GetDiscoveredChaincodeNamesAsync().RunAndUnwrap();
         }
 
         public Task<List<string>> GetDiscoveredChaincodeNamesAsync(CancellationToken token = default(CancellationToken))
@@ -3527,7 +3527,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public List<ProposalResponse> QueryByChaincode(QueryByChaincodeRequest queryByChaincodeRequest, IEnumerable<Peer> pers)
         {
-            return QueryByChaincodeAsync(queryByChaincodeRequest, pers).RunAndUnwarp();
+            return QueryByChaincodeAsync(queryByChaincodeRequest, pers).RunAndUnwrap();
         }
 
         public Task<List<ProposalResponse>> QueryByChaincodeAsync(QueryByChaincodeRequest queryByChaincodeRequest, IEnumerable<Peer> pers, CancellationToken token = default(CancellationToken))
@@ -3783,7 +3783,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000)
         {
-            return SendTransactionAsync(proposalResponses, transactionOptions, waittimeinmilliseconds).RunAndUnwarp();
+            return SendTransactionAsync(proposalResponses, transactionOptions, waittimeinmilliseconds).RunAndUnwrap();
         }
 
         public async Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))

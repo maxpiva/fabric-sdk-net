@@ -11,6 +11,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
+    [TestClass]
+    [TestCategory("SDK_INTEGRATION")]
     public class End2endIdemixIT : End2endIT
     {
         private static readonly string FOO_CHANNEL_NAME = "foo";
@@ -82,7 +84,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     enrollmentRequestTLS.Profile = "tls";
                     IEnrollment enroll = ca.Enroll("admin", "adminpw", enrollmentRequestTLS);
                     string tlsCertPEM = enroll.Cert;
-                    string tlsKeyPEM = GetPEMStringFromPrivateKey(enroll.GetKeyPair().PrivateKey).ToUTF8String();
+                    string tlsKeyPEM = enroll.Key;
 
                     Properties tlsProperties = new Properties();
 

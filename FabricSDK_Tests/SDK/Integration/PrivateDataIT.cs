@@ -29,7 +29,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         private static readonly bool IS_FABRIC_V10 = testConfig.IsRunningAgainstFabric10();
         private static readonly string TEST_ADMIN_NAME = "admin";
         private static readonly string TESTUSER_1_NAME = "user1";
-        private static readonly string TEST_FIXTURES_PATH = "src/test/fixture";
+        private static readonly string TEST_FIXTURES_PATH = "fixture";
 
         private static readonly string BAR_CHANNEL_NAME = "bar";
 

@@ -14,63 +14,32 @@
  *
  */
 
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
-using System.Security.Cryptography;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Google.Protobuf;
+using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
 using SharpCompress.Readers;
-using SharpCompress.Writers;
 
 namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 {
     public class TestUtils
     {
+        //Reflection methods deleted, there is no need, stuff marked as internal
+        private static readonly string MOCK_CERT = string.Join("\r\n", "-----BEGIN CERTIFICATE-----", "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL", "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG", "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh", "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy", "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN", "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ", "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL", "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G", "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE", "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P", "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU", "NHvr441QC85U+V4UQWY=", "-----END CERTIFICATE-----");
 
         private TestUtils()
         {
-        }
-
-        //Reflection methods deleted, there is no need, stuff marked as internal
-        private static readonly string MOCK_CERT = String.Join("\r\n","-----BEGIN CERTIFICATE-----" , "MIICGjCCAcCgAwIBAgIRAPDmqtljAyXFJ06ZnQjXqbMwCgYIKoZIzj0EAwIwczEL" , "MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG" , "cmFuY2lzY28xGTAXBgNVBAoTEG9yZzEuZXhhbXBsZS5jb20xHDAaBgNVBAMTE2Nh" , "Lm9yZzEuZXhhbXBsZS5jb20wHhcNMTcwNjIyMTIwODQyWhcNMjcwNjIwMTIwODQy" , "WjBbMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMN" , "U2FuIEZyYW5jaXNjbzEfMB0GA1UEAwwWQWRtaW5Ab3JnMS5leGFtcGxlLmNvbTBZ" , "MBMGByqGSM49AgEGCCqGSM49AwEHA0IABJve76Fj5T8Vm+FgM3p3TwcnW/npQlTL" , "P+fY0fImBODqQLTkBokx4YiKcQXQl4m1EM1VAbOhAlBiOfNRNL0W8aGjTTBLMA4G" , "A1UdDwEB/wQEAwIHgDAMBgNVHRMBAf8EAjAAMCsGA1UdIwQkMCKAIPz3drAqBWAE" , "CNC+nZdSr8WfZJULchyss2O1uVoP6mIWMAoGCCqGSM49BAMCA0gAMEUCIQDatF1P" , "L7SavLsmjbFxdeVvLnDPJuCFaAdr88oE2YuAvwIgDM4qXAcDw/AhyQblWR4F4kkU" , "NHvr441QC85U+V4UQWY=" , "-----END CERTIFICATE-----");
-
-        public class MockEnrollment : IEnrollment
-        {
-            public string Key { get; }
-            public string Cert { get; }
-
-            public MockEnrollment(string key, string cert)
-            {
-                Key = key;
-                Cert = cert;
-            }
-        }
-
-        public class MockUser : IUser
-        {
-            public MockUser(string name, string mspId)
-            {
-                Name = name;
-                MspId = mspId;
-                Enrollment = GetMockEnrollment(MOCK_CERT);
-            }
-            public string EnrollmentSecret { get; set; }
-
-            public string Name { get; }
-            public HashSet<string> Roles { get; }
-            public string Account { get; }
-            public string Affiliation { get; }
-            public IEnrollment Enrollment { get; set; }
-            public string MspId { get; }
         }
 
         /**
@@ -78,7 +47,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
  */
         public static void ResetConfig()
         {
-
             try
             {
                 Config.config = null;
@@ -88,7 +56,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             {
                 throw new System.Exception("Cannot reset config", e);
             }
-
         }
 
         public static MockUser GetMockUser(string name, string mspId)
@@ -96,19 +63,65 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             return new MockUser(name, mspId);
         }
 
-        public static MockEnrollment GetMockEnrollment(string cert)
+        public static IEnrollment GetMockEnrollment(string cert)
         {
-            return new MockEnrollment(Factory.Instance.GetCryptoSuite().KeyGen().Pem, cert);
+            return new X509Enrollment(Factory.Instance.GetCryptoSuite().KeyGen(), cert);
         }
 
-        public static MockEnrollment GetMockEnrollment(string key, string cert)
+        public static MockSigningIdentity getMockSigningIdentity(string cert, string mspId, IEnrollment enrollment)
         {
-            return new MockEnrollment(key, cert);
+            return new MockSigningIdentity(cert, mspId, enrollment);
+        }
+
+        public static IEnrollment GetMockEnrollment(KeyPair key, string cert)
+        {
+            return new X509Enrollment(key, cert);
+        }
+
+        /**
+    * Just for testing remove all peers and orderers and add them back.
+    *
+    * @param client
+    * @param channel
+    */
+        public static void TestRemovingAddingPeersOrderers(HFClient client, Channel channel)
+        {
+            Dictionary<Peer, Channel.PeerOptions> perm = new Dictionary<Peer, Channel.PeerOptions>();
+
+            Assert.IsTrue(channel.IsInitialized);
+            Assert.IsFalse(channel.IsShutdown);
+            Thread.Sleep(1500); // time needed let channel get config block
+
+            channel.Peers.ToList().ForEach(peer =>
+            {
+                perm[peer] = channel.GetPeersOptions(peer);
+                channel.RemovePeer(peer);
+            });
+
+            perm.Keys.ToList().ForEach(peer =>
+            {
+                Channel.PeerOptions value = perm[peer];
+                Peer newPeer = client.NewPeer(peer.Name, peer.Url, peer.Properties);
+                channel.AddPeer(newPeer, value);
+            });
+
+            List<Orderer> removedOrders = new List<Orderer>();
+
+            foreach (Orderer orderer in channel.Orderers.ToList())
+            {
+                channel.RemoveOrderer(orderer);
+                removedOrders.Add(orderer);
+            }
+
+            removedOrders.ForEach(orderer =>
+            {
+                Orderer newOrderer = client.NewOrderer(orderer.Name, orderer.Url, orderer.Properties);
+                channel.AddOrderer(newOrderer);
+            });
         }
 
         public static List<string> TarBytesToEntryArrayList(byte[] bytes)
         {
-
             List<string> ret = new List<string>();
             using (MemoryStream bos = new MemoryStream(bytes))
             using (var reader = ReaderFactory.Open(bos))
@@ -119,8 +132,8 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                     Assert.IsTrue(!ta.IsDirectory, $"Tar entry {ta.Key} is not a file.");
                     ret.Add(ta.Key);
                 }
-                return ret;
 
+                return ret;
             }
             /*
         public static void AssertArrayListEquals(string failmsg, List<string> expect, List<string> actual) {
@@ -147,8 +160,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         */
 
 
-
-
             //  This is the private key for the above cert. Right now we don't need this and there's some class loader issues doing this here.
 
 //    private static final String MOCK_NOT_SO_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n" +
@@ -173,9 +184,6 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 //            throw new RuntimeException(e);
 //        }
 //    }
-
-
-
         }
 
         public static string RelocateFilePathsJSON(string filename)
@@ -192,13 +200,13 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         {
             string tempfile = Path.GetTempFileName() + ext;
             string json = File.ReadAllText(filename);
-            MatchCollection matches = new Regex(regex, RegexOptions.Compiled|RegexOptions.Multiline).Matches(json);
+            MatchCollection matches = new Regex(regex, RegexOptions.Compiled | RegexOptions.Multiline).Matches(json);
             foreach (Match m in matches)
             {
                 if (m.Success)
                 {
                     bool replace = false;
-                    string path = m.Groups[1].Value.Replace("\r",String.Empty).Replace("\n",String.Empty);
+                    string path = m.Groups[1].Value.Replace("\r", string.Empty).Replace("\n", string.Empty);
                     if (path.StartsWith("\"") && path.EndsWith("\""))
                         path = path.Substring(1, path.Length - 2);
                     string orgpath = path;
@@ -212,13 +220,75 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
                     if (replace)
                     {
-                        path = path.Locate().Replace("\\","/");
+                        path = path.Locate().Replace("\\", "/");
                         json = json.Replace(orgpath, path);
-                    } 
+                    }
                 }
             }
-            File.WriteAllText(tempfile,json);
+
+            File.WriteAllText(tempfile, json);
             return tempfile;
+        }
+
+
+        public class MockUser : IUser
+        {
+            public MockUser(string name, string mspId)
+            {
+                Name = name;
+                MspId = mspId;
+                Enrollment = GetMockEnrollment(MOCK_CERT);
+                Roles = null;
+                Account = null;
+                Affiliation = null;
+            }
+
+            public string EnrollmentSecret { get; set; }
+
+            public string Name { get; }
+            public HashSet<string> Roles { get; }
+            public string Account { get; }
+            public string Affiliation { get; }
+            public IEnrollment Enrollment { get; set; }
+            public string MspId { get; }
+        }
+
+        public class MockSigningIdentity : ISigningIdentity
+        {
+            public MockSigningIdentity(string cert, string mspId, IEnrollment enrollment)
+            {
+                Cert = cert;
+                MspId = mspId;
+                Enrollment = enrollment;
+            }
+
+            private string Cert { get; }
+            public IEnrollment Enrollment { get; set; }
+            public string MspId { get; }
+
+
+            public byte[] Sign(byte[] msg)
+            {
+                try
+                {
+                    return Factory.GetCryptoSuite().Sign(Enrollment.GetKeyPair(), msg);
+                }
+                catch (System.Exception e)
+                {
+                    throw new CryptoException(e.Message, e);
+                }
+            }
+
+            public bool VerifySignature(byte[] msg, byte[] sig)
+            {
+                return false;
+            }
+
+
+            public SerializedIdentity CreateSerializedIdentity()
+            {
+                return new SerializedIdentity {IdBytes = ByteString.CopyFromUtf8(Cert), Mspid = MspId};
+            }
         }
     }
 }

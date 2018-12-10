@@ -17,10 +17,14 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
+using Hyperledger.Fabric.Protos.Discovery;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Response = Hyperledger.Fabric.Protos.Discovery.Response;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -29,67 +33,30 @@ namespace Hyperledger.Fabric.SDK
      */
     public class EndorserClient
     {
+
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EndorserClient));
-        
-        private Grpc.Core.Channel managedChannel;
+        private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
+
+        private Protos.Discovery.Discovery.DiscoveryClient dfs;
         private Endorser.EndorserClient ecl;
-        private bool shutdown = false;
+
+        private Grpc.Core.Channel managedChannel;
+        private bool shutdown;
+        private string toString;
+
 
         /**
          * Construct client for accessing Peer server using the existing channel.
          *
          * @param channelBuilder The ChannelBuilder to build the endorser client
          */
-        public EndorserClient(Endpoint endpoint)
+        public EndorserClient(string channelName, string name, Endpoint endpoint)
         {
             managedChannel = endpoint.BuildChannel();
-            ecl=new Endorser.EndorserClient(managedChannel);
-        }
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        public void Shutdown(bool force) {
-            if (shutdown) {
-                return;
-            }
-            shutdown = true;
-            Grpc.Core.Channel lchannel = managedChannel;
-            // let all referenced resource finalize
-            managedChannel = null;
-            ecl = null;
-            if (lchannel == null) {
-                return;
-            }
-            if (force)
-            {
-                lchannel.ShutdownAsync().Wait();
-            } else {
-                bool isTerminated = false;
-
-                try {
-                    isTerminated = lchannel.ShutdownAsync().Wait(3*1000);
-                } catch (Exception e) {
-                    logger.DebugException(e.Message,e); //best effort
-                }
-                if (!isTerminated) {
-                    lchannel.ShutdownAsync().Wait();
-                }
-            }
-        }
-
-        public virtual async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token=default(CancellationToken)) 
-        {
-            if (shutdown)
-            {
-                throw new PeerException("Shutdown");
-            }
-            return await ecl.ProcessProposalAsync(proposal,null,null, token);
-        }
-        public Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse SendProposal(SignedProposal proposal)
-        {
-            if (shutdown)
-            {
-                throw new PeerException("Shutdown");
-            }
-            return ecl.ProcessProposal(proposal);
+            ecl = new Endorser.EndorserClient(managedChannel);
+            dfs = new Protos.Discovery.Discovery.DiscoveryClient(managedChannel);
+            toString = $"EndorserClient{{id: {Config.Instance.GetNextID()}, channel: {channelName}, name:{name}, url: {endpoint.Url}}}";
+            logger.Trace("Created " + ToString());
         }
 
         public virtual bool IsChannelActive
@@ -97,15 +64,126 @@ namespace Hyperledger.Fabric.SDK
             get
             {
                 Grpc.Core.Channel lchannel = managedChannel;
-                return lchannel != null && lchannel.State != ChannelState.Shutdown && lchannel.State != ChannelState.TransientFailure;
+                if (null == lchannel)
+                {
+                    logger.Trace($"{ToString()} Grpc channel needs creation.");
+                    return false;
+                }
+                bool isTransientFailure = lchannel.State == ChannelState.TransientFailure;
+                bool isShutdown = lchannel.State == ChannelState.Shutdown;
+                bool ret = !isShutdown && !isTransientFailure;
+                if (IS_TRACE_LEVEL)
+                    logger.Trace("%s grpc channel isActive: %b, isShutdown: %b, isTransientFailure: %b, state: %s ");
+                return ret;
             }
+        }
+
+        public override string ToString()
+        {
+            return toString;
+        }
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public void Shutdown(bool force)
+        {
+            if (IS_TRACE_LEVEL)
+                logger.Trace("%s shutdown called force: %b, shutdown: %b, managedChannel: %s");
+            if (shutdown)
+                return;
+
+            shutdown = true;
+            Grpc.Core.Channel lchannel = managedChannel;
+            // let all referenced resource finalize
+            managedChannel = null;
+            ecl = null;
+            dfs = null;
+            if (lchannel == null)
+            {
+                return;
+            }
+
+            if (force)
+            {
+                try
+                {
+                    lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception e)
+                {
+                    logger.WarnException(e.Message, e);
+                }
+            }
+            else
+            {
+                bool isTerminated = false;
+
+                try
+                {
+                    isTerminated = lchannel.ShutdownAsync().Wait(3 * 1000);
+                }
+                catch (Exception e)
+                {
+                    logger.DebugException(e.Message, e); //best effort
+                }
+
+                if (!isTerminated)
+                {
+                    try
+                    {
+                        lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                    }
+                    catch (Exception e)
+                    {
+                        logger.WarnException(e.Message, e);
+                    }
+                }
+            }
+        }
+
+        public virtual async Task<ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
+        {
+            if (shutdown)
+            {
+                throw new PeerException("Shutdown");
+            }
+
+            return await ecl.ProcessProposalAsync(proposal, null, null, token);
+        }
+
+        public virtual Task<Response> SendDiscoveryRequestAsync(SignedRequest signedRequest, int? milliseconds = null, CancellationToken token = default(CancellationToken))
+        {
+            if (shutdown)
+                throw new PeerException("Shutdown");
+            if (milliseconds.HasValue && milliseconds > 0)
+                return SendDiscoveryRequestInternalAsync(signedRequest, token).TimeoutAsync(TimeSpan.FromMilliseconds(milliseconds.Value),token);
+            return SendDiscoveryRequestInternalAsync(signedRequest, token);
+        }
+
+        public Response SendDiscoveryRequest(SignedRequest signedRequest, int? milliseconds = null)
+        {
+            return SendDiscoveryRequestAsync(signedRequest, milliseconds).RunAndUnwrap();
+        }
+
+        private async Task<Response> SendDiscoveryRequestInternalAsync(SignedRequest signedRequest, CancellationToken token)
+        {
+            return await dfs.DiscoverAsync(signedRequest, null, null, token);
+        }
+
+        public ProposalResponse SendProposal(SignedProposal proposal)
+        {
+            if (shutdown)
+                throw new PeerException("Shutdown");
+            return ecl.ProcessProposal(proposal);
         }
 
         ~EndorserClient()
         {
-            Shutdown(true);
+            if (!shutdown)
+            {
+                logger.Warn($"{ToString()} finalized not shutdown is Active {IsChannelActive}");
+            }
 
+            Shutdown(true);
         }
     }
 }
-

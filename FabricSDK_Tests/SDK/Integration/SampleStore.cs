@@ -15,9 +15,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
-
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
@@ -32,7 +30,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
     {
         private readonly string file;
         private readonly ILog logger = LogProvider.GetLogger(typeof(SampleStore));
-
+        private ICryptoSuite cryptoSuite;
         private readonly Dictionary<string, SampleUser> members = new Dictionary<string, SampleUser>();
 
         public SampleStore(string file)
@@ -73,7 +71,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (FileNotFoundException)
             {
-                logger.Warn($"Could not find the file \"{file}\"");
+                logger.Info($"Could not find the file \"{file}\"");
             }
             catch (IOException e)
             {
@@ -121,7 +119,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
 
             // Create the SampleUser and try to restore it's state from the key value store (if found).
-            sampleUser = new SampleUser(name, org, this);
+            sampleUser = new SampleUser(name, org, this,cryptoSuite);
 
             return sampleUser;
         }
@@ -171,11 +169,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 }
 
                 // Create the SampleUser and try to restore it's state from the key value store (if found).
-                sampleUser = new SampleUser(name, org, this);
+                sampleUser = new SampleUser(name, org, this,cryptoSuite);
                 sampleUser.MspId = mspId;
                 string certificate = File.ReadAllText(certificateFile, Encoding.UTF8);
 
-                KeyPair pair=KeyPair.Create(File.ReadAllText(privateKeyFile));
+                KeyPair pair = KeyPair.Create(File.ReadAllText(privateKeyFile));
 
                 sampleUser.Enrollment = new SampleStoreEnrollement(pair.Pem, certificate);
 
@@ -186,21 +184,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             catch (IOException e)
             {
                 logger.ErrorException(e.Message, e);
-                throw e;
+                throw;
             }
             catch (System.Exception e)
             {
                 logger.ErrorException(e.Message, e);
-                throw e;
+                throw;
             }
         }
 
 
-        private static KeyPair GetPrivateKeyFromBytes(byte[] data)
-        {
-            CryptoPrimitives prim = new CryptoPrimitives();
-            return KeyPair.Create(data.ToUTF8String());
-        }
 
 
         public void SaveChannel(Channel channel)
@@ -240,7 +233,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
             return GetValue("clientPEMTLSCertificate." + sampleOrg.Name);
         }
-
+        // Use this to make sure SDK is not dependent on HFCA enrollment for non-Idemix
         [Serializable]
         public class SampleStoreEnrollement : IEnrollment
         {
@@ -252,8 +245,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             public SampleStoreEnrollement()
             {
-
             }
+
             public string Key { get; set; }
             public string Cert { get; set; }
         }

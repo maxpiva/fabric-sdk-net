@@ -12,24 +12,22 @@
  *  limitations under the License.
  */
 
- using Hyperledger.Fabric.Protos.Common;
-
 namespace Hyperledger.Fabric.SDK
 {
-	/**
-	 * BlockchainInfo contains information about the blockchain ledger.
-	 */
+    /**
+     * BlockchainInfo contains information about the blockchain ledger.
+     */
     public class BlockchainInfo
     {
         public BlockchainInfo(Protos.Common.BlockchainInfo blockchainInfo)
         {
-            this.ProtoBlockchainInfo = blockchainInfo;
+            ProtoBlockchainInfo = blockchainInfo;
         }
 
         /**
          * @return the current ledger blocks height
          */
-        public long Height => (long)ProtoBlockchainInfo.Height;
+        public long Height => (long) ProtoBlockchainInfo.Height;
 
         /**
          * @return the current bloch hash
@@ -47,5 +45,3 @@ namespace Hyperledger.Fabric.SDK
         public Protos.Common.BlockchainInfo ProtoBlockchainInfo { get; }
     }
 }
-
-

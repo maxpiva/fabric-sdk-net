@@ -13,8 +13,6 @@
  */
 
 using System;
-using System.Security.Cryptography;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric_CA.SDK.Requests;
@@ -170,7 +168,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "name may not be null or empty.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "name may not be null or empty.")]
         public void TestEnrollReqToJsonAttrNullName()
         {
             EnrollmentRequest testEnrollReq = new EnrollmentRequest();
@@ -178,7 +176,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "name may not be null or empty.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "name may not be null or empty.")]
         public void TestEnrollReqToJsonAttrEmptyName()
         {
             EnrollmentRequest testEnrollReq = new EnrollmentRequest();

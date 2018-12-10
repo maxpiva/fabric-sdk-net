@@ -23,9 +23,9 @@ namespace Hyperledger.Fabric.SDK.Builders
             AddArg("GetChannels");
         }
 
-        public new QueryPeerChannelsBuilder Context(TransactionContext context)
+        public new QueryPeerChannelsBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
 

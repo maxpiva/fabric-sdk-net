@@ -12,10 +12,13 @@
  *  limitations under the License.
  */
 
+// ReSharper disable UnusedParameter.Local
 namespace Hyperledger.Fabric.SDK.Responses
 {
     public class ChaincodeResponse
     {
+        internal int statusReturnCode = -1;
+
         public enum ChaincodeResponseStatus
         {
             UNDEFINED = 0,
@@ -23,29 +26,10 @@ namespace Hyperledger.Fabric.SDK.Responses
             FAILURE = 500
         }
 
-
-        public ChaincodeResponse(string transactionID, string chaincodeID, ChaincodeResponseStatus status, string message)
-        {
-            Status = status;
-            Message = message;
-            TransactionID = transactionID;
-        }
-
         public ChaincodeResponse(string transactionID, string chaincodeID, int istatus, string message)
         {
-            switch (istatus)
-            {
-                case 200:
-                    Status = ChaincodeResponseStatus.SUCCESS;
-                    break;
-                case 500:
-                    Status = ChaincodeResponseStatus.FAILURE;
-                    break;
-                default:
-                    Status = ChaincodeResponseStatus.UNDEFINED;
-                    break;
-            }
-
+            Status = istatus < 400 ? ChaincodeResponseStatus.SUCCESS : ChaincodeResponseStatus.FAILURE;
+            statusReturnCode = istatus;
             Message = message;
             TransactionID = transactionID;
         }

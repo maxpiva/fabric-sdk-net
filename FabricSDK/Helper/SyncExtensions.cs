@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,7 +7,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 {
     public static class SyncExtensions
     {
-        public static T RunAndUnwarp<T>(this Task<T> func)
+        public static T RunAndUnwrap<T>(this Task<T> func)
         {
             try
             {
@@ -20,7 +18,8 @@ namespace Hyperledger.Fabric.SDK.Helper
                 throw e.Flatten().InnerExceptions.First();
             }
         }
-        public static void RunAndUnwarp(this Task func)
+
+        public static void RunAndUnwrap(this Task func)
         {
             try
             {
@@ -31,30 +30,31 @@ namespace Hyperledger.Fabric.SDK.Helper
                 throw e.Flatten().InnerExceptions.First();
             }
         }
-        public static async Task<TResult> Timeout<TResult>(this Task<TResult> task, TimeSpan timeout)
+
+        public static async Task<TResult> TimeoutAsync<TResult>(this Task<TResult> task, TimeSpan timeout, CancellationToken token)
         {
 
-            using (var cancelSource = new CancellationTokenSource())
+            using (var cancelSource = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                var firsttask = await Task.WhenAny(task, Task.Delay(timeout, cancelSource.Token));
+                var firsttask = await Task.WhenAny(task, Task.Delay(timeout, cancelSource.Token)).ConfigureAwait(false);
                 if (firsttask == task)
                 {
                     cancelSource.Cancel();
-                    return await task; //Propagate Exceptions
+                    return await task.ConfigureAwait(false); //Propagate Exceptions
                 }
                 throw new TimeoutException("The operation has timed out.");
             }
         }
-        public static async Task Timeout(this Task task, TimeSpan timeout)
-        {
 
-            using (var cancelSource = new CancellationTokenSource())
+        public static async Task TimeoutAsync(this Task task, TimeSpan timeout, CancellationToken token)
+        {
+            using (var cancelSource = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                var firsttask = await Task.WhenAny(task, Task.Delay(timeout, cancelSource.Token));
+                var firsttask = await Task.WhenAny(task, Task.Delay(timeout, cancelSource.Token)).ConfigureAwait(false);
                 if (firsttask == task)
                 {
                     cancelSource.Cancel();
-                    await task; //Propagate Exceptions
+                    await task.ConfigureAwait(false); //Propagate Exceptions
                 }
                 else
                     throw new TimeoutException("The operation has timed out.");

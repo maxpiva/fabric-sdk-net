@@ -12,7 +12,7 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Exceptions;
+using System;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -38,24 +38,24 @@ namespace Hyperledger.Fabric.Tests.SDK_CA.Exception
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException1()
         {
-            throw new InvalidArgumentException("test");
+            throw new ArgumentException("test");
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException2()
         {
-            throw new InvalidArgumentException(new InvalidArgumentException("test"));
+            throw new ArgumentException("test", new ArgumentException("test"));
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "test")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "test")]
         public void TestInvalidIllegalArgumentException3()
         {
-            throw new InvalidArgumentException("test", new InvalidArgumentException("test"));
+            throw new ArgumentException("test", new ArgumentException("test"));
         }
 
         [TestMethod]

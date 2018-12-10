@@ -13,21 +13,15 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-
-
-using YamlDotNet.Core;
-using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
+// ReSharper disable EmptyConstructor
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -37,7 +31,6 @@ namespace Hyperledger.Fabric.SDK
     public class ChaincodeEndorsementPolicy
     {
         private static readonly Regex noofPattern = new Regex("^(\\d+)-of$", RegexOptions.Compiled);
-        private byte[] policyBytes = null;
 
         /**
          * The null constructor for the ChaincodeEndorsementPolicy wrapper. You will
@@ -48,6 +41,11 @@ namespace Hyperledger.Fabric.SDK
         {
         }
 
+        /**
+         * @return the policy serialized per protobuf and ready for inclusion into the various Block/Envelope/ChaincodeInputSpec structures
+         */
+        public byte[] ChaincodeEndorsementPolicyAsBytes { get; private set; }
+
         private static SignaturePolicy ParsePolicy(IndexedHashMap<string, MSPPrincipal> identities, Dictionary<object, object> mp)
         {
             if (mp == null)
@@ -57,7 +55,7 @@ namespace Hyperledger.Fabric.SDK
 
             foreach (KeyValuePair<object, object> ks in mp)
             {
-                string key = (string)ks.Key;
+                string key = (string) ks.Key;
                 object vo = ks.Value;
                 if ("signed-by".Equals(key, StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -68,6 +66,7 @@ namespace Hyperledger.Fabric.SDK
                         throw new ChaincodeEndorsementPolicyParseException($"No identity found by name {(string) vo} in signed-by.");
                     return new SignaturePolicy {SignedBy = identities.Index((string) vo)};
                 }
+
                 Match match = noofPattern.Match(key);
                 if (match.Success && match.Groups.Count > 0)
                 {
@@ -77,12 +76,13 @@ namespace Hyperledger.Fabric.SDK
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have list but found {vo}x.");
                     if (voList.Count < matchNo)
                         throw new ChaincodeEndorsementPolicyParseException($"{key} expected to have at least {matchNo} items to match but only found {voList.Count}.");
-                    SignaturePolicy.Types.NOutOf spB = new SignaturePolicy.Types.NOutOf { N = matchNo};
+                    SignaturePolicy.Types.NOutOf spB = new SignaturePolicy.Types.NOutOf {N = matchNo};
                     foreach (Dictionary<object, object> nlo in voList)
                     {
                         SignaturePolicy sp = ParsePolicy(identities, nlo);
                         spB.Rules.Add(sp);
                     }
+
                     return new SignaturePolicy {NOutOf = spB};
                 }
 
@@ -93,8 +93,6 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-
-
         private static IndexedHashMap<string, MSPPrincipal> ParseIdentities(Dictionary<object, object> identities)
         {
             //Only Role types are excepted at this time.
@@ -103,7 +101,7 @@ namespace Hyperledger.Fabric.SDK
 
             foreach (KeyValuePair<object, object> kp in identities)
             {
-                string key = (string)kp.Key;
+                string key = (string) kp.Key;
                 object val = kp.Value;
                 /*
                 if (!(key instanceof String)) {
@@ -117,21 +115,21 @@ namespace Hyperledger.Fabric.SDK
 
                 if (!(val is Dictionary<object, object> dictval))
                 {
-                    string str = (val == null) ? "null" : val.GetType().Name;
+                    string str = val == null ? "null" : val.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} value expected Map got {str}");
                 }
 
                 object role = dictval.ContainsKey("role") ? dictval["role"] : null;
                 if (!(role is Dictionary<object, object> roleMap))
                 {
-                    string str = (role == null) ? "null" : role.GetType().Name;
+                    string str = role == null ? "null" : role.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} value expected Map for role got {str}");
                 }
 
                 object nameObj = roleMap.ContainsKey("name") ? roleMap["name"] : null;
                 if (!(nameObj is string name))
                 {
-                    string str = (nameObj == null) ? "null" : nameObj.GetType().Name;
+                    string str = nameObj == null ? "null" : nameObj.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} name expected String in role got {str}");
                 }
 
@@ -140,13 +138,12 @@ namespace Hyperledger.Fabric.SDK
 
                 if (!(mspId is string))
                 {
-                    string str = (mspId == null) ? "null" : mspId.GetType().Name;
+                    string str = mspId == null ? "null" : mspId.GetType().Name;
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} mspId expected String in role got {str}");
                 }
 
                 if (string.IsNullOrEmpty((string) mspId))
                 {
-
                     throw new ChaincodeEndorsementPolicyParseException($"In identities with key {key} mspId must not be null or empty String in role");
                 }
 
@@ -173,7 +170,6 @@ namespace Hyperledger.Fabric.SDK
                 MSPRole mspRole = new MSPRole {MspIdentifier = (string) mspId, Role = mspRoleType};
                 MSPPrincipal principal = new MSPPrincipal {Principal = mspRole.ToByteString(), PrincipalClassification = MSPPrincipal.Types.Classification.Role};
                 ret.Add(key, principal);
-
             }
 
             if (ret.Count == 0)
@@ -182,7 +178,6 @@ namespace Hyperledger.Fabric.SDK
             }
 
             return ret;
-
         }
 
         /**
@@ -193,29 +188,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public void FromFile(string policyFile)
         {
-            policyBytes = File.ReadAllBytes(policyFile);
-        }
-
-        private Dictionary<string, object> RecursiveGenerateDictionaries(IDictionary<YamlNode, YamlNode> nodes)
-        {
-            Dictionary<string, object> ret = new Dictionary<string, object>();
-            /*
-            foreach (YamlNode k in nodes.Keys)
-            {
-                YamlScalarNode key = k as YamlScalarNode;
-                if (key != null)
-                {
-                    if (nodes[key] is YamlSequenceNode)
-                    {
-                        ret.Add(key.Value, ((YamlSequenceNode)nodes[key]).);
-                    }
-                    YamlScalarNode scnode = nodes[key] as YamlScalarNode;
-                    if (scnode != null)
-                        ret.Add(key.Value, scnode.Value);
-                }
-            }
-*/
-            return ret;
+            ChaincodeEndorsementPolicyAsBytes = File.ReadAllBytes(policyFile);
         }
 
         /**
@@ -226,34 +199,33 @@ namespace Hyperledger.Fabric.SDK
          * @throws ChaincodeEndorsementPolicyParseException
          */
 
-            public void FromYamlFile(string yamlPolicyFile)
-            {
+        public void FromYamlFile(string yamlPolicyFile)
+        {
+            IDeserializer nl = new DeserializerBuilder().Build();
+            Dictionary<object, object> bld = (Dictionary<object, object>) nl.Deserialize(new StreamReader(File.OpenRead(yamlPolicyFile)));
+            var mpy = (Dictionary<object, object>) bld.GetOrNull("policy");
+            if (null == mpy)
+                throw new ChaincodeEndorsementPolicyParseException("The policy file has no policy section");
+            Dictionary<object, object> idsp = (Dictionary<object, object>) bld.GetOrNull("identities");
+            if (null == idsp)
+                throw new ChaincodeEndorsementPolicyParseException("The policy file has no identities section");
+            IndexedHashMap<string, MSPPrincipal> identities = ParseIdentities(idsp);
+            SignaturePolicy sp = ParsePolicy(identities, mpy);
+            SignaturePolicyEnvelope env = new SignaturePolicyEnvelope {Rule = sp, Version = 0};
+            env.Identities.AddRange(identities.Values);
+            ChaincodeEndorsementPolicyAsBytes = env.ToByteArray();
+        }
 
-                Deserializer nl=new DeserializerBuilder().Build();
-                Dictionary<object, object> bld = (Dictionary<object,object>)nl.Deserialize(new StreamReader(File.OpenRead(yamlPolicyFile)));
-                var mpy = (Dictionary<object, object>)bld.GetOrNull("policy");
-                if (null == mpy)
-                    throw new ChaincodeEndorsementPolicyParseException("The policy file has no policy section");
-                Dictionary<object, object> idsp = (Dictionary<object, object>) bld.GetOrNull("identities");
-                if (null == idsp)
-                    throw new ChaincodeEndorsementPolicyParseException("The policy file has no identities section");
-                IndexedHashMap<String, MSPPrincipal> identities = ParseIdentities(idsp);
-                SignaturePolicy sp = ParsePolicy(identities, mpy);
-                SignaturePolicyEnvelope env = new SignaturePolicyEnvelope {Rule = sp, Version = 0};
-                env.Identities.AddRange(identities.Values);
-                policyBytes = env.ToByteArray();
-    }
-
-    /**
+        /**
      * Construct a chaincode endorsement policy from a stream.
      *
      * @param inputStream
      * @throws IOException
      */
 
-            public void FromStream(Stream inputStream)
+        public void FromStream(Stream inputStream)
         {
-            policyBytes = inputStream.ToByteArray();
+            ChaincodeEndorsementPolicyAsBytes = inputStream.ToByteArray();
         }
 
         /**
@@ -263,12 +235,7 @@ namespace Hyperledger.Fabric.SDK
          */
         public void FromBytes(byte[] policyAsBytes)
         {
-            this.policyBytes = policyAsBytes;
+            ChaincodeEndorsementPolicyAsBytes = policyAsBytes;
         }
-
-        /**
-         * @return the policy serialized per protobuf and ready for inclusion into the various Block/Envelope/ChaincodeInputSpec structures
-         */
-        public byte[] ChaincodeEndorsementPolicyAsBytes => policyBytes;
     }
 }

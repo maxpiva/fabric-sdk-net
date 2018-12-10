@@ -1,8 +1,1 @@
-<Playlist Version="1.0">
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endIT.Setup" />
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endNodeIT.Setup" />
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endAndBackAgainIT.Setup" />
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endAndBackAgainNodeIT.Setup" />
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.NetworkConfigIT.TestUpdate1" />
-<Add Test="Hyperledger.Fabric.Tests.SDK.Integration.UpdateChannelIT.Setup" />
-</Playlist>
+<Playlist Version="1.0"><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endNodeIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endAndBackAgainIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endAndBackAgainNodeIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.NetworkConfigIT.TestUpdate1" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.UpdateChannelIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.PrivateDataIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endMTIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.ServiceDiscoveryIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endJavaIT.Setup" /><Add Test="Hyperledger.Fabric.Tests.SDK.Integration.End2endIdemixIT.Setup" /></Playlist>

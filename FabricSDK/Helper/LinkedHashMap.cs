@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
-using Org.BouncyCastle.Utilities.Collections;
+// ReSharper disable NonReadonlyMemberInGetHashCode
+// ReSharper disable MemberHidesStaticFromOuterClass
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
@@ -13,24 +12,162 @@ namespace Hyperledger.Fabric.SDK.Helper
     [Serializable]
     public class LinkedHashMap<TKey, TValue> : IDictionary<TKey, TValue>, IDeserializationCallback
     {
+        private readonly Dictionary<TKey, Entry> entries;
+
+        private readonly Entry header;
+        private long version;
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="LinkedHashMap{K,V}" /> class that is empty,
+        ///     has the default initial capacity, and uses the default equality comparer for the key type.
+        /// </summary>
+        public LinkedHashMap() : this(0, null)
+        {
+        }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="LinkedHashMap{K,V}" /> class that is empty,
+        ///     has the specified initial capacity, and uses the default equality comparer for the key type.
+        /// </summary>
+        /// <param name="capacity">The initial number of elements that the <see cref="LinkedHashMap{K,V}" /> can contain.</param>
+        public LinkedHashMap(int capacity) : this(capacity, null)
+        {
+        }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="LinkedHashMap{K,V}" /> class that is empty, has the default initial
+        ///     capacity, and uses the specified <see cref="IEqualityComparer{K}" />.
+        /// </summary>
+        /// <param name="equalityComparer">
+        ///     The <see cref="IEqualityComparer{K}" /> implementation to use when comparing keys, or
+        ///     null to use the default EqualityComparer for the type of the key.
+        /// </param>
+        public LinkedHashMap(IEqualityComparer<TKey> equalityComparer) : this(0, equalityComparer)
+        {
+        }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="LinkedHashMap{K,V}" /> class that is empty, has the specified initial
+        ///     capacity, and uses the specified <see cref="IEqualityComparer{K}" />.
+        /// </summary>
+        /// <param name="capacity">The initial number of elements that the <see cref="LinkedHashMap{K,V}" /> can contain.</param>
+        /// <param name="equalityComparer">
+        ///     The <see cref="IEqualityComparer{K}" /> implementation to use when comparing keys, or
+        ///     null to use the default EqualityComparer for the type of the key.
+        /// </param>
+        public LinkedHashMap(int capacity, IEqualityComparer<TKey> equalityComparer)
+        {
+            header = CreateSentinel();
+            entries = new Dictionary<TKey, Entry>(capacity, equalityComparer);
+        }
+
+        private Entry First
+        {
+            get { return IsEmpty ? null : header.Next; }
+        }
+
+        private Entry Last
+        {
+            get { return IsEmpty ? null : header.Prev; }
+        }
+
+        void IDeserializationCallback.OnDeserialization(object sender)
+        {
+            ((IDeserializationCallback) entries).OnDeserialization(sender);
+        }
+
+        #region IEnumerable Members
+
+        public virtual IEnumerator GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        #endregion
+
+        #region IEnumerable<KeyValuePair<TKey,TValue>> Members
+
+        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        #endregion
+
+        private static Entry CreateSentinel()
+        {
+            Entry s = new Entry(default(TKey), default(TValue));
+            s.Prev = s;
+            s.Next = s;
+            return s;
+        }
+
+        private static void RemoveEntry(Entry entry)
+        {
+            entry.Next.Prev = entry.Prev;
+            entry.Prev.Next = entry.Next;
+        }
+
+        private void InsertEntry(Entry entry)
+        {
+            entry.Next = header;
+            entry.Prev = header.Prev;
+            header.Prev.Next = entry;
+            header.Prev = entry;
+        }
+
+        private bool RemoveImpl(TKey key)
+        {
+            Entry e;
+            bool result = false;
+            if (entries.TryGetValue(key, out e))
+            {
+                result = entries.Remove(key);
+                version++;
+                RemoveEntry(e);
+            }
+
+            return result;
+        }
+
+        #region System.Object Members
+
+        public override string ToString()
+        {
+            StringBuilder buf = new StringBuilder();
+            buf.Append('[');
+            for (Entry pos = header.Next; !pos.Equals(header); pos = pos.Next)
+            {
+                buf.Append(pos.Key);
+                buf.Append('=');
+                buf.Append(pos.Value);
+                if (!pos.Next.Equals(header))
+                {
+                    buf.Append(',');
+                }
+            }
+
+            buf.Append(']');
+
+            return buf.ToString();
+        }
+
+        #endregion
+
         [Serializable]
         protected class Entry
         {
-            private readonly TKey key;
             private TValue evalue;
             private Entry next;
             private Entry prev;
 
             public Entry(TKey key, TValue value)
             {
-                this.key = key;
+                Key = key;
                 evalue = value;
             }
 
-            public TKey Key
-            {
-                get { return key; }
-            }
+            public TKey Key { get; }
 
             public TValue Value
             {
@@ -54,7 +191,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
             public override int GetHashCode()
             {
-                return ((key == null ? 0 : key.GetHashCode()) ^ (evalue == null ? 0 : evalue.GetHashCode()));
+                return (Key == null ? 0 : Key.GetHashCode()) ^ (evalue == null ? 0 : evalue.GetHashCode());
             }
 
             public override bool Equals(object obj)
@@ -63,59 +200,327 @@ namespace Hyperledger.Fabric.SDK.Helper
                 if (other == null) return false;
                 if (other == this) return true;
 
-                return ((key == null ? other.Key == null : key.Equals(other.Key)) &&
-                                (evalue == null ? other.Value == null : evalue.Equals(other.Value)));
+                return (Key == null ? other.Key == null : Key.Equals(other.Key)) && (evalue == null ? other.Value == null : evalue.Equals(other.Value));
             }
 
             public override string ToString()
             {
-                return "[" + key + "=" + evalue + "]";
+                return "[" + Key + "=" + evalue + "]";
             }
 
             #endregion
         }
 
-        private readonly Entry header;
-        private readonly Dictionary<TKey, Entry> entries;
-        private long version;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LinkedHashMap{K,V}"/> class that is empty, 
-        /// has the default initial capacity, and uses the default equality comparer for the key type.
-        /// </summary>
-        public LinkedHashMap()
-            : this(0, null)
+        private class KeyCollection : ICollection<TKey>
         {
+            private readonly LinkedHashMap<TKey, TValue> dictionary;
+
+            public KeyCollection(LinkedHashMap<TKey, TValue> dictionary)
+            {
+                this.dictionary = dictionary;
+            }
+
+            #region IEnumerable<TKey> Members
+
+            IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
+            {
+                return new Enumerator(dictionary);
+            }
+
+            #endregion
+
+            #region IEnumerable Members
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return ((IEnumerable<TKey>) this).GetEnumerator();
+            }
+
+            #endregion
+
+            private class Enumerator : ForwardEnumerator<TKey>
+            {
+                public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary)
+                {
+                }
+
+                public override TKey Current
+                {
+                    get
+                    {
+                        if (dictionary.version != version)
+                            throw new InvalidOperationException("Enumerator was modified");
+
+                        return current.Key;
+                    }
+                }
+            }
+
+            #region ICollection<TKey> Members
+
+            void ICollection<TKey>.Add(TKey item)
+            {
+                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
+            }
+
+            void ICollection<TKey>.Clear()
+            {
+                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
+            }
+
+            bool ICollection<TKey>.Contains(TKey item)
+            {
+                foreach (TKey key in this)
+                {
+                    if (key.Equals(item))
+                        return true;
+                }
+
+                return false;
+            }
+
+            public void CopyTo(TKey[] array, int arrayIndex)
+            {
+                foreach (TKey key in this)
+                    array.SetValue(key, arrayIndex++);
+            }
+
+            bool ICollection<TKey>.Remove(TKey item)
+            {
+                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
+            }
+
+            public int Count
+            {
+                get { return dictionary.Count; }
+            }
+
+            bool ICollection<TKey>.IsReadOnly
+            {
+                get { return true; }
+            }
+
+            #endregion
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LinkedHashMap{K,V}"/> class that is empty, 
-        /// has the specified initial capacity, and uses the default equality comparer for the key type.
-        /// </summary>
-        /// <param name="capacity">The initial number of elements that the <see cref="LinkedHashMap{K,V}"/> can contain.</param>
-        public LinkedHashMap(int capacity)
-            : this(capacity, null)
+        private class ValuesCollection : ICollection<TValue>
         {
+            private readonly LinkedHashMap<TKey, TValue> dictionary;
+
+            public ValuesCollection(LinkedHashMap<TKey, TValue> dictionary)
+            {
+                this.dictionary = dictionary;
+            }
+
+            #region IEnumerable<TKey> Members
+
+            IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator()
+            {
+                return new Enumerator(dictionary);
+            }
+
+            #endregion
+
+            #region IEnumerable Members
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return ((IEnumerable<TValue>) this).GetEnumerator();
+            }
+
+            #endregion
+
+            private class Enumerator : ForwardEnumerator<TValue>
+            {
+                public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary)
+                {
+                }
+
+                public override TValue Current
+                {
+                    get
+                    {
+                        if (dictionary.version != version)
+                            throw new InvalidOperationException("Enumerator was modified");
+
+                        return current.Value;
+                    }
+                }
+            }
+
+            #region ICollection<TValue> Members
+
+            void ICollection<TValue>.Add(TValue item)
+            {
+                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
+            }
+
+            void ICollection<TValue>.Clear()
+            {
+                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
+            }
+
+            bool ICollection<TValue>.Contains(TValue item)
+            {
+                foreach (TValue value in this)
+                {
+                    if (value.Equals(item))
+                        return true;
+                }
+
+                return false;
+            }
+
+            public void CopyTo(TValue[] array, int arrayIndex)
+            {
+                foreach (TValue value in this)
+                    array.SetValue(value, arrayIndex++);
+            }
+
+            bool ICollection<TValue>.Remove(TValue item)
+            {
+                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
+            }
+
+            public int Count
+            {
+                get { return dictionary.Count; }
+            }
+
+            bool ICollection<TValue>.IsReadOnly
+            {
+                get { return true; }
+            }
+
+            #endregion
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LinkedHashMap{K,V}"/> class that is empty, has the default initial capacity, and uses the specified <see cref="IEqualityComparer{K}"/>.
-        /// </summary>
-        /// <param name="equalityComparer">The <see cref="IEqualityComparer{K}"/> implementation to use when comparing keys, or null to use the default EqualityComparer for the type of the key.</param>
-        public LinkedHashMap(IEqualityComparer<TKey> equalityComparer)
-            : this(0, equalityComparer)
+        private abstract class ForwardEnumerator<T> : IEnumerator<T>
         {
+            protected readonly LinkedHashMap<TKey, TValue> dictionary;
+            protected readonly long version;
+            protected Entry current;
+
+            public ForwardEnumerator(LinkedHashMap<TKey, TValue> dictionary)
+            {
+                this.dictionary = dictionary;
+                version = dictionary.version;
+                current = dictionary.header;
+            }
+
+            #region IDisposable Members
+
+            public void Dispose()
+            {
+            }
+
+            #endregion
+
+            #region IEnumerator Members
+
+            public bool MoveNext()
+            {
+                if (dictionary.version != version)
+                    throw new InvalidOperationException("Enumerator was modified");
+
+                if (current.Next.Equals(dictionary.header))
+                    return false;
+
+                current = current.Next;
+
+                return true;
+            }
+
+            public void Reset()
+            {
+                current = dictionary.header;
+            }
+
+            object IEnumerator.Current
+            {
+                get { return ((IEnumerator<T>) this).Current; }
+            }
+
+            #region IEnumerator<T> Members
+
+            public abstract T Current { get; }
+
+            #endregion
+
+            #endregion
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LinkedHashMap{K,V}"/> class that is empty, has the specified initial capacity, and uses the specified <see cref="IEqualityComparer{K}"/>.
-        /// </summary>
-        /// <param name="capacity">The initial number of elements that the <see cref="LinkedHashMap{K,V}"/> can contain.</param>
-        /// <param name="equalityComparer">The <see cref="IEqualityComparer{K}"/> implementation to use when comparing keys, or null to use the default EqualityComparer for the type of the key.</param>
-        public LinkedHashMap(int capacity, IEqualityComparer<TKey> equalityComparer)
+        private class Enumerator : ForwardEnumerator<KeyValuePair<TKey, TValue>>
         {
-            header = CreateSentinel();
-            entries = new Dictionary<TKey, Entry>(capacity, equalityComparer);
+            public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary)
+            {
+            }
+
+            public override KeyValuePair<TKey, TValue> Current
+            {
+                get
+                {
+                    if (dictionary.version != version)
+                        throw new InvalidOperationException("Enumerator was modified");
+
+                    return new KeyValuePair<TKey, TValue>(current.Key, current.Value);
+                }
+            }
+        }
+
+        protected abstract class BackwardEnumerator<T> : IEnumerator<T>
+        {
+            protected readonly LinkedHashMap<TKey, TValue> dictionary;
+            protected readonly long version;
+            private Entry current;
+
+            public BackwardEnumerator(LinkedHashMap<TKey, TValue> dictionary)
+            {
+                this.dictionary = dictionary;
+                version = dictionary.version;
+                current = dictionary.header;
+            }
+
+            #region IDisposable Members
+
+            public void Dispose()
+            {
+            }
+
+            #endregion
+
+            #region IEnumerator Members
+
+            public bool MoveNext()
+            {
+                if (dictionary.version != version)
+                    throw new InvalidOperationException("Enumerator was modified");
+
+                if (current.Prev.Equals(dictionary.header))
+                    return false;
+
+                current = current.Prev;
+
+                return true;
+            }
+
+            public void Reset()
+            {
+                current = dictionary.header;
+            }
+
+            object IEnumerator.Current
+            {
+                get { return ((IEnumerator<T>) this).Current; }
+            }
+
+            #region IEnumerator<T> Members
+
+            public abstract T Current { get; }
+
+            #endregion
+
+            #endregion
         }
 
         #region IDictionary<TKey,TValue> Members
@@ -152,10 +557,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public TValue this[TKey key]
         {
-            get
-            {
-                return entries[key].Value;
-            }
+            get { return entries[key].Value; }
             set
             {
                 Entry e;
@@ -231,55 +633,19 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         #endregion
 
-        #region IEnumerable Members
-
-        public virtual IEnumerator GetEnumerator()
-        {
-            return new Enumerator(this);
-        }
-
-        #endregion
-
-        #region IEnumerable<KeyValuePair<TKey,TValue>> Members
-
-        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
-        {
-            return new Enumerator(this);
-        }
-
-        #endregion
-
         #region LinkedHashMap Members
 
-        private bool IsEmpty
-        {
-            get { return header.Next == header; }
-        }
+        private bool IsEmpty => header.Next.Equals(header);
 
-        public virtual bool IsFixedSize
-        {
-            get { return false; }
-        }
+        public virtual bool IsFixedSize => false;
 
-        public virtual TKey FirstKey
-        {
-            get { return (First == null) ? default(TKey) : First.Key; }
-        }
+        public virtual TKey FirstKey => First == null ? default(TKey) : First.Key;
 
-        public virtual TValue FirstValue
-        {
-            get { return (First == null) ? default(TValue) : First.Value; }
-        }
+        public virtual TValue FirstValue => First == null ? default(TValue) : First.Value;
 
-        public virtual TKey LastKey
-        {
-            get { return (Last == null) ? default(TKey) : Last.Key; }
-        }
+        public virtual TKey LastKey => Last == null ? default(TKey) : Last.Key;
 
-        public virtual TValue LastValue
-        {
-            get { return (Last == null) ? default(TValue) : Last.Value; }
-        }
+        public virtual TValue LastValue => Last == null ? default(TValue) : Last.Value;
 
         public virtual bool Contains(TKey key)
         {
@@ -290,400 +656,22 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             if (value == null)
             {
-                for (Entry entry = header.Next; entry != header; entry = entry.Next)
+                for (Entry entry = header.Next; !entry.Equals(header); entry = entry.Next)
                 {
                     if (entry.Value == null) return true;
                 }
             }
             else
             {
-                for (Entry entry = header.Next; entry != header; entry = entry.Next)
+                for (Entry entry = header.Next; !entry.Equals(header); entry = entry.Next)
                 {
                     if (value.Equals(entry.Value)) return true;
                 }
             }
+
             return false;
         }
 
         #endregion
-
-        private static Entry CreateSentinel()
-        {
-            Entry s = new Entry(default(TKey), default(TValue));
-            s.Prev = s;
-            s.Next = s;
-            return s;
-        }
-
-        private static void RemoveEntry(Entry entry)
-        {
-            entry.Next.Prev = entry.Prev;
-            entry.Prev.Next = entry.Next;
-        }
-
-        private void InsertEntry(Entry entry)
-        {
-            entry.Next = header;
-            entry.Prev = header.Prev;
-            header.Prev.Next = entry;
-            header.Prev = entry;
-        }
-
-        private Entry First
-        {
-            get { return (IsEmpty) ? null : header.Next; }
-        }
-
-        private Entry Last
-        {
-            get { return (IsEmpty) ? null : header.Prev; }
-        }
-
-        private bool RemoveImpl(TKey key)
-        {
-            Entry e;
-            bool result = false;
-            if (entries.TryGetValue(key, out e))
-            {
-                result = entries.Remove(key);
-                version++;
-                RemoveEntry(e);
-            }
-            return result;
-        }
-
-        void IDeserializationCallback.OnDeserialization(object sender)
-        {
-            ((IDeserializationCallback)entries).OnDeserialization(sender);
-        }
-
-        #region System.Object Members
-
-        public override string ToString()
-        {
-            StringBuilder buf = new StringBuilder();
-            buf.Append('[');
-            for (Entry pos = header.Next; pos != header; pos = pos.Next)
-            {
-                buf.Append(pos.Key);
-                buf.Append('=');
-                buf.Append(pos.Value);
-                if (pos.Next != header)
-                {
-                    buf.Append(',');
-                }
-            }
-            buf.Append(']');
-
-            return buf.ToString();
-        }
-
-        #endregion
-
-        private class KeyCollection : ICollection<TKey>
-        {
-            private readonly LinkedHashMap<TKey, TValue> dictionary;
-
-            public KeyCollection(LinkedHashMap<TKey, TValue> dictionary)
-            {
-                this.dictionary = dictionary;
-            }
-
-            #region ICollection<TKey> Members
-
-            void ICollection<TKey>.Add(TKey item)
-            {
-                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
-            }
-
-            void ICollection<TKey>.Clear()
-            {
-                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
-            }
-
-            bool ICollection<TKey>.Contains(TKey item)
-            {
-                foreach (TKey key in this)
-                {
-                    if (key.Equals(item))
-                        return true;
-                }
-                return false;
-            }
-
-            public void CopyTo(TKey[] array, int arrayIndex)
-            {
-                foreach (TKey key in this)
-                    array.SetValue(key, arrayIndex++);
-            }
-
-            bool ICollection<TKey>.Remove(TKey item)
-            {
-                throw new NotSupportedException("LinkedHashMap KeyCollection is readonly.");
-            }
-
-            public int Count
-            {
-                get { return dictionary.Count; }
-            }
-
-            bool ICollection<TKey>.IsReadOnly
-            {
-                get { return true; }
-            }
-
-            #endregion
-
-            #region IEnumerable<TKey> Members
-
-            IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
-            {
-                return new Enumerator(dictionary);
-            }
-
-            #endregion
-
-            #region IEnumerable Members
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return ((IEnumerable<TKey>)this).GetEnumerator();
-            }
-
-            #endregion
-
-            private class Enumerator : ForwardEnumerator<TKey>
-            {
-                public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary) { }
-
-                public override TKey Current
-                {
-                    get
-                    {
-                        if (dictionary.version != version)
-                            throw new InvalidOperationException("Enumerator was modified");
-
-                        return current.Key;
-                    }
-                }
-            }
-        }
-
-        private class ValuesCollection : ICollection<TValue>
-        {
-            private readonly LinkedHashMap<TKey, TValue> dictionary;
-
-            public ValuesCollection(LinkedHashMap<TKey, TValue> dictionary)
-            {
-                this.dictionary = dictionary;
-            }
-
-            #region ICollection<TValue> Members
-
-            void ICollection<TValue>.Add(TValue item)
-            {
-                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
-            }
-
-            void ICollection<TValue>.Clear()
-            {
-                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
-            }
-
-            bool ICollection<TValue>.Contains(TValue item)
-            {
-                foreach (TValue value in this)
-                {
-                    if (value.Equals(item))
-                        return true;
-                }
-                return false;
-            }
-
-            public void CopyTo(TValue[] array, int arrayIndex)
-            {
-                foreach (TValue value in this)
-                    array.SetValue(value, arrayIndex++);
-            }
-
-            bool ICollection<TValue>.Remove(TValue item)
-            {
-                throw new NotSupportedException("LinkedHashMap ValuesCollection is readonly.");
-            }
-
-            public int Count
-            {
-                get { return dictionary.Count; }
-            }
-
-            bool ICollection<TValue>.IsReadOnly
-            {
-                get { return true; }
-            }
-
-            #endregion
-
-            #region IEnumerable<TKey> Members
-
-            IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator()
-            {
-                return new Enumerator(dictionary);
-            }
-
-            #endregion
-
-            #region IEnumerable Members
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return ((IEnumerable<TValue>)this).GetEnumerator();
-            }
-
-            #endregion
-
-            private class Enumerator : ForwardEnumerator<TValue>
-            {
-                public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary) { }
-
-                public override TValue Current
-                {
-                    get
-                    {
-                        if (dictionary.version != version)
-                            throw new InvalidOperationException("Enumerator was modified");
-
-                        return current.Value;
-                    }
-                }
-            }
-        }
-
-        private abstract class ForwardEnumerator<T> : IEnumerator<T>
-        {
-            protected readonly LinkedHashMap<TKey, TValue> dictionary;
-            protected Entry current;
-            protected readonly long version;
-
-            public ForwardEnumerator(LinkedHashMap<TKey, TValue> dictionary)
-            {
-                this.dictionary = dictionary;
-                version = dictionary.version;
-                current = dictionary.header;
-            }
-
-            #region IDisposable Members
-
-            public void Dispose()
-            {
-            }
-
-            #endregion
-
-            #region IEnumerator Members
-
-            public bool MoveNext()
-            {
-                if (dictionary.version != version)
-                    throw new InvalidOperationException("Enumerator was modified");
-
-                if (current.Next == dictionary.header)
-                    return false;
-
-                current = current.Next;
-
-                return true;
-            }
-
-            public void Reset()
-            {
-                current = dictionary.header;
-            }
-
-            object IEnumerator.Current
-            {
-                get { return ((IEnumerator<T>)this).Current; }
-            }
-
-            #region IEnumerator<T> Members
-
-            public abstract T Current { get; }
-
-            #endregion
-
-            #endregion
-        }
-
-        private class Enumerator : ForwardEnumerator<KeyValuePair<TKey, TValue>>
-        {
-            public Enumerator(LinkedHashMap<TKey, TValue> dictionary) : base(dictionary) { }
-
-            public override KeyValuePair<TKey, TValue> Current
-            {
-                get
-                {
-                    if (dictionary.version != version)
-                        throw new InvalidOperationException("Enumerator was modified");
-
-                    return new KeyValuePair<TKey, TValue>(current.Key, current.Value);
-                }
-            }
-        }
-
-        protected abstract class BackwardEnumerator<T> : IEnumerator<T>
-        {
-            protected readonly LinkedHashMap<TKey, TValue> dictionary;
-            private Entry current;
-            protected readonly long version;
-
-            public BackwardEnumerator(LinkedHashMap<TKey, TValue> dictionary)
-            {
-                this.dictionary = dictionary;
-                version = dictionary.version;
-                current = dictionary.header;
-            }
-
-            #region IDisposable Members
-
-            public void Dispose()
-            {
-            }
-
-            #endregion
-
-            #region IEnumerator Members
-
-            public bool MoveNext()
-            {
-                if (dictionary.version != version)
-                    throw new InvalidOperationException("Enumerator was modified");
-
-                if (current.Prev == dictionary.header)
-                    return false;
-
-                current = current.Prev;
-
-                return true;
-            }
-
-            public void Reset()
-            {
-                current = dictionary.header;
-            }
-
-            object IEnumerator.Current
-            {
-                get { return ((IEnumerator<T>)this).Current; }
-            }
-
-            #region IEnumerator<T> Members
-
-            public abstract T Current { get; }
-
-            #endregion
-
-            #endregion
-        }
-
     }
-
 }

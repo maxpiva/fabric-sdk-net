@@ -17,7 +17,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Grpc.Core;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -42,17 +41,17 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configStream must be specified")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "configStream must be specified")]
         public void TestLoadFromConfigNullStream()
         {
             // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
 
 
-            NetworkConfig.FromJsonStream((Stream) null);
+            NetworkConfig.FromJsonStream( null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configFile must be specified")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "configFile must be specified")]
         public void TestLoadFromConfigNullYamlFile()
         {
             // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
@@ -62,7 +61,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "configFile must be specified")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "configFile must be specified")]
         public void TestLoadFromConfigNullJsonFile()
         {
             // Should not be able to instantiate a new instance of "Client" without a valid path to the configuration');
@@ -104,7 +103,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         [TestMethod]
         public void TestLoadFromConfigFileJsonBasic()
         {
-            string f= TestUtils.TestUtils.RelocateFilePathsJSON("fixture/sdkintegration/network_configs/network-config.json".Locate());
+            string f = TestUtils.TestUtils.RelocateFilePathsJSON("fixture/sdkintegration/network_configs/network-config.json".Locate());
             NetworkConfig config = NetworkConfig.FromJsonFile(f);
             Assert.IsNotNull(config);
         }
@@ -113,7 +112,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestLoadFromConfigFileYaml()
         {
             // Should be able to instantiate a new instance of "Client" with a valid path to the YAML configuration
-            string f= TestUtils.TestUtils.RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
+            string f = TestUtils.TestUtils.RelocateFilePathsYAML("fixture/sdkintegration/network_configs/network-config.yaml".Locate());
             NetworkConfig config = NetworkConfig.FromYamlFile(f);
             Assert.IsNotNull(config);
 
@@ -146,7 +145,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "client organization must be specified")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "client organization must be specified")]
         public void TestLoadFromConfigNoOrganization()
         {
             // Should not be able to instantiate a new instance of "Channel" without specifying a valid client organization
@@ -167,13 +166,11 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.AreEqual(CLIENT_ORG_NAME, config.GetClientOrganization().Name);
         }
 
-        // TODO: At least one orderer must be specified
         [TestMethod]
-        [Ignore]
         public void TestNewChannel()
         {
             // Should be able to instantiate a new instance of "Channel" with the definition in the network configuration'
-            JObject jsonConfig = GetJsonConfig(1, 0, 0);
+            JObject jsonConfig = GetJsonConfig(1, 0, 1);
 
             NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
 
@@ -183,6 +180,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Channel channel = client.LoadChannelFromConfig(CHANNEL_NAME, config);
             Assert.IsNotNull(channel);
             Assert.AreEqual(CHANNEL_NAME, channel.Name);
+            Assert.AreEqual(channel.GetPeers(PeerRole.SERVICE_DISCOVERY).Count, 1);
         }
 
         [TestMethod]
@@ -222,27 +220,6 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             //client.getChannel(CHANNEL_NAME);
         }
-
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Error constructing")]
-        public void TestGetChannelNoOrderers()
-        {
-            // Should not be able to instantiate a new instance of "Channel" with no orderers configured
-            JObject jsonConfig = GetJsonConfig(1, 0, 1);
-
-            //HFClient client = HFClient.loadFromConfig(jsonConfig);
-            //TestHFClient.setupClient(client);
-
-            //client.getChannel(CHANNEL_NAME);
-
-            NetworkConfig config = NetworkConfig.FromJsonObject(jsonConfig);
-
-            HFClient client = HFClient.Create();
-            TestHFClient.SetupClient(client);
-
-            client.LoadChannelFromConfig(CHANNEL_NAME, config);
-        }
-
 
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(NetworkConfigurationException), "Error constructing")]
@@ -464,10 +441,10 @@ namespace Hyperledger.Fabric.Tests.SDK
             if (nPeers > 0)
             {
                 JObject builder = new JObject();
-                builder.Add("peer0.org1.example.com", CreateJsonChannelPeer("Org1", true, true, true, true));
+                builder.Add("peer0.org1.example.com", CreateJsonChannelPeer("Org1", true, true, true, true, true));
                 if (nPeers > 1)
                 {
-                    builder.Add("peer0.org2.example.com", CreateJsonChannelPeer("Org2", true, false, true, false));
+                    builder.Add("peer0.org2.example.com", CreateJsonChannelPeer("Org2", true, false, true, false, true));
                 }
 
                 peers = builder;
@@ -555,7 +532,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             return mainConfig;
         }
 
-        private static JObject CreateJsonChannelPeer(string name, bool endorsingPeer, bool chaincodeQuery, bool ledgerQuery, bool eventSource)
+        private static JObject CreateJsonChannelPeer(string name, bool endorsingPeer, bool chaincodeQuery, bool ledgerQuery, bool eventSource, bool discover)
         {
             JObject obj = new JObject();
             obj.Add("name", name);
@@ -563,6 +540,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             obj.Add("chaincodeQuery", chaincodeQuery);
             obj.Add("ledgerQuery", ledgerQuery);
             obj.Add("eventSource", eventSource);
+            obj.Add("discover", discover);
             return obj;
         }
 

@@ -36,6 +36,7 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Utils = Hyperledger.Fabric.SDK.Helper.Utils;
 
 namespace Hyperledger.Fabric.Tests.SDK.TestUtils
@@ -58,6 +59,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         private static readonly string INVOKEWAITTIME = PROPBASE + "InvokeWaitTime";
         private static readonly string DEPLOYWAITTIME = PROPBASE + "DeployWaitTime";
         private static readonly string PROPOSALWAITTIME = PROPBASE + "ProposalWaitTime";
+        private static readonly string RUNIDEMIXMTTEST = PROPBASE + "RunIdemixMTTest";  // org.hyperledger.fabric.sdktest.RunIdemixMTTest ORG_HYPERLEDGER_FABRIC_SDKTEST_RUNIDEMIXMTTEST
 
         private static readonly string INTEGRATIONTESTS_ORG = PROPBASE + "integrationTests.org.";
         private static readonly Regex orgPat = new Regex("^" + Regex.Escape(INTEGRATIONTESTS_ORG) + "([^\\.]+)\\.mspid$", RegexOptions.Compiled);
@@ -65,13 +67,21 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
         private static readonly string INTEGRATIONTESTSTLS = PROPBASE + "integrationtests.tls";
 
         // location switching between fabric cryptogen and configtxgen artifacts for v1.0 and v1.1 in src/test/fixture/sdkintegration/e2e-2Orgs
-        public static readonly string FAB_CONFIG_GEN_VERS = (Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION") ?? "").Equals("1.0.0") ? "v1.0" : "v1.1";
-
+        public string FAB_CONFIG_GEN_VERS;
+            
+            
+            
 
         internal static TestConfig config;
 
         private static Properties sdkProperties = new Properties();
-        private static readonly Dictionary<string, SampleOrg> sampleOrgs = new Dictionary<string, SampleOrg>();
+        private Dictionary<string, SampleOrg> sampleOrgs = new Dictionary<string, SampleOrg>();
+
+        private static readonly string ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION = Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION") == null ? "1.3.0" : Environment.GetEnvironmentVariable("ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION");
+
+        int[] fabricVersion = new int[3];
+
+
         private readonly bool runningFabricCATLS;
 
         private readonly bool runningFabricTLS;
@@ -79,6 +89,16 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         private TestConfig()
         {
+            string[] fvs = ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION.Split('.');
+            if (fvs.Length != 3)
+                throw new AssertFailedException("Expected environment variable 'ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION' to be three numbers sperated by dots (1.0.0)  but got: " + ORG_HYPERLEDGER_FABRIC_SDKTEST_VERSION);
+            fabricVersion[0] = int.Parse(fvs[0].Trim());
+            fabricVersion[1] = int.Parse(fvs[1].Trim());
+            fabricVersion[2] = int.Parse(fvs[2].Trim());
+
+            FAB_CONFIG_GEN_VERS = "v" + fabricVersion[0] + "." + fabricVersion[1];
+
+
             string fullpath = Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION);
             if (string.IsNullOrEmpty(fullpath))
                 fullpath = Path.Combine(Directory.GetCurrentDirectory(), DEFAULT_CONFIG);
@@ -97,10 +117,10 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             {
                 // Default values
 
-                DefaultProperty(INVOKEWAITTIME, "120");
+                DefaultProperty(INVOKEWAITTIME, "32000");
                 DefaultProperty(DEPLOYWAITTIME, "120000");
                 DefaultProperty(PROPOSALWAITTIME, "120000");
-
+                DefaultProperty(RUNIDEMIXMTTEST, "false");
                 //////
                 DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.mspid", "Org1MSP");
                 DefaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.domname", "org1.example.com");
@@ -162,12 +182,17 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                         sampleOrg.AddOrdererLocation(nl[0], GrpcTLSify(nl[1]));
                     }
 
-                    string eventHubNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
-                    ps = new Regex("[ \t]*,[ \t]*").Split(eventHubNames);
-                    foreach (string peer in ps)
+                    if (IsFabricVersionBefore("1.3"))
                     {
-                        string[] nl = new Regex("[ \t]*@[ \t]*").Split(peer);
-                        sampleOrg.AddEventHubLocation(nl[0], GrpcTLSify(nl[1]));
+                        // Eventhubs supported.
+
+                        string eventHubNames = sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".eventhub_locations");
+                        ps = new Regex("[ \t]*,[ \t]*").Split(eventHubNames);
+                        foreach (string peer in ps)
+                        {
+                            string[] nl = new Regex("[ \t]*@[ \t]*").Split(peer);
+                            sampleOrg.AddEventHubLocation(nl[0], GrpcTLSify(nl[1]));
+                        }
                     }
 
                     sampleOrg.CALocation = HttpTLSify(sdkProperties.Get(INTEGRATIONTESTS_ORG + orgName + ".ca_location"));
@@ -192,7 +217,48 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 }
             }
         }
+        public string FabricConfigGenVers => FAB_CONFIG_GEN_VERS;
 
+        public bool IsFabricVersionAtOrAfter(string version)
+        {
+
+            int[] vers = ParseVersion(version);
+            for (int i = 0; i < 3; ++i)
+            {
+                if (vers[i] > fabricVersion[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        public bool IsFabricVersionBefore(string version)
+        {
+            return !IsFabricVersionAtOrAfter(version);
+        }
+
+        private static int[] ParseVersion(string version)
+        {
+            if (string.IsNullOrEmpty(version))
+                throw new AssertFailedException("Version is bad :" + version);
+            string[] split = new Regex("[ \\t]*\\.[ \\t]*").Split(version);
+            if (split.Length < 1 || split.Length > 3)
+            {
+                throw new AssertFailedException("Version is bad :" + version);
+            }
+            int[] ret = new int[3];
+            int i = 0;
+            for (; i < split.Length; ++i)
+            {
+                ret[i] = int.Parse(split[i].Trim());
+            }
+            for (; i < 3; ++i)
+            {
+                ret[i] = 0;
+            }
+            return ret;
+
+        }
         public static TestConfig Instance => config ?? (config = new TestConfig());
 
         public bool IsRunningFabricTLS()
@@ -217,6 +283,12 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             location = location.Trim();
 
             return runningFabricCATLS ? Regex.Replace(location, "^http://", "https://") : location;
+        }
+        public void Destroy()
+        {
+            // config.sampleOrgs = null;
+            config = null;
+
         }
 
 
@@ -249,7 +321,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             else
             {
                 string envKey = key.ToUpperInvariant().Replace("\\.", "_");
-                ret = Environment.GetEnvironmentVariable(key);
+                ret = Environment.GetEnvironmentVariable(envKey);
                 if (null != ret)
                 {
                     sdkProperties[key] = ret;
@@ -262,6 +334,10 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                     }
                 }
             }
+        }
+        public bool GetRunIdemixMTTest()
+        {
+            return bool.Parse(GetProperty(RUNIDEMIXMTTEST));
         }
 
         public int GetTransactionWaitTime()
@@ -360,10 +436,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         public bool IsRunningAgainstFabric10()
         {
-            string suite = Environment.GetEnvironmentVariable("org.hyperledger.fabric.sdktest.ITSuite");
-            if (suite == null)
-                return false;
-            return suite.Equals("IntegrationSuiteV1.java");
+            return IsFabricVersionBefore("1.1");
         }
 
         /**
@@ -393,7 +466,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
             if (!"localhost".Equals(LOCALHOST))
             {
                 // change on the fly ...
-                string temp = null;
+                string temp;
 
 
                 //create a temp file
@@ -412,6 +485,14 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
                 sourceText = sourceText.Replace("http://localhost", "http://" + LOCALHOST);
                 sourceText = sourceText.Replace("grpcs://localhost", "grpcs://" + LOCALHOST);
                 sourceText = sourceText.Replace("grpc://localhost", "grpc://" + LOCALHOST);
+                if (IsFabricVersionAtOrAfter("1.3"))
+                {
+                    //eventUrl: grpc://localhost:8053
+                    sourceText = new Regex("(?m)^[ \\t]*eventUrl:").Replace(sourceText, "# eventUrl:");
+                }
+
+
+
                 File.WriteAllText(temp, sourceText);
                 logger.Info($"produced new network-config.yaml file at: {temp}");
 
@@ -424,7 +505,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
         private string GetDomainName(string name)
         {
-            int dot = name.IndexOf(".");
+            int dot = name.IndexOf(".",StringComparison.InvariantCulture);
             if (-1 == dot)
             {
                 return null;

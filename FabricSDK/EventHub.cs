@@ -19,6 +19,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -31,12 +32,17 @@ using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json;
 using Nito.AsyncEx;
 
+
 namespace Hyperledger.Fabric.SDK
 {
     
     public class EventHub : BaseClient
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EventHub));
+
+
+        private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
+
         private static readonly long EVENTHUB_CONNECTION_WAIT_TIME = Config.Instance.GetEventHubConnectionWaitTime();
         private static readonly long EVENTHUB_RECONNECTION_WARNING_RATE = Config.Instance.GetEventHubReconnectionWarningRate();
         private byte[] clientTLSCertificateDigest;
@@ -52,13 +58,36 @@ namespace Hyperledger.Fabric.SDK
         private long lastBlockNumber;
         private Grpc.Core.Channel managedChannel;
         private long reconnectCount;
+        private string channelName;
         private readonly DaemonTask<SignedEvent, Event> dtask =new DaemonTask<SignedEvent, Event>();
 
         public EventHub(string name, string url,  Properties properties) : base(name, url, properties)
         {
-           
+            logger.Debug($"Created {ToString()}");
         }
 
+        public string Status
+        {
+            get
+            {
+                StringBuilder sb = new StringBuilder(1000);
+                sb.Append(ToString()).Append(", connected: ").Append(IsConnected);
+                Grpc.Core.Channel lmanagedChannel = managedChannel;
+                if (lmanagedChannel == null)
+                {
+                    sb.Append("managedChannel: null");
+                }
+                else
+                {
+                    sb.Append(", isShutdown: ").Append(lmanagedChannel.State==ChannelState.Shutdown);
+                    sb.Append(", isTransientFailure: ").Append(lmanagedChannel.State == ChannelState.TransientFailure);
+                    sb.Append(", state: ").Append("" + lmanagedChannel.State);
+                }
+
+                return sb.ToString();
+            }
+
+        }
 
 
         [JsonIgnore]
@@ -110,11 +139,14 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (value == null)
-                    throw new InvalidArgumentException("setChannel Channel can not be null");
-                if (null != Channel)
-                    throw new InvalidArgumentException($"Can not add event hub  {Name} to channel {value.Name} because it already belongs to channel {Channel.Name}.");
+                    throw new ArgumentException("setChannel Channel can not be null");
+                if (null != channelName)
+                    throw new ArgumentException($"Can not add event hub  {Name} to channel {value.Name} because it already belongs to channel {channelName}.");
                 base.Channel = value;
+                channelName = value.Name;
+                logger.Debug($"{ToString()} set to channel: {value.Name}");
             }
+
         }
 
         /**
@@ -132,18 +164,18 @@ namespace Hyperledger.Fabric.SDK
         }
 
         [MethodImpl(MethodImplOptions.Synchronized)]
-        public Task<bool> Connect(TransactionContext transactionContext, CancellationToken token=default(CancellationToken))
+        public Task<bool> ConnectAsync(TransactionContext transactionContext, CancellationToken token=default(CancellationToken))
         {
-            return Connect(transactionContext, false, token);
+            return ConnectAsync(transactionContext, false, token);
         }
 
 
-        private async Task Events(Events.EventsClient events, TransactionContext context, CancellationToken token)
+        private async Task EventsAsync(Events.EventsClient events, TransactionContext context, CancellationToken token)
         {
             try
             {
                 var senderLocal = events.Chat().ToADStreamingCall();
-                Task connect = dtask.Connect(senderLocal, (evnt) =>
+                Task connect = dtask.ConnectAsync(senderLocal, (evnt) =>
                 {
                     logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
                     if (evnt.EventCase == Event.EventOneofCase.Block)
@@ -151,6 +183,7 @@ namespace Hyperledger.Fabric.SDK
                         try
                         {
                             BlockEvent blockEvent = new BlockEvent(this, evnt);
+                            logger.Trace($"{ToString()} got block number: {blockEvent.BlockNumber}");
                             SetLastBlockSeen(blockEvent);
                             eventQue.AddBEvent(blockEvent); //add to channel queue
                         }
@@ -169,10 +202,11 @@ namespace Hyperledger.Fabric.SDK
                         reconnectCount = 0L;
                         return ProcessResult.ConnectionComplete;
                     }
+                    logger.Error($"{ToString()} got a unexpected block type: {evnt.EventCase}");
                     return ProcessResult.Ok;
                 }, (ex) => ProcessException(ex), token);
-                await BlockListen(senderLocal, context);
-                await connect.Timeout(TimeSpan.FromMilliseconds(EVENTHUB_CONNECTION_WAIT_TIME));
+                await BlockListenAsync(senderLocal, context).ConfigureAwait(false);
+                await connect.TimeoutAsync(TimeSpan.FromMilliseconds(EVENTHUB_CONNECTION_WAIT_TIME),token).ConfigureAwait(false);
                 logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
             }
             catch (Exception e)
@@ -213,7 +247,7 @@ namespace Hyperledger.Fabric.SDK
                 Reconnect(token);
             }
         }
-        public async Task<bool> Connect(TransactionContext transactionContext, bool reconnection, CancellationToken token=default(CancellationToken))
+        public async Task<bool> ConnectAsync(TransactionContext transactionContext, bool reconnection, CancellationToken token=default(CancellationToken))
         {
 
             if (IsConnected)
@@ -221,14 +255,14 @@ namespace Hyperledger.Fabric.SDK
                 logger.Warn($"{ToString()}%s already connected.");
                 return false;
             }
-            using (await connectLock.LockAsync(token))
+            using (await connectLock.LockAsync(token).ConfigureAwait(false))
             {
                 logger.Debug($"EventHub {Name} is connecting.");
                 LastConnectedAttempt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                Endpoint endpoint = new Endpoint(Url, Properties);
+                Endpoint endpoint = Endpoint.Create(Url, Properties);
                 managedChannel = endpoint.BuildChannel();
                 clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
-                await Events(new Events.EventsClient(managedChannel), transactionContext, token);               
+                await EventsAsync(new Events.EventsClient(managedChannel), transactionContext, token).ConfigureAwait(false);               
                 return IsConnected;
             }            
         }
@@ -250,7 +284,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        private async Task BlockListen(ADStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
+        private async Task BlockListenAsync(ADStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
         {
             TransactionContext = transactionContext;
             Register register = new Register();
@@ -263,7 +297,7 @@ namespace Hyperledger.Fabric.SDK
             }
             ByteString blockEventByteString = blockEvent.ToByteString();
             SignedEvent signedBlockEvent = new SignedEvent {EventBytes = blockEventByteString, Signature = transactionContext.SignByteString(blockEventByteString.ToByteArray())};
-            await sendL.Call.RequestStream.WriteAsync(signedBlockEvent);
+            await sendL.Call.RequestStream.WriteAsync(signedBlockEvent).ConfigureAwait(false);
         }
 
 
@@ -280,18 +314,19 @@ namespace Hyperledger.Fabric.SDK
 
         public override string ToString()
         {
-            return "EventHub:" + Name;
+            return $"EventHub{{id: {id}, name: {Name}, channelName: {channelName}, url: {Url}}}";
         }
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown()
         {
-            logger.Debug("Starting shutdown");
+            if (shutdown)
+                return;
+            logger.Trace($"{ToString()} being shutdown.");
             dtask.Cancel();
             shutdown = true;
             lastBlockEvent = null;
             lastBlockNumber = 0;
             IsConnected = false;
-            base.Channel = null;
             Grpc.Core.Channel lmanagedChannel = managedChannel;
             managedChannel = null;
             lmanagedChannel?.ShutdownAsync().Wait();
@@ -306,6 +341,10 @@ namespace Hyperledger.Fabric.SDK
             {
                 lastBlockNumber = newLastBlockNumber;
                 lastBlockEvent = lastBlockSeen;
+                if (IS_TRACE_LEVEL)
+                {
+                    logger.Trace($"{ToString()} last block seen: {lastBlockNumber}");
+                }
             }
         }
 
@@ -350,17 +389,17 @@ namespace Hyperledger.Fabric.SDK
                     logger.Warn($"Channel {eventHub.Channel.Name} detected disconnect on event hub {eventHub} ({eventHub.Url})");
                 Task.Run(async () =>
                 {
-                    await Task.Delay(500,token);
+                    await Task.Delay(500,token).ConfigureAwait(false);
                     try
                     {
                         if (eventHub.TransactionContext == null)
-                            logger.Warn("Eventhub reconnect failed with no user context");
+                            logger.Warn($"{ToString()} reconnect failed with no user context");
                         else
-                            await eventHub.Connect(eventHub.TransactionContext, true, token);
+                            await eventHub.ConnectAsync(eventHub.TransactionContext, true, token).ConfigureAwait(false);
                     }
                     catch (Exception e)
                     {
-                        logger.Warn($"Failed {eventHub} to reconnect. {e.Message}");
+                        logger.Warn($"Failed {ToString()} to reconnect. {e.Message}");
                     }
                 }, token);
             }

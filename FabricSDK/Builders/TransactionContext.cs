@@ -19,6 +19,7 @@ using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Security;
 
 namespace Hyperledger.Fabric.SDK.Builders
@@ -30,7 +31,9 @@ namespace Hyperledger.Fabric.SDK.Builders
  */
     public class TransactionContext
     {
+        private readonly string toString;
         private Timestamp currentTimeStamp;
+        private readonly ISigningIdentity signingIdentity;
 
         //private List<String> attrs;
 
@@ -43,12 +46,19 @@ namespace Hyperledger.Fabric.SDK.Builders
             Verify = !"".Equals(channel.Name); //if name is not blank not system channel and need verify.
             //  this.txID = transactionID;
             CryptoPrimitives = cryptoPrimitives;
-            Identity = ProtoUtils.CreateSerializedIdentity(User);
+
+            // Get the signing identity from the user
+            signingIdentity = IdentityFactory.GetSigningIdentity(cryptoPrimitives, user);
+
+            // Serialize signingIdentity
+            Identity = signingIdentity.CreateSerializedIdentity();
+
             ByteString no = Nonce;
             byte[] comp = no.Concat(Identity.ToByteArray()).ToArray();
             byte[] txh = cryptoPrimitives.Hash(comp);
             //    txID = Hex.encodeHexString(txh);
             TxID = txh.ToHexString();
+            toString = $"TransactionContext {{ txID: {TxID} mspid: {user.MspId}, user: {user.Name} }}";
         }
 
         public ICryptoSuite CryptoPrimitives { get; }
@@ -107,9 +117,9 @@ namespace Hyperledger.Fabric.SDK.Builders
 
         public string TxID { get; }
 
-        private byte[] Sign(byte[] b)
+        public byte[] Sign(byte[] b)
         {
-            return CryptoPrimitives.Sign(User.Enrollment.GetKeyPair(), b);
+            return signingIdentity.Sign(b);
         }
 
         public ByteString SignByteString(byte[] b)
@@ -172,7 +182,11 @@ namespace Hyperledger.Fabric.SDK.Builders
             int ii = -1;
             foreach (IUser user in users)
             {
-                ret[++ii] = ByteString.CopyFrom(CryptoPrimitives.Sign(user.Enrollment.GetKeyPair(), signbytes));
+                // Get the signing identity from the user
+                ISigningIdentity si = IdentityFactory.GetSigningIdentity(CryptoPrimitives, user);
+
+                // generate signature
+                ret[++ii] = ByteString.CopyFrom(si.Sign(signbytes));
             }
 
             return ret;
@@ -181,6 +195,11 @@ namespace Hyperledger.Fabric.SDK.Builders
         public TransactionContext RetryTransactionSameContext()
         {
             return new TransactionContext(Channel, User, CryptoPrimitives);
+        }
+
+        public override string ToString()
+        {
+            return toString;
         }
     } // end TransactionContext
 }

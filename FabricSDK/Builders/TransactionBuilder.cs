@@ -41,21 +41,21 @@ namespace Hyperledger.Fabric.SDK.Builders
             return new TransactionBuilder();
         }
 
-        public TransactionBuilder ChaincodeProposal(Proposal chaincodeProposal)
+        public TransactionBuilder ChaincodeProposal(Proposal ccodeProposal)
         {
-            this.chaincodeProposal = chaincodeProposal;
+            chaincodeProposal = ccodeProposal;
             return this;
         }
 
-        public TransactionBuilder Endorsements(List<Endorsement> endorsements)
+        public TransactionBuilder Endorsements(List<Endorsement> endrsements)
         {
-            this.endorsements = endorsements;
+            endorsements = endrsements;
             return this;
         }
 
-        public TransactionBuilder ProposalResponsePayload(ByteString proposalResponsePayload)
+        public TransactionBuilder ProposalResponsePayload(ByteString propResponsePayload)
         {
-            this.proposalResponsePayload = proposalResponsePayload;
+            proposalResponsePayload = propResponsePayload;
             return this;
         }
 
@@ -64,22 +64,22 @@ namespace Hyperledger.Fabric.SDK.Builders
             return CreateTransactionCommonPayload(chaincodeProposal, proposalResponsePayload, endorsements);
         }
 
-        private Payload CreateTransactionCommonPayload(Proposal chaincodeProposal, ByteString proposalResponsePayload, List<Endorsement> endorsements)
+        private Payload CreateTransactionCommonPayload(Proposal ccodeProposal, ByteString propResponsePayload, List<Endorsement> endrsements)
         {
-            ChaincodeEndorsedAction chaincodeEndorsedAction = new ChaincodeEndorsedAction {ProposalResponsePayload = proposalResponsePayload};
-            chaincodeEndorsedAction.Endorsements.AddRange(endorsements);
+            ChaincodeEndorsedAction chaincodeEndorsedAction = new ChaincodeEndorsedAction {ProposalResponsePayload = propResponsePayload};
+            chaincodeEndorsedAction.Endorsements.AddRange(endrsements);
             //ChaincodeActionPayload
             ChaincodeActionPayload chaincodeActionPayload = new ChaincodeActionPayload {Action = chaincodeEndorsedAction};
 
             //We need to remove any transient fields - they are not part of what the peer uses to calculate hash.
-            ChaincodeProposalPayload p = ChaincodeProposalPayload.Parser.ParseFrom(chaincodeProposal.Payload);
+            ChaincodeProposalPayload p = ChaincodeProposalPayload.Parser.ParseFrom(ccodeProposal.Payload);
             ChaincodeProposalPayload chaincodeProposalPayloadNoTrans = new ChaincodeProposalPayload {Input = p.Input};
             chaincodeActionPayload.ChaincodeProposalPayload = chaincodeProposalPayloadNoTrans.ToByteString();
 
 
             TransactionAction transactionAction = new TransactionAction();
 
-            Header header = Header.Parser.ParseFrom(chaincodeProposal.Header);
+            Header header = Header.Parser.ParseFrom(ccodeProposal.Header);
 
             if (Config.Instance.ExtraLogLevel(10))
             {
@@ -106,11 +106,10 @@ namespace Hyperledger.Fabric.SDK.Builders
             transactionAction.Payload = chaincodeActionPayload.ToByteString();
 
             //Transaction
-            Protos.Peer.FabricTransaction.Transaction transaction = new Protos.Peer.FabricTransaction.Transaction();
+            Transaction transaction = new Transaction();
             transaction.Actions.Add(transactionAction);
 
             return new Payload {Header = header, Data = transaction.ToByteString()};
         }
-        
     }
 }

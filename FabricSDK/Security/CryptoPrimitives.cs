@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Org.BouncyCastle.Asn1.X9;
@@ -19,6 +18,9 @@ namespace Hyperledger.Fabric.SDK.Security
 
         private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
 
+
+        private readonly bool inited = false;
+
         private KeyStore _store = new KeyStore();
         private string CERTIFICATE_FORMAT = Config.Instance.GetCertificateFormat();
 
@@ -29,12 +31,10 @@ namespace Hyperledger.Fabric.SDK.Security
         private Dictionary<int, string> securityCurveMapping = Config.Instance.GetSecurityCurveMapping();
         internal int securityLevel = Config.Instance.GetSecurityLevel();
 
-
-        private readonly bool inited = false;
         public KeyStore Store
         {
             get => _store;
-            set => _store = value ?? throw new InvalidArgumentException("Cannot set empty store");
+            set => _store = value ?? throw new ArgumentException("Cannot set empty store");
         }
 
         public bool Verify(byte[] certificate, string signatureAlgorithm, byte[] signature, byte[] plainText)
@@ -110,10 +110,26 @@ namespace Hyperledger.Fabric.SDK.Security
             return KeyPair.GenerateECDSA(curveName);
         }
 
+        public byte[] Sign(KeyPair key, byte[] plainText)
+        {
+            if (key == null)
+                throw new ArgumentException("Null Keypair");
+            if (plainText == null)
+                throw new ArgumentException("Data that to be signed is null.");
+            if (plainText.Length == 0)
+                throw new ArgumentException("Data to be signed was empty.");
+            return key.Sign(plainText, DEFAULT_SIGNATURE_ALGORITHM);
+        }
+
+        public string GenerateCertificationRequest(string user, KeyPair keypair)
+        {
+            return keypair.GenerateCertificationRequest(user, DEFAULT_SIGNATURE_ALGORITHM);
+        }
+
         public void SetProperties(Properties properties)
         {
             if (properties == null || properties.Count == 0)
-                throw new InvalidArgumentException("properties must not be null");
+                throw new ArgumentException("properties must not be null");
             hashAlgorithm = properties.Contains(Config.HASH_ALGORITHM) ? properties[Config.HASH_ALGORITHM] : hashAlgorithm;
             string secLevel = properties.Contains(Config.SECURITY_LEVEL) ? properties[Config.SECURITY_LEVEL] : securityLevel.ToString();
             securityLevel = int.Parse(secLevel);
@@ -144,7 +160,7 @@ namespace Hyperledger.Fabric.SDK.Security
 
             if (securityCurveMapping.Count == 0)
             {
-                throw new InvalidArgumentException("Security curve mapping has no entries.");
+                throw new ArgumentException("Security curve mapping has no entries.");
             }
 
             if (!securityCurveMapping.ContainsKey(secLevel))
@@ -157,7 +173,7 @@ namespace Hyperledger.Fabric.SDK.Security
                     sp = ", ";
                 }
 
-                throw new InvalidArgumentException($"Illegal security level: {secLevel}. Valid values are: {sb}");
+                throw new ArgumentException($"Illegal security level: {secLevel}. Valid values are: {sb}");
             }
 
             string lcurveName = securityCurveMapping[secLevel];
@@ -167,10 +183,10 @@ namespace Hyperledger.Fabric.SDK.Security
             //Check if can match curve name to requested strength.
             if (pars == null)
             {
-                InvalidArgumentException invalidArgumentException = new InvalidArgumentException($"Curve {curveName} defined for security strength {secLevel} was not found.");
+                ArgumentException argumentException = new ArgumentException($"Curve {curveName} defined for security strength {secLevel} was not found.");
 
-                logger.ErrorException(invalidArgumentException.Message, invalidArgumentException);
-                throw invalidArgumentException;
+                logger.ErrorException(argumentException.Message, argumentException);
+                throw argumentException;
             }
 
             curveName = lcurveName;
@@ -180,26 +196,15 @@ namespace Hyperledger.Fabric.SDK.Security
         public void SetHashAlgorithm(string algorithm)
         {
             if (string.IsNullOrEmpty(algorithm) || !("SHA2".Equals(algorithm, StringComparison.InvariantCultureIgnoreCase) || "SHA3".Equals(algorithm, StringComparison.InvariantCultureIgnoreCase)))
-                throw new InvalidArgumentException("Illegal Hash function family: " + algorithm + " - must be either SHA2 or SHA3");
+                throw new ArgumentException("Illegal Hash function family: " + algorithm + " - must be either SHA2 or SHA3");
             hashAlgorithm = algorithm;
         }
 
-        public byte[] Sign(KeyPair key, byte[] plainText)
-        {
-            if (key==null)
-                throw new IllegalArgumentException("Null Keypair");
-            return key.Sign(plainText, DEFAULT_SIGNATURE_ALGORITHM);
-        }
         public void Init()
         {
             if (inited)
-                throw new InvalidArgumentException("Crypto suite already initialized");
+                throw new ArgumentException("Crypto suite already initialized");
             ResetConfiguration();
-        }
-
-        public string GenerateCertificationRequest(string user, KeyPair keypair)
-        {
-            return keypair.GenerateCertificationRequest(user, DEFAULT_SIGNATURE_ALGORITHM);
         }
     }
 }

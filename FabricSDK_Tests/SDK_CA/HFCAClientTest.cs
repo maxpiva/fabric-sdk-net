@@ -17,11 +17,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
@@ -29,7 +28,10 @@ using Hyperledger.Fabric_CA.SDK;
 using Hyperledger.Fabric_CA.SDK.Exceptions;
 using Hyperledger.Fabric_CA.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Security;
 
 namespace Hyperledger.Fabric.Tests.SDK_CA
 {
@@ -120,42 +122,42 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "HFCAClient only supports")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "HFCAClient only supports")]
         public void TestNewInstanceBadUrlProto()
         {
             HFCAClient.Create("file://localhost", null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "HFCAClient url does not support path")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "HFCAClient url does not support path")]
         public void TestNewInstanceBadUrlPath()
         {
             HFCAClient.Create("http://localhost/bad", null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "HFCAClient url needs host")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "HFCAClient url needs host")]
         public void TestNewInstanceNoUrlHost()
         {
             HFCAClient.Create("http://:99", null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "HFCAClient url does not support query")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "HFCAClient url does not support query")]
         public void TestNewInstanceBadUrlQuery()
         {
             HFCAClient.Create("http://localhost?bad", null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "name must not be")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "name must not be")]
         public void TestNewInstanceNullName()
         {
             HFCAClient.Create(null, "http://localhost:99", null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "name must not be")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "name must not be")]
         public void TestNewInstanceEmptyName()
         {
             HFCAClient.Create("", "http://localhost:99", null);
@@ -172,7 +174,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "EntrollmentID cannot be null or empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "EntrollmentID cannot be null or empty")]
         public void TestRegisterEnrollmentIdNull()
         {
             RegistrationRequest regreq = new RegistrationRequest("name", "affiliation");
@@ -184,7 +186,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "EntrollmentID cannot be null or empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "EntrollmentID cannot be null or empty")]
         public void TestRegisterEnrollmentIdEmpty()
         {
             RegistrationRequest regreq = new RegistrationRequest("name", "affiliation");
@@ -196,7 +198,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Registrar should be a valid member")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Registrar should be a valid member")]
         public void TestRegisterNullRegistrar()
         {
             RegistrationRequest regreq = new RegistrationRequest("name", "affiliation");
@@ -236,7 +238,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Unable to add CA certificate")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Unable to add CA certificate")]
         public void TestRegisterNoServerResponseNoPemFile()
         {
             Properties testProps = new Properties();
@@ -251,7 +253,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "enrollment user is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment user is not set")]
         public void TestEnrollmentEmptyUser()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -259,7 +261,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "enrollment user is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment user is not set")]
         public void TestEnrollmentNullUser()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -267,7 +269,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "enrollment secret is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment secret is not set")]
         public void TestEnrollmentEmptySecret()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -275,7 +277,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "enrollment secret is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment secret is not set")]
         public void TestEnrollmentNullSecret()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -312,7 +314,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "reenrollment user is missing")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "reenrollment user is missing")]
         public void TestReenrollNullUser()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -321,7 +323,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "reenrollment user is not a valid user object")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "reenrollment user is not a valid user object")]
         public void TestReenrollNullEnrollment()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -337,26 +339,26 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
             client.CryptoSuite = crypto;
             KeyPair keypair = crypto.KeyGen();
-            IEnrollment enrollment = new HFCAEnrollment(keypair.Pem, "abc");
+            IEnrollment enrollment = new X509Enrollment(keypair, "abc");
 
             client.Revoke(admin, enrollment, "keyCompromise");
         }
 
         // revoke1: revoke(User revoker, Enrollment enrollment, String reason)
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "revoker is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "revoker is not set")]
         public void TestRevoke1NullUser()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
             client.CryptoSuite = crypto;
             KeyPair keypair = crypto.KeyGen();
-            IEnrollment enrollment = new HFCAEnrollment(keypair.Pem, "abc");
+            IEnrollment enrollment = new X509Enrollment(keypair, "abc");
 
             client.Revoke(null, enrollment, "keyCompromise");
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "revokee enrollment is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "revokee enrollment is not set")]
         public void TestRevoke1NullEnrollment()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -366,7 +368,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
 
         // revoke2: revoke(User revoker, String revokee, String reason)
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "revoker is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "revoker is not set")]
         public void TestRevoke2NullUser()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -375,7 +377,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "revokee user is not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "revokee user is not set")]
         public void TestRevoke2NullEnrollment()
         {
             HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
@@ -388,28 +390,78 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         {
             Properties testprops = new Properties();
 
-            testprops.Set("pemFile", ("fixture/testPems/caBundled.pems").Locate() + "," + // has 3 certs
-                                     ("fixture/testPems/Org1MSP_CA.pem").Locate()); // has 1
+            testprops.Set("pemFile", "fixture/testPems/caBundled.pems".Locate() + "," + // has 3 certs
+                                     "fixture/testPems/Org1MSP_CA.pem".Locate()); // has 1
 
-            testprops.Set("pemBytes", File.ReadAllText(("fixture/testPems/Org2MSP_CA.pem").Locate()));
+            testprops.Set("pemBytes", File.ReadAllText("fixture/testPems/Org2MSP_CA.pem".Locate()));
 
-            CryptoPrimitives crypto = new CryptoPrimitives();
-            crypto.Init();
+            CryptoPrimitives cpto = new CryptoPrimitives();
+            cpto.Init();
 
             HFCAClient client = HFCAClient.Create("client", "https://localhost:99", testprops);
-            client.CryptoSuite = crypto;
+            client.CryptoSuite = cpto;
             client.SetUpSSL();
             int count = 0;
             KeyStore trustStore = client.CryptoSuite.Store;
-            List<BigInteger> expected = new List<BigInteger> {new BigInteger("4804555946196630157804911090140692961"), new BigInteger("127556113420528788056877188419421545986539833585"), new BigInteger("704500179517916368023344392810322275871763581896"), new BigInteger("70307443136265237483967001545015671922421894552"), new BigInteger("276393268186007733552859577416965113792")};
-            foreach (X509Certificate2 cert in trustStore.Certificates.Select(a=>a.X509Certificate2))
+            List<BigInteger> expected = new List<BigInteger>
+            {
+                new BigInteger("4804555946196630157804911090140692961"),
+                new BigInteger("127556113420528788056877188419421545986539833585"),
+                new BigInteger("704500179517916368023344392810322275871763581896"),
+                new BigInteger("70307443136265237483967001545015671922421894552"),
+                new BigInteger("276393268186007733552859577416965113792")
+            };
+            foreach (X509Certificate2 cert in trustStore.Certificates.Select(a => a.X509Certificate2))
             {
                 BigInteger serialNumber = new BigInteger(cert.SerialNumber.FromHexString());
-                Assert.IsTrue(expected.Contains(serialNumber), $"Missing certifiate with serial no. {serialNumber.ToString()}");
+                Assert.IsTrue(expected.Contains(serialNumber), $"Missing certifiate with serial no. {serialNumber}");
                 ++count;
             }
 
             Assert.AreEqual(expected.Count, count, "Number of CA certificates mismatch");
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment is missing")]
+        public void TestIdemixNullEnrollment()
+        {
+            HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
+            client.CryptoSuite = crypto;
+            client.IdemixEnroll(null, "idemixMSP");
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "mspID cannot be null or empty")]
+        public void TestIdemixMissingMSPID()
+        {
+            HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
+            client.CryptoSuite = crypto;
+            var gen = new ECKeyPairGenerator();
+            var keyGenParam = new KeyGenerationParameters(new SecureRandom(), 256);
+            gen.Init(keyGenParam);
+            KeyPair pair = KeyPair.Create(gen.GenerateKeyPair());
+            IEnrollment enrollment = new X509Enrollment(pair, "");
+            client.IdemixEnroll(enrollment, null);
+        }
+
+        [TestMethod]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "enrollment type must be x509")]
+        public void TestIdemixWrongEnrollment()
+        {
+            HFCAClient client = HFCAClient.Create("client", "http://localhost:99", null);
+            client.CryptoSuite = crypto;
+            IEnrollment enrollment = new IdemixEnrollment(null, null, "mspid", null, null, null, "ou", IdemixRoles.MEMBER);
+            client.IdemixEnroll(enrollment, "mspid");
+        }
+
+        [TestMethod]
+        public void TestAddCAToURL()
+        {
+            string url = "http://localhost:99";
+            HFCAClient client = HFCAClient.Create("ca1", url, null);
+            client.CryptoSuite = crypto;
+            string url2 = client.AddCAToURL(url);
+            Assert.AreEqual(url + "?ca=ca1", url2);
         }
     }
 }

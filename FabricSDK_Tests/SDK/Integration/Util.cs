@@ -19,16 +19,16 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Logging;
+using Hyperledger.Fabric.Tests.Helper;
 using SharpCompress.Common;
 using SharpCompress.Writers;
-using Hyperledger.Fabric.Tests.Helper;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
     public static class Util
     {
+        private static readonly ILog logger = LogProvider.GetLogger(typeof(Util));
         /**
      * Private constructor to prevent instantiation.
      */
@@ -44,7 +44,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
      */
         public static Stream GenerateTarGzInputStream(string src, string pathPrefix)
         {
-
             MemoryStream bos = new MemoryStream();
 
             string sourcePath = src;
@@ -75,10 +74,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 throw new SystemException($"Expected in {directorys} only 1 sk file but found {matches.Length}");
             return matches[0];
         }
-        private static readonly ILog logger = LogProvider.GetLogger(typeof(Util));
+
         public static void COut(string format, params object[] args)
         {
-            logger.Debug(string.Format(format,args));
+            logger.Debug(string.Format(format, args));
         }
 
         public static T Get<T>(this TaskCompletionSource<T> tco, int timeoutinmilliseconds)
@@ -89,7 +88,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             {
                 using (var timeoutCancellationTokenSource = new CancellationTokenSource())
                 {
-                    var completedTask = await Task.WhenAny(tco.Task, Task.Delay(timeoutinmilliseconds, timeoutCancellationTokenSource.Token));
+                    var completedTask = await Task.WhenAny(tco.Task, Task.Delay(timeoutinmilliseconds, timeoutCancellationTokenSource.Token)).ConfigureAwait(false);
                     if (completedTask == tco.Task)
                     {
                         timeoutCancellationTokenSource.Cancel();
@@ -107,6 +106,5 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
             return tco.Task.GetAwaiter().GetResult();
         }
-        
     }
 }

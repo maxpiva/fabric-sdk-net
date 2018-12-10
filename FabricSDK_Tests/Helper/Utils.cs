@@ -26,7 +26,7 @@ namespace Hyperledger.Fabric.Tests.Helper
 
         public static string Locate(this string path)
         {
-            return Path.Combine(TestDataDirectory, path);
+            return Path.Combine(TestDataDirectory, path.Replace("//","/").Replace("/",Path.DirectorySeparatorChar.ToString()).Replace("\\",Path.DirectorySeparatorChar.ToString()));
         }
         public static int IndexOf(this byte[] data, byte[] search)
         {

@@ -31,6 +31,8 @@ namespace Hyperledger.Fabric.SDK.Deserializers
         public ChaincodeAction ChaincodeAction => Reference;
         
         public ChaincodeEventDeserializer Event => new ChaincodeEventDeserializer(ChaincodeAction.Events);
+
+        public Protos.Peer.ChaincodeID ChaincodeID => ChaincodeAction?.ChaincodeId;
         public TxReadWriteSet Results
         {
             get

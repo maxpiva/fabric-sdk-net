@@ -12,9 +12,10 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Requests
@@ -81,7 +82,7 @@ namespace Hyperledger.Fabric.SDK.Requests
         public virtual Dictionary<string, byte[]> TransientMap
         {
             get => transientMap?.ToDictionary(a => a.Key, a => a.Value);
-            set => throw new InvalidArgumentException("Transient map may not be set");
+            set => throw new ArgumentException("Transient map may not be set");
         }
 
         /**
@@ -119,11 +120,11 @@ namespace Hyperledger.Fabric.SDK.Requests
             set
             {
                 if (ChaincodeName != null)
-                    throw new InvalidArgumentException("Chaincode name has already been set.");
+                    throw new ArgumentException("Chaincode name has already been set.");
                 if (ChaincodeVersion != null)
-                    throw new InvalidArgumentException("Chaincode version has already been set.");
+                    throw new ArgumentException("Chaincode version has already been set.");
                 if (chaincodePath != null)
-                    throw new InvalidArgumentException("Chaincode path has already been set.");
+                    throw new ArgumentException("Chaincode path has already been set.");
                 chaincodeID = value;
                 ChaincodeName = chaincodeID.Name;
                 chaincodePath = chaincodeID.Path;
@@ -156,6 +157,18 @@ namespace Hyperledger.Fabric.SDK.Requests
          */
         public ChaincodeEndorsementPolicy ChaincodeEndorsementPolicy { get; set; }
 
+        /**
+     * get collection configuration for this chaincode.
+     *
+     * @return collection configuration if set.
+     */
+        /**
+     * Set collection configuration for this chaincode.
+     *
+     * @param chaincodeCollectionConfiguration
+     */
+
+        public ChaincodeCollectionConfiguration ChaincodeCollectionConfiguration { get; set; }
 
         /**
          * Gets the timeout for a single proposal request to endorser in milliseconds.
@@ -179,7 +192,7 @@ namespace Hyperledger.Fabric.SDK.Requests
                 if (isSubmitted && value)
                 {
                     // Has already been submitted.
-                    throw new InvalidArgumentException("Request has been already submitted and can not be reused.");
+                    throw new ArgumentException("Request has been already submitted and can not be reused.");
                 }
 
                 UserContext.UserContextCheck();
@@ -206,6 +219,12 @@ namespace Hyperledger.Fabric.SDK.Requests
             request.ChaincodeName = chaincodeName;
             return request;
         }
+
+        public static T SetChaincodeCollectionConfiguration<T>(this T request, ChaincodeCollectionConfiguration chaincodeCollectionConfiguration) where T : TransactionRequest
+        {
+            request.ChaincodeCollectionConfiguration = chaincodeCollectionConfiguration;
+            return request;
+        }
         public static T SetChaincodeID<T>(this T request, ChaincodeID chaincodeid) where T : TransactionRequest
         {
             request.ChaincodeID = chaincodeid;
@@ -217,7 +236,11 @@ namespace Hyperledger.Fabric.SDK.Requests
             request.ChaincodeVersion = chaincodeVersion;
             return request;
         }
-
+        public static T SetChaincodeLanguage<T>(this T request, TransactionRequest.Type chaincodeLanguage) where T : TransactionRequest
+        {
+            request.ChaincodeLanguage = chaincodeLanguage;
+            return request;
+        }
         public static T SetChaincodeEndorsementPolicy<T>(this T request, ChaincodeEndorsementPolicy policy) where T : TransactionRequest
         {
             request.ChaincodeEndorsementPolicy = policy;
@@ -265,11 +288,13 @@ namespace Hyperledger.Fabric.SDK.Requests
             request.IsSubmitted = true;
             return request;
         }
+
         public static T SetProposalWaitTime<T>(this T request, long waitTime) where T : TransactionRequest
         {
             request.ProposalWaitTime = waitTime;
             return request;
         }
+
         public static T SetUserContext<T>(this T request, IUser user) where T : TransactionRequest
         {
             request.UserContext = user;

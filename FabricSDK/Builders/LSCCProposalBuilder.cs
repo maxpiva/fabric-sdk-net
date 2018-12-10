@@ -21,9 +21,9 @@ namespace Hyperledger.Fabric.SDK.Builders
         private static readonly string LSCC_CHAIN_NAME = "lscc";
         private static readonly Protos.Peer.ChaincodeID CHAINCODE_ID_LSCC = new Protos.Peer.ChaincodeID {Name = LSCC_CHAIN_NAME};
 
-        public new LSCCProposalBuilder Context(TransactionContext context)
+        public new LSCCProposalBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
 

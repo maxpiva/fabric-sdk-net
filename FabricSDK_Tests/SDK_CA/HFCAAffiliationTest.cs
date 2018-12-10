@@ -12,8 +12,8 @@
  *  limitations under the License.
  */
 
+using System;
 using System.IO;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric.Tests.SDK.Integration;
@@ -77,7 +77,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Crypto primitives not set")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Crypto primitives not set")]
         public void TestHFCAIdentityCryptoNull()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -86,7 +86,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Affiliation name cannot be null or empty")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Affiliation name cannot be null or empty")]
         public void TestHFCAIdentityIDNull()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -95,7 +95,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Affiliation name cannot contain an empty space or tab")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Affiliation name cannot contain an empty space or tab")]
         public void TestBadAffiliationNameSpace()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -104,7 +104,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Affiliation name cannot start with a dot '.'")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Affiliation name cannot start with a dot '.'")]
         public void TestBadAffiliationNameStartingDot()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -113,7 +113,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Affiliation name cannot end with a dot '.'")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Affiliation name cannot end with a dot '.'")]
         public void TestBadAffiliationNameEndingDot()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);
@@ -122,7 +122,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Affiliation name cannot contain multiple consecutive dots '.'")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Affiliation name cannot contain multiple consecutive dots '.'")]
         public void TestBadAffiliationNameMultipleDots()
         {
             HFCAClient client = HFCAClient.Create("http://localhost:99", null);

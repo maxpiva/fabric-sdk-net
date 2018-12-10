@@ -45,7 +45,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Helper
         {
             TestConfigHelper sconfigHelper = new TestConfigHelper();
             sconfigHelper.ClearConfig();
-            var _=Fabric.SDK.Helper.Config.Instance;
+            var _=Config.Instance;
         }
 
         // Tests that Config.getConfig properly loads a value from a system property

@@ -12,10 +12,11 @@
  *  limitations under the License.
  */
 
-using Hyperledger.Fabric.SDK.Exceptions;
+using System;
 using Hyperledger.Fabric.Tests.Helper;
 using Hyperledger.Fabric_CA.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+// ReSharper disable ObjectCreationAsStatement
 
 namespace Hyperledger.Fabric.Tests.SDK_CA
 {
@@ -49,7 +50,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Enrollment ID is empty, thus both aki and serial must have non-empty values")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Enrollment ID is empty, thus both aki and serial must have non-empty values")]
         public void TestNewInstanceSetNullIDSerialNmbr()
         {
             new RevocationRequest(revCAName, null, null, revAKI, revReason);
@@ -57,7 +58,7 @@ namespace Hyperledger.Fabric.Tests.SDK_CA
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Enrollment ID is empty, thus both aki and serial must have non-empty values")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Enrollment ID is empty, thus both aki and serial must have non-empty values")]
         public void TestNewInstanceSetNullIDAKI()
         {
             new RevocationRequest(revCAName, null, revSerialNmbr, null, revReason);

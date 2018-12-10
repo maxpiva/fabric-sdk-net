@@ -18,7 +18,6 @@
  * Factory to produce a set of crypto suite implementations offering differing cryptographic algorithms and strengths.
  */
 
-using System.Collections.Generic;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Security

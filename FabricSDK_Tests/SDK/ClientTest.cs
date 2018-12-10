@@ -14,7 +14,6 @@
 
 using System;
 using Hyperledger.Fabric.SDK;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -26,7 +25,7 @@ namespace Hyperledger.Fabric.Tests.SDK
     public class ClientTest
     {
         private static readonly string CHANNEL_NAME = "channel1";
-        private static HFClient hfclient = null;
+        private static HFClient hfclient;
 
         private static readonly string USER_NAME = "MockMe";
         private static readonly string USER_MSP_ID = "MockMSPID";
@@ -61,7 +60,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSetNullChannel()
         {
             hfclient.NewChannel(null);
@@ -83,7 +82,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadURL()
         {
             hfclient.NewPeer("peer_", " ");
@@ -105,7 +104,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadAddress()
         {
             hfclient.NewOrderer("xx", "xxxxxx");
@@ -114,7 +113,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadCryptoSuite()
         {
             HFClient.Create().NewOrderer("xx", "xxxxxx");
@@ -132,7 +131,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadUserContextNull()
         {
             HFClient client = HFClient.Create();
@@ -142,7 +141,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadUserNameNull()
         {
             HFClient client = HFClient.Create();
@@ -154,12 +153,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadUserNameEmpty()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser("", USER_MSP_ID);
 
@@ -167,12 +166,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadUserMSPIDNull()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, null);
 
@@ -180,12 +179,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadUserMSPIDEmpty()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, "");
 
@@ -194,12 +193,12 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadEnrollmentNull()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
             mockUser.Enrollment = null;
@@ -207,61 +206,54 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadEnrollmentBadCert()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
-            TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null);
+            IEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null);
             mockUser.Enrollment = mockEnrollment;
             client.UserContext = mockUser;
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBadEnrollmentBadKey()
         {
             HFClient client = HFClient.Create();
             client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-            ;
+
 
 
             TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
-            TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
+            IEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
             mockUser.Enrollment = mockEnrollment;
             client.UserContext = mockUser;
         }
 
         [Ignore]
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestCryptoFactory()
         {
-            try
-            {
-                TestUtils.TestUtils.ResetConfig();
-                Assert.IsNotNull(Config.Instance.GetDefaultCryptoSuiteFactory());
+            TestUtils.TestUtils.ResetConfig();
+            Assert.IsNotNull(Config.Instance.GetDefaultCryptoSuiteFactory());
 
-                HFClient client = HFClient.Create();
+            HFClient client = HFClient.Create();
 
-                client.CryptoSuite = Factory.Instance.GetCryptoSuite();
-                ;
+            client.CryptoSuite = Factory.Instance.GetCryptoSuite();
 
-                TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
 
-                TestUtils.TestUtils.MockEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
-                mockUser.Enrollment = mockEnrollment;
-                client.UserContext = mockUser;
-            }
-            finally
-            {
-                // System.getProperties().remove("org.hyperledger.fabric.sdk.crypto.default_crypto_suite_factory");
-            }
+            TestUtils.TestUtils.MockUser mockUser = TestUtils.TestUtils.GetMockUser(USER_NAME, USER_MSP_ID);
+
+            IEnrollment mockEnrollment = TestUtils.TestUtils.GetMockEnrollment(null, "mockCert");
+            mockUser.Enrollment = mockEnrollment;
+            client.UserContext = mockUser;
         }
     }
 }

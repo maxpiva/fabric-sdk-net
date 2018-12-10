@@ -14,17 +14,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Helper;
+using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
 {
-    
     public class SampleUser : IUser
     {
+        private readonly SampleStore keyValStore;
         private string account;
 
         private string affiliation;
@@ -33,20 +33,20 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         private string enrollmentSecret;
 
-
-        private readonly SampleStore keyValStore;
-
         /**
          * Save the state of this user to the key value store.
          */
-        private bool loading = false;
+        private bool loading;
 
         private string mspId;
         private HashSet<string> roles;
 
-        public SampleUser(string name, string org, SampleStore fs)
+        private ICryptoSuite cryptoSuite;
+
+        public SampleUser(string name, string org, SampleStore fs, ICryptoSuite cryptoSuite)
         {
-            Name = name;
+            this.Name = name;
+            this.cryptoSuite = cryptoSuite;
 
             keyValStore = fs;
             Organization = org;
@@ -62,10 +62,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        
+
         public string Organization { get; set; }
 
-        
+
         public string EnrollmentSecret
         {
             get => enrollmentSecret;
@@ -76,13 +76,32 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        
+
         public string KeyValStoreName { get; set; }
 
-        
+
+        /* Determine if this name has been registered.
+        * * @return {
+            @code true
+        } if registered;
+
+        otherwise {
+            @code false
+        }.*/
+
+        public bool IsRegistered => !string.IsNullOrEmpty(EnrollmentSecret);
+
+        /**
+         * Determine if this name has been enrolled.
+         *
+         * @return {@code true} if enrolled; otherwise {@code false}.
+         */
+        public bool IsEnrolled => enrollment != null;
+
+
         public string Name { get; }
 
-        
+
         public HashSet<string> Roles
         {
             get => roles;
@@ -93,7 +112,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        
+
         public string Account
         {
             get => account;
@@ -104,7 +123,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        
+
         public string Affiliation
         {
             get => affiliation;
@@ -125,8 +144,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 SaveState();
             }
         }
+        public void SetIdemixEnrollment(IEnrollment enrollment)
+        {
+            this.enrollment = enrollment;
+        }
 
-        
         public string MspId
         {
             get => mspId;
@@ -141,25 +163,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         {
             return fs.HasValue(ToKeyValStoreName(name, org));
         }
-
-
-        /* Determine if this name has been registered.
-        * * @return {
-            @code true
-        } if registered;
-
-        otherwise {
-            @code false
-        }.*/
-
-        public bool IsRegistered => !string.IsNullOrEmpty(EnrollmentSecret);
-
-        /**
-         * Determine if this name has been enrolled.
-         *
-         * @return {@code true} if enrolled; otherwise {@code false}.
-         */
-        public bool IsEnrolled => enrollment != null;
 
         public void SaveState()
         {
@@ -203,8 +206,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             return "user." + name + org;
         }
     }
-    public class InterfaceConverter<TInterface, TConcrete> : CustomCreationConverter<TInterface>
-        where TConcrete : TInterface, new()
+
+    public class InterfaceConverter<TInterface, TConcrete> : CustomCreationConverter<TInterface> where TConcrete : TInterface, new()
     {
         public override TInterface Create(Type objectType)
         {

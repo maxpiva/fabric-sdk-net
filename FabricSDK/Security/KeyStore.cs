@@ -6,7 +6,6 @@ using System.Security.Cryptography.X509Certificates;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Org.BouncyCastle.Pkix;
 using Org.BouncyCastle.Utilities.Collections;
-using Org.BouncyCastle.X509;
 using Org.BouncyCastle.X509.Store;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 
@@ -26,28 +25,36 @@ namespace Hyperledger.Fabric.SDK.Security
         }
 
         public List<Certificate> Certificates => certs.ToList();
-        public Dictionary<string, KeyPair> KeyPairs => keypairs.ToDictionary(a => a.Key, a => a.Value);
+
+        public Dictionary<string, KeyPair> KeyPairs
+        {
+            get
+            {
+                lock (keypairs)
+                    return keypairs.ToDictionary(a => a.Key, a => a.Value);
+            }
+        }
 
         public void AddCertificate(string pems)
         {
             if (string.IsNullOrEmpty(pems))
-                throw new InvalidArgumentException("Empty Certificate/s provided");
+                throw new ArgumentException("Empty Certificate/s provided");
             Certificate.PEMCertificateListToPEMs(pems).ForEach(a => certs.Add(Certificate.Create(a)));
         }
 
         public void AddCertificate(X509Certificate2 cert)
         {
             if (cert == null)
-                throw new InvalidArgumentException("Empty Certificate provided");
+                throw new ArgumentException("Empty Certificate provided");
             certs.Add(Certificate.Create(cert));
         }
 
         public void AddCertificateFromFile(string file)
         {
             if (string.IsNullOrEmpty(file))
-                throw new InvalidArgumentException($"Empty filename provided");
+                throw new ArgumentException($"Empty filename provided");
             if (!File.Exists(file))
-                throw new InvalidArgumentException($"{file} not found");
+                throw new ArgumentException($"{file} not found");
             try
             {
                 string data = File.ReadAllText(file);
@@ -106,7 +113,6 @@ namespace Hyperledger.Fabric.SDK.Security
 
         public bool Validate(Certificate cert)
         {
-            X509CertificateParser parser = new X509CertificateParser();
             PkixCertPathBuilder builder = new PkixCertPathBuilder();
             try
             {
@@ -138,7 +144,7 @@ namespace Hyperledger.Fabric.SDK.Security
                 builderParams.AddStore(X509StoreFactory.Create("Certificate/Collection", intermediateStoreParameters));
                 try
                 {
-                    PkixCertPathBuilderResult result = builder.Build(builderParams);
+                    builder.Build(builderParams);
                     return true;
                 }
                 catch (Exception)

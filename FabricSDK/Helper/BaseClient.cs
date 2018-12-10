@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
-using System.Text;
-using Hyperledger.Fabric.SDK.Exceptions;
+using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
     
     public class BaseClient
     {
-
-        public Properties Properties { get; internal set; }=new Properties();
+        internal string id = Config.Instance.GetNextID();
+        public Properties Properties { get; set; }=new Properties();
 
         public string Name { get; internal set; }
         
@@ -19,14 +16,15 @@ namespace Hyperledger.Fabric.SDK.Helper
         public virtual Channel Channel { get; set; }
 
         internal bool shutdown = false;
-
+        [JsonIgnore]
+        public HFClient Client => Channel.Client;
         public BaseClient(string name, string url, Properties properties)
         {
             if (string.IsNullOrEmpty(name))
-                throw new InvalidArgumentException("Invalid name");
+                throw new ArgumentException("Invalid name");
             Exception e = Utils.CheckGrpcUrl(url);
             if (e != null)
-                throw new InvalidArgumentException("Bad url.", e);
+                throw new ArgumentException("Bad url.", e);
             Url = url;
             Name = name;
             Properties = properties?.Clone();
@@ -34,7 +32,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public BaseClient()
         {
-
+            
         }
     }
 }

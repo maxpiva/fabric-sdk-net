@@ -13,14 +13,10 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
@@ -68,7 +64,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         public static void SetUpBeforeClass(TestContext context)
         {
             config = Config.Instance;
-            
+
             plainText = PLAIN_TEXT_HEX.FromHexString();
             sig = SIGNATURE_HEX.FromHexString();
             pemCert = PEM_CERT_HEX.FromHexString();
@@ -89,7 +85,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             crypto.Store.AddCertificate(cert);
             //        crypto.getTrustStore().setKeyEntry("key", key, "123456".toCharArray(), certificates);
             //        pem.close();
-
         }
 
         private static X509Certificate2 GenerateFromCertAndPriv()
@@ -131,12 +126,13 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                     store.Save(ms, "123456".ToCharArray(), new SecureRandom());
                     ms.Flush();
                     ms.Position = 0;
-                    return new X509Certificate2(ms.ToArray(), "123456",X509KeyStorageFlags.Exportable|X509KeyStorageFlags.EphemeralKeySet);
+                    return new X509Certificate2(ms.ToArray(), "123456", X509KeyStorageFlags.Exportable | X509KeyStorageFlags.EphemeralKeySet);
                 }
             }
 
             return null;
         }
+
         /*
 
         // Tests initializing with an invalid certificate format
@@ -207,14 +203,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             {
                 Assert.Fail($"TestGetSetProperties should not throw exception. Error: {e.Message}");
             }
-            catch (InvalidArgumentException e)
+            catch (ArgumentException e)
             {
                 Assert.Fail($"TestGetSetProperties should not throw exception. Error: {e.Message}");
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSecurityLevel()
         {
             CryptoPrimitives testCrypto = new CryptoPrimitives();
@@ -222,7 +218,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSetHashAlgorithm()
         {
             CryptoPrimitives testCrypto = new CryptoPrimitives();
@@ -231,7 +227,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
 
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestSetHashAlgorithmBadArg()
         {
             CryptoPrimitives testCrypto = new CryptoPrimitives();
@@ -261,7 +257,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             try
             {
                 Assert.IsNotNull(crypto.Store.Certificates.Select(a => a.X509Certificate2).Contains(testCACert));
-                Assert.IsNull(crypto.Store.Certificates.Select(a=>a.X509Certificate2).FirstOrDefault(a=>a.IssuerName.Name=="testtesttest"));
+                Assert.IsNull(crypto.Store.Certificates.Select(a => a.X509Certificate2).FirstOrDefault(a => a.IssuerName.Name == "testtesttest"));
             }
             catch (System.Exception e)
             {
@@ -280,6 +276,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             }
             catch (System.Exception)
             {
+                // ignored
             }
         }
 
@@ -291,7 +288,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 CryptoPrimitives myCrypto = new CryptoPrimitives();
                 KeyStore keyStore = new KeyStore();
                 //     myCrypto.setTrustStore(keyStore);
-                myCrypto.Store=keyStore;
+                myCrypto.Store = keyStore;
                 Assert.AreEqual(keyStore, myCrypto.Store);
             }
             catch (System.Exception e)
@@ -332,7 +329,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestAddCACertificateToTrustStoreNullAlias()
         {
             try
@@ -344,6 +341,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 Assert.Fail($"TestAddCACertificateToTrustStoreNullAlias should not throw CryptoException. Error: {e.Message}");
             }
         }
+
         /*
         [TestMethod]
         [ExpectedException(typeof(InvalidArgumentException))]
@@ -380,7 +378,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
         */
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestAddCACertificateToTrustStoreNoFile()
         {
             try
@@ -394,7 +392,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestAddCACertificateToTrustStoreInvalidCertFile()
         {
             try
@@ -408,7 +406,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestAddCACertificateToTrustStoreNoCert()
         {
             try
@@ -420,6 +418,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 Assert.Fail($"testAddCACertificateToTrustStoreNoCert should not have thrown CryptoException. Error {e.Message}");
             }
         }
+
         /*
         // Tests addCACertificateToTrustStore passing a certificate and null for alias
         [TestMethod]
@@ -438,30 +437,30 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
         */
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestAddCACertificateToTrustStoreNullFile()
         {
             crypto.Store.AddCertificateFromFile(null);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestLoadCACertsBadInput()
         {
-            crypto.Store.AddCertificate((X509Certificate2)null);
+            crypto.Store.AddCertificate((X509Certificate2) null);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestLoadCACertsBytesBadInput()
         {
-            crypto.Store.AddCertificate((string)null);
+            crypto.Store.AddCertificate((string) null);
         }
 
         [TestMethod]
         public void TestValidateNullCertificateByteArray()
         {
-            Assert.IsFalse(crypto.Store.Validate((string)null));
+            Assert.IsFalse(crypto.Store.Validate((string) null));
         }
 
         [TestMethod]
@@ -503,10 +502,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(IllegalArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBytesToCertificateNullBytes()
         {
-            Certificate.Create((string)null);
+            Certificate.Create((string) null);
         }
 
         [TestMethod]
@@ -517,7 +516,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         }
 
         [TestMethod]
-        [ExpectedException(typeof(IllegalArgumentException))]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestBytesToPrivateKeyNullBytes()
         {
             KeyPair.Create((string) null);
@@ -529,7 +528,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             try
             {
                 string bytes = File.ReadAllText("Resources/tls-client.key".Locate());
-                KeyPair pk = KeyPair.Create(bytes);
+                KeyPair.Create(bytes);
             }
             catch (System.Exception e)
             {
@@ -542,8 +541,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                string bytes = File.ReadAllText(("Resources/tls-client-pk8.key").Locate());
-                KeyPair pk = KeyPair.Create(bytes);
+                string bytes = File.ReadAllText("Resources/tls-client-pk8.key".Locate());
+                KeyPair.Create(bytes);
             }
             catch (System.Exception e)
             {
@@ -554,7 +553,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         [TestMethod]
         public void TestValidateNotSignedCertificate()
         {
-            bool res=true;
+            bool res = true;
             try
             {
                 X509Certificate2 cert = new X509Certificate2("Resources/notsigned.crt".Locate());
@@ -564,6 +563,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
             {
                 Assert.Fail("cannot read cert file");
             }
+
             Assert.IsFalse(res);
         }
 
@@ -603,7 +603,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         [ExpectedException(typeof(CryptoException))]
         public void TestVerifyBadCert()
         {
-            byte[] badCert = new byte[] {(byte) 0x00};
+            byte[] badCert = new byte[] { 0x00};
             crypto.Verify(badCert, SIGNING_ALGORITHM, sig, plainText);
         } // testVerifyBadCert
 
@@ -611,8 +611,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         [ExpectedException(typeof(CryptoException))]
         public void TestVerifyBadSig()
         {
-            byte[] badSig = new byte[] {(byte) 0x00};
-            bool res=crypto.Verify(pemCert, SIGNING_ALGORITHM, badSig, plainText);
+            byte[] badSig = new byte[] {0x00};
+            bool res = crypto.Verify(pemCert, SIGNING_ALGORITHM, badSig, plainText);
             if (!res)
                 throw new CryptoException("Not Verified");
         } // testVerifyBadSign
@@ -620,7 +620,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         [TestMethod]
         public void TestVerifyBadPlaintext()
         {
-            byte[] badPlainText = new byte[] {(byte) 0x00};
+            byte[] badPlainText = new byte[] {0x00};
             try
             {
                 Assert.IsFalse(crypto.Verify(pemCert, SIGNING_ALGORITHM, sig, badPlainText));
@@ -649,25 +649,24 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         {
             try
             {
-                crypto.Sign(null, new byte[] {(byte) 0x00});
+                crypto.Sign(null, new byte[] { 0x00});
                 Assert.Fail("sign() should have thrown an exception");
             }
-            catch (IllegalArgumentException)
+            catch (ArgumentException)
             {
             }
         }
 
         private KeyPair FindRightKey()
         {
-
-            foreach (X509Certificate2 cert in crypto.Store.Certificates.Select(a=>a.X509Certificate2))
+            foreach (X509Certificate2 cert in crypto.Store.Certificates.Select(a => a.X509Certificate2))
             {
                 if (cert.HasPrivateKey && cert.FriendlyName == "Hyperledger.Fabric")
                 {
-                    byte[] certidata = cert.Export(X509ContentType.Pkcs12,"123");
+                    byte[] certidata = cert.Export(X509ContentType.Pkcs12, "123");
                     Pkcs12Store store = new Pkcs12Store();
-                    store.Load(new MemoryStream(certidata),"123".ToCharArray());
-                    AsymmetricKeyEntry parameter=null;
+                    store.Load(new MemoryStream(certidata), "123".ToCharArray());
+                    AsymmetricKeyEntry parameter = null;
                     List<string> alias = store.Aliases.Cast<string>().ToList();
                     foreach (string s in alias)
                     {
@@ -679,7 +678,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                         return null;
                     return KeyPair.Create(null, parameter.Key);
                 }
-
             }
 
             return null;
@@ -689,7 +687,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         public void TestSignValidData()
         {
             KeyPair key = FindRightKey();
-            
+
             crypto.Sign(key, plainText);
             Assert.IsTrue(crypto.Sign(key, plainText).Length > 0);
         }
@@ -703,7 +701,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
                 crypto.Sign(key, null);
                 Assert.Fail("sign() should have thrown an exception");
             }
-            catch (IllegalArgumentException)
+            catch (ArgumentException)
             {
             }
             catch (System.Exception e)
@@ -717,14 +715,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Security
         // TODO need to regen key now that we're using CryptoSuite
         public void TestSign()
         {
-            byte[] plainText = "123456".ToBytes();
+            byte[] pText = "123456".ToBytes();
             byte[] signature;
             try
             {
                 KeyPair key = FindRightKey();
-                signature = crypto.Sign(key, plainText);
-                byte[] cert = File.ReadAllBytes(("Resources/keypair-signed.crt").Locate());
-                Assert.IsTrue(crypto.Verify(cert, SIGNING_ALGORITHM, signature, plainText));
+                signature = crypto.Sign(key, pText);
+                byte[] cert = File.ReadAllBytes("Resources/keypair-signed.crt".Locate());
+                Assert.IsTrue(crypto.Verify(cert, SIGNING_ALGORITHM, signature, pText));
             }
             catch (System.Exception e)
             {

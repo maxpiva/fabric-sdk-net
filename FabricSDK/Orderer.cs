@@ -15,7 +15,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Common;
@@ -24,27 +23,32 @@ using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json;
+using Config = Hyperledger.Fabric.SDK.Helper.Config;
+
 
 namespace Hyperledger.Fabric.SDK
 {
     /**
      * The Orderer class represents a orderer to which SDK sends deploy, invoke, or query requests.
      */
-    
+
     public class Orderer : BaseClient
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Orderer));
+        private string channelName = string.Empty;
 
         private byte[] clientTLSCertificateDigest;
+        private string endPoint;
+
 
         private OrdererClient ordererClient;
 
-
         public Orderer(string name, string url, Properties properties) : base(name, url, properties)
         {
+            logger.Trace($"Created {ToString()}");
         }
 
-        public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = new Endpoint(Url, Properties).GetClientTLSCertificateDigest());
+        public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = SDK.Endpoint.Create(Url, Properties).GetClientTLSCertificateDigest());
 
         /**
          * Get the channel of which this orderer is a member.
@@ -58,10 +62,28 @@ namespace Hyperledger.Fabric.SDK
             set
             {
                 if (value == null)
-                    throw new InvalidArgumentException("Channel can not be null");
+                    throw new ArgumentException("Channel can not be null");
                 if (null != base.Channel && base.Channel != value)
-                    throw new InvalidArgumentException($"Can not add orderer {Name} to channel {value.Name} because it already belongs to channel {Channel.Name}.");
+                    throw new ArgumentException($"Can not add orderer {Name} to channel {value.Name} because it already belongs to channel {Channel.Name}.");
+                logger.Debug($"{ToString()} setting channel {value}");
                 base.Channel = value;
+                channelName = value.Name;
+            }
+        }
+
+
+
+        public string Endpoint
+        {
+            get
+            {
+                if (null == endPoint)
+                {
+                    (string _, string host, int port) = Utils.ParseGrpcUrl(Url);
+                    endPoint = host + ":" + port.ToString().ToLowerInvariant().Trim();
+                }
+
+                return endPoint;
             }
         }
 
@@ -73,7 +95,9 @@ namespace Hyperledger.Fabric.SDK
 
         public void UnsetChannel()
         {
+            logger.Debug($"{ToString()} unsetting channel");
             base.Channel = null;
+            channelName = string.Empty;
         }
 
 
@@ -85,75 +109,108 @@ namespace Hyperledger.Fabric.SDK
 
         public BroadcastResponse SendTransaction(Envelope transaction)
         {
-            return SendTransactionAsync(transaction).RunAndUnwarp();
+            return SendTransactionAsync(transaction).RunAndUnwrap();
         }
-        public async Task<BroadcastResponse> SendTransactionAsync(Envelope transaction, CancellationToken token=default(CancellationToken))
+
+        public async Task<BroadcastResponse> SendTransactionAsync(Envelope transaction, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
-            if (transaction==null)
-                throw new IllegalArgumentException("Unable to send a null transaction");
-            logger.Debug($"Order.sendTransaction name: {Name}, url: {Url}");
-            OrdererClient localOrdererClient = ordererClient;
-            if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
-            {
-                ordererClient = new OrdererClient(this, new Endpoint(Url, Properties), Properties);
-                localOrdererClient = ordererClient;
-            }
+            if (transaction == null)
+                throw new ArgumentException("Unable to send a null transaction");
+            logger.Debug($"{ToString()} Order.sendTransaction");
+            OrdererClient localOrdererClient = GetOrdererClient();
+
             try
             {
-                return await localOrdererClient.SendTransactionAsync(transaction,token);
+                return await localOrdererClient.SendTransactionAsync(transaction, token).ConfigureAwait(false);
             }
             catch (Exception)
             {
+                RemoveOrdererClient(true);
                 ordererClient = null;
                 throw;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private OrdererClient GetOrdererClient()
+        {
+            OrdererClient localOrdererClient = ordererClient;
+            if (localOrdererClient == null || !localOrdererClient.IsChannelActive)
+            {
+                logger.Trace($"Channel {channelName} creating new orderer client {ToString()}");
+                localOrdererClient = new OrdererClient(this, SDK.Endpoint.Create(Url, Properties), Properties);
+                ordererClient = localOrdererClient;
+            }
+            return localOrdererClient;
+        }
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private void RemoveOrdererClient(bool force)
+        {
+            OrdererClient localOrderClient = ordererClient;
+            ordererClient = null;
+            if (null != localOrderClient)
+            {
+                logger.Debug($"Channel {channelName} removing orderer client {ToString()}, isActive: {localOrderClient.IsChannelActive}");
+                try
+                {
+                    localOrderClient.Shutdown(force);
+                }
+                catch (Exception e)
+                {
+                    logger.Error($"{ToString()} error message: {e.Message}");
+                    logger.Trace(e.Message,e);
+                }
+
             }
         }
         public List<DeliverResponse> SendDeliver(Envelope transaction)
         {
-            return SendDeliverAsync(transaction).RunAndUnwarp();
+            return SendDeliverAsync(transaction).RunAndUnwrap();
         }
-        public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope transaction, CancellationToken token=default(CancellationToken))
+
+        public async Task<List<DeliverResponse>> SendDeliverAsync(Envelope transaction, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
                 throw new TransactionException($"Orderer {Name} was shutdown.");
-            OrdererClient localOrdererClient = ordererClient;
-            logger.Debug($"Order.sendDeliver name: {Name}, url: {Url}");
-            if (localOrdererClient == null || !localOrdererClient.IsChannelActive())
+            OrdererClient localOrdererClient = GetOrdererClient();
+            logger.Debug($"{ToString()} Orderer.sendDeliver");
+
+
+            if (localOrdererClient == null || !localOrdererClient.IsChannelActive)
             {
-                localOrdererClient = new OrdererClient(this, new Endpoint(Url, Properties), Properties);
+                localOrdererClient = new OrdererClient(this, SDK.Endpoint.Create(Url, Properties), Properties);
                 ordererClient = localOrdererClient;
             }
+
             try
             {
-                return await localOrdererClient.SendDeliverAsync(transaction,token);
+                return await localOrdererClient.SendDeliverAsync(transaction, token).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                ordererClient = null;
+                logger.Error($"{ToString()} removing {localOrdererClient} due to {e.Message}", e);
+                RemoveOrdererClient(true);
                 throw;
             }
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown(bool force)
         {
             if (shutdown)
                 return;
             shutdown = true;
-            base.Channel = null;
-            if (ordererClient != null)
-            {
-                OrdererClient torderClientDeliver = ordererClient;
-                ordererClient = null;
-                torderClientDeliver.Shutdown(force);
-            }
+            logger.Debug($"Shutting down {ToString()}");
+            RemoveOrdererClient(true);
         }
 
         ~Orderer()
         {
             Shutdown(true);
         }
-        public override string ToString() => "Orderer: " + Name + "(" + Url + ")";
+
+        public override string ToString() => $"Orderer{{id: {id}, channelName: {channelName}, name:{Name}, url: {Url}}}";
     } // end Orderer
 }

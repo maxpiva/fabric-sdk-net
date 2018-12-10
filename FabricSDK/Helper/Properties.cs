@@ -10,7 +10,7 @@ namespace Hyperledger.Fabric.SDK.Helper
     public class Properties : IDictionary<string, string>
     {
         private string filename;
-        private Dictionary<string, string> list=new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+        private Dictionary<string, string> list = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
 
         public void Add(string key, string value)
@@ -41,6 +41,45 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public ICollection<string> Keys => list.Keys;
         public ICollection<string> Values => list.Values;
+
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+        {
+            foreach (KeyValuePair<string, string> str in list)
+                yield return str;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public void Add(KeyValuePair<string, string> item)
+        {
+            Set(item.Key, item.Value);
+        }
+
+        public void Clear()
+        {
+            list.Clear();
+        }
+
+        public bool Contains(KeyValuePair<string, string> item)
+        {
+            return list.Contains(item);
+        }
+
+        public void CopyTo(KeyValuePair<string, string>[] array, int arrayIndex)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Remove(KeyValuePair<string, string> item)
+        {
+            return list.Remove(item.Key);
+        }
+
+        public int Count => list.Count;
+        public bool IsReadOnly => false;
 
         public string Get(string field, string defValue)
         {
@@ -85,11 +124,11 @@ namespace Hyperledger.Fabric.SDK.Helper
             Save(filename);
         }
 
-        public void Save(string filename)
+        public void Save(string fname)
         {
-            this.filename = filename;
+            filename = fname;
 
-            StreamWriter file = new StreamWriter(filename);
+            StreamWriter file = new StreamWriter(fname);
 
             foreach (string prop in list.Keys.ToArray())
                 if (!string.IsNullOrWhiteSpace(list[prop]))
@@ -104,13 +143,13 @@ namespace Hyperledger.Fabric.SDK.Helper
                 Load(filename);
         }
 
-        public void Load(string filename)
+        public void Load(string fname)
         {
-            this.filename = filename;
+            filename = fname;
             list = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
-            if (File.Exists(filename))
-                LoadFromFile(filename);
+            if (File.Exists(fname))
+                LoadFromFile(fname);
         }
 
         private void LoadFromFile(string file)
@@ -133,51 +172,12 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
         }
 
-        public IEnumerator<KeyValuePair<string,string>> GetEnumerator()
-        {
-            foreach (KeyValuePair<string, string> str in list)
-                yield return str;
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
         public Properties Clone()
         {
-            Properties p=new Properties();
+            Properties p = new Properties();
             p.filename = filename;
             p.list = list.ToDictionary(a => a.Key, a => a.Value);
             return p;
         }
-
-        public void Add(KeyValuePair<string, string> item)
-        {
-            Set(item.Key,item.Value);
-        }
-
-        public void Clear()
-        {
-            list.Clear();
-        }
-
-        public bool Contains(KeyValuePair<string, string> item)
-        {
-            return list.Contains(item);
-        }
-
-        public void CopyTo(KeyValuePair<string, string>[] array, int arrayIndex)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool Remove(KeyValuePair<string, string> item)
-        {
-            return list.Remove(item.Key);
-        }
-
-        public int Count => list.Count;
-        public bool IsReadOnly => false;
     }
 }

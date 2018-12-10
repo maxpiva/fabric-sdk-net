@@ -40,9 +40,9 @@ namespace Hyperledger.Fabric.SDK.Builders
             return this;
         }
 
-        public new GetConfigBlockBuilder Context(TransactionContext context)
+        public new GetConfigBlockBuilder Context(TransactionContext ctx)
         {
-            base.Context(context);
+            base.Context(ctx);
             return this;
         }
 

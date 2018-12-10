@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Grpc.Core;
 using Hyperledger.Fabric.SDK.Logging;
 
 namespace Hyperledger.Fabric.SDK.Helper
@@ -11,14 +10,14 @@ namespace Hyperledger.Fabric.SDK.Helper
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(DaemonTask<T, S>));
         private TaskCompletionSource<bool> _completeTask;
-        private bool canceling;
         private bool _needCompletition;
 
         //A Task that wait for connection, but keeps recv events from the GRPC channel.
         private CancellationTokenSource _tokenSource;
+        private bool canceling;
         public ADStreamingCall<T, S> Sender { get; private set; }
 
-        public Task Connect(ADStreamingCall<T, S> call, Func<S, ProcessResult> process_function, Action<Exception> exception_function, CancellationToken token)
+        public Task ConnectAsync(ADStreamingCall<T, S> call, Func<S, ProcessResult> process_function, Action<Exception> exception_function, CancellationToken token)
         {
             Cancel();
             canceling = false;
@@ -33,7 +32,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 try
                 {
-                    while (await call.Call.ResponseStream.MoveNext(_tokenSource.Token))
+                    while (await call.Call.ResponseStream.MoveNext(_tokenSource.Token).ConfigureAwait(false))
                     {
                         _tokenSource.Token.ThrowIfCancellationRequested();
                         S evnt = call.Call.ResponseStream.Current;
@@ -68,6 +67,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             }, _tokenSource.Token);
             return _completeTask.Task;
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Cancel()
         {

@@ -12,6 +12,7 @@
  *  limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,12 +23,12 @@ using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
+using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
-using Hyperledger.Fabric.SDK.Responses;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -38,7 +39,7 @@ namespace Hyperledger.Fabric.Tests.SDK
     [TestCategory("SDK")]
     public class ChannelTest
     {
-        private static HFClient hfclient ;
+        private static HFClient hfclient;
         private static Channel shutdownChannel;
         private static readonly string BAD_STUFF = "this is bad!";
         private static Orderer throwOrderer;
@@ -83,7 +84,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Assert.AreEqual(testchannel.Peers.Count, 0);
                 Assert.AreEqual(testchannel.IsInitialized, false);
             }
-            catch (InvalidArgumentException e)
+            catch (ArgumentException e)
             {
                 Assert.Fail($"Unexpected exception {e.Message}");
             }
@@ -114,9 +115,10 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel client is invalid can not be null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel client is invalid can not be null.")]
         public void TestChannelNullClient()
         {
+            // ReSharper disable once ObjectCreationAsStatement
             new Channel(CHANNEL_NAME, null);
         }
 
@@ -133,7 +135,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null peer to throw exception.");
             }
-            catch (InvalidArgumentException)
+            catch (ArgumentException)
             {
                 Assert.AreEqual(testChannel?.Peers.Count ?? -1, 0);
             }
@@ -153,7 +155,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 testChannel.AddPeer(peer);
                 Assert.Fail("Expected no named peer to throw exception.");
             }
-            catch (InvalidArgumentException)
+            catch (ArgumentException)
             {
                 Assert.AreEqual(testChannel?.Peers.Count ?? -1, 0);
             }
@@ -172,7 +174,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null order to throw exception.");
             }
-            catch (InvalidArgumentException)
+            catch (ArgumentException)
             {
                 Assert.AreEqual(testChannel?.Orderers.Count ?? -1, 0);
             }
@@ -191,7 +193,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
                 Assert.Fail("Expected set null peer to throw exception.");
             }
-            catch (InvalidArgumentException)
+            catch (ArgumentException)
             {
                 Assert.AreEqual(testChannel?.EventHubs.Count ?? -1, 0);
             }
@@ -206,7 +208,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Channel testChannel = new MockChannel(CHANNEL_NAME, hfclient);
             Peer peer = hfclient.NewPeer("peer_", "grpc://localhost:7051");
 
-            testChannel.AddPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRoleExtensions.NoEventSource()));
+            testChannel.AddPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER));
             Assert.IsFalse(testChannel.IsInitialized);
             testChannel.Initialize();
             Assert.IsTrue(testChannel.IsInitialized);
@@ -241,14 +243,14 @@ namespace Hyperledger.Fabric.Tests.SDK
             {
                 Assert.IsTrue(shutdownChannel.IsShutdown);
             }
-            catch (InvalidArgumentException)
+            catch (ArgumentException)
             {
                 Assert.IsTrue(shutdownChannel.IsInitialized);
             }
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownAddPeer()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -256,7 +258,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownAddOrderer()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -264,7 +266,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownAddEventHub()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -281,7 +283,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownInitialize()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -290,7 +292,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownInstiateProposal()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -298,7 +300,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelShutdownQueryTransactionByIDl()
         {
             Assert.IsTrue(shutdownChannel.IsShutdown);
@@ -306,15 +308,14 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel shutdown has been shutdown.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel shutdown has been shutdown.")]
         public void TestChannelBadOrderer()
         {
-            shutdownChannel.SendTransaction(null,(int?)null);
-
+            shutdownChannel.SendTransaction(null,  null);
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Peer value is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Peer value is null.")]
         public void TestChannelBadPeerNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -322,7 +323,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel channel does not have peer peer2")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel channel does not have peer peer2")]
         public void TestChannelBadPeerDoesNotBelong()
         {
             Channel channel = CreateRunningChannel(null);
@@ -334,8 +335,8 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Peer peer1 not set for channel channel")]
-         public void TestChannelBadPeerDoesNotBelong2()
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Peer peer1 not set for channel channel")]
+        public void TestChannelBadPeerDoesNotBelong2()
         {
             Channel channel = CreateRunningChannel(null);
 
@@ -348,7 +349,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Peer value is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Peer value is null.")]
         public void TestChannelBadPeerCollection()
         {
             Channel channel = CreateRunningChannel(null);
@@ -357,7 +358,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Collection of peers is empty.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Collection of peers is empty.")]
         public void TestChannelBadPeerCollectionEmpty()
         {
             Channel channel = CreateRunningChannel(null);
@@ -366,7 +367,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Collection of peers is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Collection of peers is null.")]
         public void TestChannelBadPeerCollectionNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -376,7 +377,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel by the name testTwoChannelsSameName already exists")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel by the name testTwoChannelsSameName already exists")]
         public void TestTwoChannelsSameName()
         {
             CreateRunningChannel("testTwoChannelsSameName", null);
@@ -438,13 +439,13 @@ namespace Hyperledger.Fabric.Tests.SDK
         public void TestChannelPeerJoinNoOrderer()
         {
             Channel channel = CreateRunningChannel(null);
-            channel.orderers = new List<Orderer>();
+            channel.orderers = new ConcurrentHashSet<Orderer>();
 
             channel.JoinPeer(hfclient.NewPeer("peerJoiningNOT", "grpc://localhost:22"));
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not initialize channel without a valid name.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Can not initialize channel without a valid name.")]
         public void TestChannelInitNoname()
         {
             Channel channel = hfclient.NewChannel("del");
@@ -453,7 +454,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Can not initialize channel without a client object.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Can not initialize channel without a client object.")]
         public void TestChannelInitNullClient()
         {
             Channel channel = hfclient.NewChannel("testChannelInitNullClient");
@@ -462,7 +463,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "InstantiateProposalRequest is null")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "InstantiateProposalRequest is null")]
         public void TestChannelsendInstantiationProposalNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -471,7 +472,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "InstallProposalRequest is null")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "InstallProposalRequest is null")]
         public void TestChannelsendInstallProposalNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -480,7 +481,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Upgradeproposal is null")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Upgradeproposal is null")]
         public void TestChannelsendUpgradeProposalNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -491,7 +492,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         //queryBlockByHash
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "blockHash parameter is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "blockHash parameter is null.")]
         public void TestChannelQueryBlockByHashNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -500,7 +501,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "Channel channel has not been initialized.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Channel channel has not been initialized.")]
         public void TestChannelQueryBlockByHashNotInitialized()
         {
             Channel channel = CreateRunningChannel(null);
@@ -510,7 +511,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "TxID parameter is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "TxID parameter is null.")]
         public void TestChannelQueryBlockByTransactionIDNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -519,7 +520,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(InvalidArgumentException), "TxID parameter is null.")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "TxID parameter is null.")]
         public void TestChannelQueryTransactionByIDNull()
         {
             Channel channel = CreateRunningChannel(null);
@@ -570,6 +571,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             peer.endorserClent = new MockEndorserClient(new System.Exception("Error bad bad bad"));
             hfclient.QueryChannels(peer);
         }
+
         /*
         [TestMethod]
         [ExpectedExceptionWithMessage(typeof(ProposalException), "ABORTED")]
@@ -645,7 +647,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The META-INF directory does not exist in")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "The META-INF directory does not exist in")]
         public void TestProposalBuilderWithNoMetaInfDir()
         {
             InstallProposalBuilder installProposalBuilder = InstallProposalBuilder.Create();
@@ -666,7 +668,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "Directory to find chaincode META-INF")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "Directory to find chaincode META-INF")]
         public void TestProposalBuilderWithMetaInfExistsNOT()
         {
             InstallProposalBuilder installProposalBuilder = InstallProposalBuilder.Create();
@@ -739,7 +741,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         }
 
         [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(IllegalArgumentException), "The META-INF directory")]
+        [ExpectedExceptionWithMessage(typeof(ArgumentException), "The META-INF directory")]
         public void TestProposalBuilderWithMetaInfEmpty()
         {
             string emptyINF = "fixture/meta-infs/emptyMetaInf/META-INF".Locate(); // make it cause git won't check in empty directory
@@ -762,7 +764,7 @@ namespace Hyperledger.Fabric.Tests.SDK
 
             installProposalBuilder.Context(transactionContext);
 
-            Proposal proposal = installProposalBuilder.Build(); // Build it get the proposal. Then unpack it to see if it's what we epect.
+            installProposalBuilder.Build(); // Build it get the proposal. Then unpack it to see if it's what we epect.
         }
 
         public class ThrowOrderer : Orderer
@@ -788,45 +790,45 @@ namespace Hyperledger.Fabric.Tests.SDK
             {
             }
 
-            protected override Task ParseConfigBlockAsync(CancellationToken token)
+            protected override Task<Dictionary<string, MSP>> ParseConfigBlockAsync(bool force, CancellationToken token)
+            {
+                return Task.FromResult((Dictionary<string, MSP>) null);
+            }
+
+            protected override Task LoadCACertificatesAsync(bool force, CancellationToken token)
             {
                 return Task.FromResult(0);
             }
-
-            protected override Task LoadCACertificatesAsync(CancellationToken token)
-            {
-                return Task.FromResult(0);
-            }
-
         }
 
         private class MockEndorserClient : EndorserClient
         {
-            private readonly Protos.Peer.FabricProposalResponse.ProposalResponse returned;
+            private readonly ProposalResponse returned;
             private readonly System.Exception throwThis;
 
-            public MockEndorserClient(System.Exception throwThis) : base(new Endpoint("grpc://loclhost:99", null))
+            public MockEndorserClient(System.Exception throwThis) : base("blahchannlname", "blahpeerName",new Endpoint("grpc://loclhost:99", null))
             {
-                this.throwThis = throwThis ?? throw new IllegalArgumentException("Can't throw a null!");
-                returned= null;
+                this.throwThis = throwThis ?? throw new ArgumentException("Can't throw a null!");
+                returned = null;
             }
 
-            public MockEndorserClient(Protos.Peer.FabricProposalResponse.ProposalResponse returned) : base(new Endpoint("grpc://loclhost:99", null))
+            // ReSharper disable once UnusedMember.Local
+            public MockEndorserClient(ProposalResponse returned) : base("blahchannlname", "blahpeerName",new Endpoint("grpc://loclhost:99", null))
             {
                 throwThis = null;
                 this.returned = returned;
             }
 
 
-            public override async Task<Fabric.Protos.Peer.FabricProposalResponse.ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
-            { 
+            public override bool IsChannelActive => true;
+
+
+            public override Task<ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
+            {
                 if (throwThis != null)
                     throw throwThis;
-                return await Task.FromResult(returned);
+                return Task.FromResult(returned);
             }
-
-
-            public override bool IsChannelActive => true;
         }
     }
 }

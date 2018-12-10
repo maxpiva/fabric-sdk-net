@@ -14,6 +14,7 @@ using Hyperledger.Fabric.Protos.Ledger.Rwset;
 using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -31,12 +32,14 @@ namespace Hyperledger.Fabric.SDK.Responses
 
         private readonly DiagnosticFileDumper diagnosticFileDumper = IS_TRACE_LEVEL ? Config.Instance.GetDiagnosticFileDumper() : null;
 
-        private ChaincodeID chaincodeID = null;
-
         private readonly WeakItem<ProposalResponsePayloadDeserializer, Protos.Peer.FabricProposalResponse.ProposalResponse> proposalResponsePayload;
 
-        public ProposalResponse(string transactionID, string chaincodeID, int status, string message) : base(transactionID, chaincodeID, status, message)
+        private ChaincodeID chaincodeID;
+        public TransactionContext TransactionContext { get; }
+
+        public ProposalResponse(TransactionContext transactionContext, int status, string message) : base(transactionContext.TxID, transactionContext.ChannelID, status, message)
         {
+            TransactionContext = transactionContext;
             proposalResponsePayload = new WeakItem<ProposalResponsePayloadDeserializer, Protos.Peer.FabricProposalResponse.ProposalResponse>((pr) => new ProposalResponsePayloadDeserializer(pr.Payload), () => ProtoProposalResponse);
         }
 
@@ -46,7 +49,7 @@ namespace Hyperledger.Fabric.SDK.Responses
             {
                 if (IsInvalid)
                 {
-                    throw new InvalidArgumentException("Proposal response is invalid.");
+                    throw new ArgumentException("Proposal response is invalid.");
                 }
 
                 return proposalResponsePayload.Reference;
@@ -55,7 +58,9 @@ namespace Hyperledger.Fabric.SDK.Responses
 
         public ByteString PayloadBytes => ProtoProposalResponse?.Payload;
 
-        public bool IsVerified { get; private set; } = false;
+        public bool IsVerified { get; private set; }
+
+        public bool HasBeenVerified { get; private set; }
 
         public Proposal Proposal { get; private set; }
 
@@ -75,9 +80,6 @@ namespace Hyperledger.Fabric.SDK.Responses
 
         public Peer Peer { get; set; } = null;
 
-        //    public ByteString getPayload() {
-        //        return proposalResponse.getPayload();
-        //    }
 
         /**
          * Chaincode ID that was executed.
@@ -104,7 +106,7 @@ namespace Hyperledger.Fabric.SDK.Responses
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidArgumentException(e);
+                    throw new ArgumentException(e.Message, e);
                 }
             }
         }
@@ -122,7 +124,7 @@ namespace Hyperledger.Fabric.SDK.Responses
             {
                 if (IsInvalid)
                 {
-                    throw new InvalidArgumentException("Proposal response is invalid.");
+                    throw new ArgumentException("Proposal response is invalid.");
                 }
 
                 try
@@ -136,13 +138,13 @@ namespace Hyperledger.Fabric.SDK.Responses
 
                     return ret.ToByteArray();
                 }
-                catch (InvalidArgumentException e)
+                catch (ArgumentException)
                 {
-                    throw e;
+                    throw;
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidArgumentException(e);
+                    throw new ArgumentException(e.Message, e);
                 }
             }
         }
@@ -159,23 +161,22 @@ namespace Hyperledger.Fabric.SDK.Responses
         {
             get
             {
-                if (IsInvalid)
-                {
-                    throw new InvalidArgumentException("Proposal response is invalid.");
-                }
+                if (statusReturnCode != -1)
+                    return statusReturnCode;
 
                 try
                 {
                     ProposalResponsePayloadDeserializer proposalResponsePayloadDeserializer = ProposalResponsePayloadDeserializer;
-                    return proposalResponsePayloadDeserializer.Extension.ResponseStatus;
+                    statusReturnCode=proposalResponsePayloadDeserializer.Extension.ResponseStatus;
+                    return statusReturnCode;
                 }
-                catch (InvalidArgumentException e)
+                catch (ArgumentException)
                 {
-                    throw e;
+                    throw;
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidArgumentException(e);
+                    throw new ArgumentException(e.Message, e);
                 }
             }
         }
@@ -194,7 +195,7 @@ namespace Hyperledger.Fabric.SDK.Responses
             {
                 if (IsInvalid)
                 {
-                    throw new InvalidArgumentException("Proposal response is invalid.");
+                    throw new ArgumentException("Proposal response is invalid.");
                 }
 
                 try
@@ -212,7 +213,7 @@ namespace Hyperledger.Fabric.SDK.Responses
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidArgumentException(e);
+                    throw new ArgumentException(e.Message, e);
                 }
             }
         }
@@ -230,47 +231,82 @@ namespace Hyperledger.Fabric.SDK.Responses
          */
         public bool Verify(ICryptoSuite crypto)
         {
-            if (IsVerified)
+            logger.Trace($"{Peer} verifying transaction: {TransactionID} endorsement.");
+            if (HasBeenVerified)
             {
                 // check if this proposalResponse was already verified   by client code
+                logger.Trace($"{Peer} transaction: {TransactionID} was already verified returned {IsVerified}");
                 return IsVerified;
             }
 
-            if (IsInvalid)
-            {
-                IsVerified = false;
-            }
-
-            Endorsement endorsement = ProtoProposalResponse.Endorsement;
-            ByteString sig = endorsement.Signature;
-
             try
             {
-                SerializedIdentity endorser = SerializedIdentity.Parser.ParseFrom(endorsement.Endorser);
-                ByteString plainText = ByteString.CopyFrom(ProtoProposalResponse.Payload.Concat(endorsement.Endorser).ToArray());
-
-                if (Config.Instance.ExtraLogLevel(10))
+                if (IsInvalid)
                 {
-                    if (null != diagnosticFileDumper)
-                    {
-                        StringBuilder sb = new StringBuilder(10000);
-                        sb.AppendLine("payload TransactionBuilderbytes in hex: " + ProtoProposalResponse.Payload.ToByteArray().ToHexString());
-                        sb.AppendLine("endorser bytes in hex: " + endorsement.ToByteArray().ToHexString());
-                        sb.Append("plainText bytes in hex: " + plainText.ToByteArray().ToHexString());
-
-                        logger.Trace("payload TransactionBuilderbytes:  " + diagnosticFileDumper.CreateDiagnosticFile(sb.ToString()));
-                    }
+                    IsVerified = false;
+                    logger.Debug($"{Peer} for transaction {TransactionID} returned invalid. Setting verify to false");
+                    return false;
                 }
 
-                IsVerified = crypto.Verify(endorser.IdBytes.ToByteArray(), Config.Instance.GetSignatureAlgorithm(), sig.ToByteArray(), plainText.ToByteArray());
-            }
-            catch (Exception e)
-            {
-                logger.ErrorException("verify: Cannot retrieve peer identity from ProposalResponse. Error is: " + e.Message, e);
-                IsVerified = false;
-            }
+                Endorsement endorsement = ProtoProposalResponse.Endorsement;
+                ByteString sig = endorsement.Signature;
+                byte[] endorserCertifcate = null;
+                byte[] signature = null;
+                byte[] data = null;
 
-            return IsVerified;
+                try
+                {
+                    SerializedIdentity endorser = SerializedIdentity.Parser.ParseFrom(endorsement.Endorser);
+                    ByteString plainText = ByteString.CopyFrom(ProtoProposalResponse.Payload.Concat(endorsement.Endorser).ToArray());
+
+                    if (Config.Instance.ExtraLogLevel(10))
+                    {
+                        if (null != diagnosticFileDumper)
+                        {
+                            StringBuilder sb = new StringBuilder(10000);
+                            sb.AppendLine("payload TransactionBuilder bytes in hex: " + ProtoProposalResponse.Payload.ToByteArray().ToHexString());
+                            sb.AppendLine("endorser bytes in hex: " + endorsement.ToByteArray().ToHexString());
+                            sb.Append("plainText bytes in hex: " + plainText.ToByteArray().ToHexString());
+                            logger.Trace("payload TransactionBuilder bytes:  " + diagnosticFileDumper.CreateDiagnosticFile(sb.ToString()));
+                        }
+                    }
+
+                    if (sig == null || sig.IsEmpty)
+                    {
+                        // we shouldn't get here ...
+                        logger.Warn($"{Peer} {TransactionID} returned signature is empty verify set to false.");
+                        IsVerified = false;
+                    }
+                    else
+                    {
+                        endorserCertifcate = endorser.IdBytes.ToByteArray();
+                        signature = sig.ToByteArray();
+                        data = plainText.ToByteArray();
+
+                        IsVerified = crypto.Verify(endorserCertifcate, Config.Instance.GetSignatureAlgorithm(), signature, data);
+                        if (!IsVerified)
+                        {
+                            logger.Warn($"{Peer} transaction: {TransactionID} verify: Failed to verify. Endorsers certificate: {endorserCertifcate.ToHexString()}, signature: {signature.ToHexString()}, signing algorithm: {Config.Instance.GetSignatureAlgorithm()}, signed data: {data.ToHexString()}.");
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    logger.ErrorException($"{Peer} transaction: {TransactionID} verify: Failed to verify. Endorsers certificate: {endorserCertifcate.ToHexString()}, signature: {signature.ToHexString()}, signing algorithm: {Config.Instance.GetSignatureAlgorithm()}, signed data: {data.ToHexString()}.", e);
+                    logger.Error($"{Peer} transaction: {TransactionID} verify: Cannot retrieve peer identity from ProposalResponse. Error is: {e.Message}");
+
+
+                    logger.ErrorException("verify: Cannot retrieve peer identity from ProposalResponse. Error is: " + e.Message, e);
+                    IsVerified = false;
+                }
+
+                logger.Debug($"{Peer} finished verify for transaction {TransactionID} returning {IsVerified}");
+                return IsVerified;
+            }
+            finally
+            {
+                HasBeenVerified = true;
+            }
         } // verify
 
         public void SetProposal(SignedProposal signedProposal)
@@ -281,7 +317,7 @@ namespace Hyperledger.Fabric.SDK.Responses
             }
             catch (InvalidProtocolBufferException e)
             {
-                throw new ProposalException("Proposal exception", e);
+                throw new ProposalException($"{Peer} transaction: {TransactionID} Proposal exception", e);
             }
         }
     }

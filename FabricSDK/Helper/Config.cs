@@ -25,21 +25,19 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Hyperledger.Fabric.SDK.Logging;
 
-
-
 [assembly: InternalsVisibleTo("Hyperledger.Fabric.Tests")]
+
 namespace Hyperledger.Fabric.SDK.Helper
 {
-
     public class Config
     {
         private static readonly ILog logger = LogProvider.GetLogger(typeof(Config));
-        
+
         private static readonly string DEFAULT_CONFIG = "config.properties";
         public static readonly string ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION = "org.hyperledger.fabric.sdk.configuration";
 
@@ -85,33 +83,43 @@ namespace Hyperledger.Fabric.SDK.Helper
         public static readonly string CONN_SSL_PROVIDER = "org.hyperledger.fabric.sdk.connections.ssl.sslProvider";
         public static readonly string CONN_SSL_NEGTYPE = "org.hyperledger.fabric.sdk.connections.ssl.negotiationType";
 
+        /**
+        * Default HFClient thread executor settings.
+        */
+
+        public static readonly string CLIENT_THREAD_EXECUTOR_COREPOOLSIZE = "org.hyperledger.fabric.sdk.client.thread_executor_corepoolsize";
+        public static readonly string CLIENT_THREAD_EXECUTOR_MAXIMUMPOOLSIZE = "org.hyperledger.fabric.sdk.client.thread_executor_maximumpoolsize";
+        public static readonly string CLIENT_THREAD_EXECUTOR_KEEPALIVETIME = "org.hyperledger.fabric.sdk.client.thread_executor_keepalivetime";
+        public static readonly string CLIENT_THREAD_EXECUTOR_KEEPALIVETIMEUNIT = "org.hyperledger.fabric.sdk.client.thread_executor_keepalivetimeunit";
 
         /**
          * Miscellaneous settings
          **/
         public static readonly string PROPOSAL_CONSISTENCY_VALIDATION = "org.hyperledger.fabric.sdk.proposal.consistency_validation";
+        public static readonly string SERVICE_DISCOVER_FREQ_SECONDS = "org.hyperledger.fabric.sdk.service_discovery.frequency_sec";
+        public static readonly string SERVICE_DISCOVER_WAIT_TIME = "org.hyperledger.fabric.sdk.service_discovery.discovery_wait_time";
 
         internal static Config config;
-        /**
-         * getConfig return back singleton for SDK configuration.
-         *
-         * @return Global configuration
-         */
-        public static Config Instance => config ?? (config = new Config());
-
 
 
         internal static Properties sdkProperties = new Properties();
-        private static void DefaultProperty(string key, string value)
+
+
+        private Dictionary<int, string> curveMapping;
+
+        private DiagnosticFileDumper diagnosticFileDumper;
+
+        private int extraLogLevel = -1;
+
+        private static long count = 0;
+        
+        //Provides a unique id for logging to identify a specific instance.
+        public string GetNextID()
         {
-            string envvalue = Environment.GetEnvironmentVariable(key);
-            if (!string.IsNullOrEmpty(envvalue))
-            {
-                value = envvalue;
-            }
-            if (!sdkProperties.Contains(key))
-                sdkProperties.Set(key, value);
+            return Interlocked.Increment(ref count).ToString();
         }
+
+
         private Config()
         {
             string fullpath = Environment.GetEnvironmentVariable(ORG_HYPERLEDGER_FABRIC_SDK_CONFIGURATION);
@@ -120,7 +128,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             bool exists = File.Exists(fullpath);
             try
             {
-                sdkProperties=new Properties();
+                sdkProperties = new Properties();
                 logger.Debug($"Loading configuration from {fullpath} and it is present: {exists}");
                 sdkProperties.Load(fullpath);
             }
@@ -130,7 +138,6 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
             finally
             {
-
                 // Default values
                 /**
                  * Timeout settings
@@ -170,6 +177,15 @@ namespace Hyperledger.Fabric.SDK.Helper
                 DefaultProperty(CONN_SSL_NEGTYPE, "TLS");
 
                 /**
+                * Default HFClient thread executor settings.
+                */
+
+                DefaultProperty(CLIENT_THREAD_EXECUTOR_COREPOOLSIZE, "0");
+                DefaultProperty(CLIENT_THREAD_EXECUTOR_MAXIMUMPOOLSIZE, "" + int.MaxValue);
+                DefaultProperty(CLIENT_THREAD_EXECUTOR_KEEPALIVETIME, "" + "60");
+                DefaultProperty(CLIENT_THREAD_EXECUTOR_KEEPALIVETIMEUNIT, "SECONDS");
+
+                /**
                  * Logging settings
                  **/
                 DefaultProperty(MAX_LOG_STRING_LENGTH, "64");
@@ -182,8 +198,12 @@ namespace Hyperledger.Fabric.SDK.Helper
                 DefaultProperty(PROPOSAL_CONSISTENCY_VALIDATION, "true");
                 DefaultProperty(EVENTHUB_RECONNECTION_WARNING_RATE, "50");
                 DefaultProperty(PEER_EVENT_RECONNECTION_WARNING_RATE, "50");
+                DefaultProperty(SERVICE_DISCOVER_FREQ_SECONDS, "120");
+                DefaultProperty(SERVICE_DISCOVER_WAIT_TIME, "5000");
+
+
                 //LOGGERLEVEL DO NOT WORK WITH Abstract LibLog
-                string inLogLevel = sdkProperties.Get(LOGGERLEVEL);
+                //string inLogLevel = sdkProperties.Get(LOGGERLEVEL);
                 /*
                 if (inLogLevel!=null)
                 {
@@ -225,10 +245,26 @@ namespace Hyperledger.Fabric.SDK.Helper
                 }
                 */
             }
-
         }
 
+        /**
+         * getConfig return back singleton for SDK configuration.
+         *
+         * @return Global configuration
+         */
+        public static Config Instance => config ?? (config = new Config());
 
+        private static void DefaultProperty(string key, string value)
+        {
+            string envvalue = Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrEmpty(envvalue))
+            {
+                value = envvalue;
+            }
+
+            if (!sdkProperties.Contains(key))
+                sdkProperties.Set(key, value);
+        }
 
 
         /**
@@ -239,7 +275,6 @@ namespace Hyperledger.Fabric.SDK.Helper
          */
         private string GetProperty(string property)
         {
-
             string ret = sdkProperties.Get(property);
 
             if (null == ret)
@@ -251,7 +286,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         }
 
 
-
         /**
          * Get the configured security level. The value determines the elliptic curve used to generate keys.
          *
@@ -259,10 +293,9 @@ namespace Hyperledger.Fabric.SDK.Helper
          */
         public int GetSecurityLevel()
         {
-            if (int.TryParse(GetProperty(SECURITY_LEVEL),out int sec))
+            if (int.TryParse(GetProperty(SECURITY_LEVEL), out int sec))
                 return sec;
             return 0;
-
         }
 
         /**
@@ -284,7 +317,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         public string GetHashAlgorithm()
         {
             return GetProperty(HASH_ALGORITHM);
-
         }
 
         /**
@@ -295,7 +327,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         public string GetDefaultSSLProvider()
         {
             return GetProperty(CONN_SSL_PROVIDER);
-
         }
 
         /**
@@ -307,11 +338,7 @@ namespace Hyperledger.Fabric.SDK.Helper
         public string GetDefaultSSLNegotiationType()
         {
             return GetProperty(CONN_SSL_NEGTYPE);
-
         }
-
-
-        private Dictionary<int, string> curveMapping = null;
 
         /**
          * Get a mapping from strength to curve desired.
@@ -331,10 +358,10 @@ namespace Hyperledger.Fabric.SDK.Helper
             {
                 //empty will be caught later.
 
-                string[] cmaps = Regex.Split(property,"[ \t]*:[ \t]*");
-                foreach(string mape in cmaps)
-                { 
-                    string[] ep = Regex.Split(mape,"[ \t]*=[ \t]*");
+                string[] cmaps = Regex.Split(property, "[ \t]*:[ \t]*");
+                foreach (string mape in cmaps)
+                {
+                    string[] ep = Regex.Split(mape, "[ \t]*=[ \t]*");
                     if (ep.Length != 2)
                     {
                         logger.Warn($"Bad curve mapping for {mape} in property {SECURITY_CURVE_MAPPING}");
@@ -350,9 +377,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                     {
                         logger.Warn($"Bad curve mapping. Integer needed for strength {ep[0]} for {mape} in property {SECURITY_CURVE_MAPPING}");
                     }
-
                 }
-
             }
 
             return lcurveMapping;
@@ -456,6 +481,30 @@ namespace Hyperledger.Fabric.SDK.Helper
             return 0;
         }
 
+        /**
+         * How often serviced discovery is preformed in seconds.
+         *
+         * @return
+         */
+        public int GetServiceDiscoveryFreqSeconds()
+        {
+            if (int.TryParse(GetProperty(SERVICE_DISCOVER_FREQ_SECONDS), out int p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * Time to wait for service discovery to complete.
+         *
+         * @return
+         */
+        public int GetServiceDiscoveryWaitTime()
+        {
+            if (int.TryParse(GetProperty(SERVICE_DISCOVER_WAIT_TIME), out int p))
+                return p;
+            return 0;
+        }
+
         public long GetEventHubConnectionWaitTime()
         {
             if (long.TryParse(GetProperty(EVENTHUB_CONNECTION_WAIT_TIME), out long p))
@@ -502,10 +551,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             if (bool.TryParse(GetProperty(PROPOSAL_CONSISTENCY_VALIDATION), out bool p))
                 return p;
             return false;
-
         }
-
-        private int extraLogLevel = -1;
 
         public bool ExtraLogLevel(int val)
         {
@@ -516,10 +562,7 @@ namespace Hyperledger.Fabric.SDK.Helper
             }
 
             return val <= extraLogLevel;
-
         }
-
-        DiagnosticFileDumper diagnosticFileDumper = null;
 
         /**
          * The directory where diagnostic dumps are to be place, null if none should be done.
@@ -529,7 +572,6 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         public DiagnosticFileDumper GetDiagnosticFileDumper()
         {
-
             if (diagnosticFileDumper != null)
             {
                 return diagnosticFileDumper;
@@ -539,9 +581,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
             if (dd != null)
             {
-
                 diagnosticFileDumper = DiagnosticFileDumper.ConfigInstance(dd);
-
             }
 
             return diagnosticFileDumper;
@@ -558,6 +598,57 @@ namespace Hyperledger.Fabric.SDK.Helper
             if (long.TryParse(GetProperty(TRANSACTION_CLEANUP_UP_TIMEOUT_WAIT_TIME), out long p))
                 return p;
             return 0;
+        }
+
+        /**
+           * The number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is set
+           *
+           * @return The number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is set
+           */
+
+        public int GetClientThreadExecutorCorePoolSize()
+        {
+            if (int.TryParse(GetProperty(CLIENT_THREAD_EXECUTOR_COREPOOLSIZE), out int p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * maximumPoolSize the maximum number of threads to allow in the pool
+         *
+         * @return maximumPoolSize the maximum number of threads to allow in the pool
+         */
+        public int GetClientThreadExecutorMaxiumPoolSize()
+        {
+            if (int.TryParse(GetProperty(CLIENT_THREAD_EXECUTOR_MAXIMUMPOOLSIZE), out int p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * keepAliveTime when the number of threads is greater than
+         * the core, this is the maximum time that excess idle threads
+         * will wait for new tasks before terminating.
+         *
+         * @return The keep alive time.
+         */
+
+        public long GetClientThreadExecutorKeepAliveTime()
+        {
+            if (long.TryParse(GetProperty(CLIENT_THREAD_EXECUTOR_KEEPALIVETIME), out long p))
+                return p;
+            return 0;
+        }
+
+        /**
+         * the time unit for the argument
+         *
+         * @return
+         */
+
+        public string GetClientThreadExecutorKeepAliveTimeUnit()
+        {
+            return GetProperty(CLIENT_THREAD_EXECUTOR_KEEPALIVETIMEUNIT);
         }
     }
 }

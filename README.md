@@ -14,14 +14,14 @@ Both versions are alpha, but 1.3 is wip.
 
 * SDK Porting from JAVA done.
 * Both sdk compile ok.
-* Unit testing SDK_CA passing.
-* Unit testing SDK_CA_Integration passing
+* Unit testing SDK_CA passing
+* Unit testing SDK_CA_Integration passing (v1.3 and v1.4).
 * Unit testing SDK passing.
-* Unit testing SDK_Integration falling (Work in Progress)
+* Unit testing SDK_Integration all but Idemix (Idemix test issues)
 * All the code is async to the bone. But Sync methods are presented on both sdk for easy porting.
 * Net Standard 2.0. Both .NET Core and .NET Framework are supported
 
-[.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net) (Currently outdated)
+[.NET SHIM](https://github.com/maxpiva/fabric-chaincode-net) (upto v1.4)
 
 **Integration Testing on Windows 10 and Visual Studio How-To**
 
@@ -59,5 +59,4 @@ On this SDK
 - Better Multi-Thread and Locking approach on some Methods. Like ServiceDiscovery Thread (Not felling right about it)
 
 On the SHIM
-- Async support
 - Visual Studio Templates?

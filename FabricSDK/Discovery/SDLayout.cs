@@ -103,6 +103,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
             int endorsementMeet = 0;
             foreach (SDGroup group in groups)
             {
+                // ReSharper disable once PossibleMultipleEnumeration
                 if (group.EndorsedList(sdEndorsers))
                 {
                     ++endorsementMeet;
@@ -119,6 +120,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
 
             foreach (SDGroup group in groups)
             {
+                // ReSharper disable once PossibleMultipleEnumeration
                 List<SDEndorser> sdEndorsers = group.MeetsEndorsmentPolicy(endpoints, null);
                 if (null == sdEndorsers)
                 {

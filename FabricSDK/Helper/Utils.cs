@@ -21,6 +21,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Google.Protobuf;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json.Serialization;
@@ -42,10 +43,12 @@ namespace Hyperledger.Fabric.SDK.Helper
         {
             return dt.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz");
         }
+
         public static DateTime ToHyperDate(this string str)
         {
-            return DateTime.ParseExact(str,"yyyy-MM-dd'T'HH:mm:ss.fffzzz",CultureInfo.InvariantCulture);
+            return DateTime.ParseExact(str, "yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
         }
+
         public static void WriteAllBytes(this Stream stream, byte[] data)
         {
             stream.Write(data, 0, data.Length);
@@ -172,6 +175,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 if (userContext.Enrollment.Key == null)
                     throw new ArgumentException($"UserContext for user {userContext.Name} has Enrollment missing signing key");
             }
+
             if (string.IsNullOrEmpty(userContext.MspId))
                 throw new ArgumentException($"UserContext for user {userContext.Name} has user's MSPID missing.");
         }
@@ -241,6 +245,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
             return TimeSpan.MaxValue;
         }
+
         /**
          * Generate hash of a chaincode directory
          *
@@ -318,6 +323,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                         foreach (string s in mfiles)
                             writer.Write(Path.Combine("META-INF", s.Substring(chaincodeMetaInf.Length + 1)).Replace("\\", "/"), s);
                     }
+
                     bos.Flush();
                 }
 
@@ -447,7 +453,7 @@ byte[] data = ByteStreams.toByteArray(is);
     {
         protected override JsonContract CreateContract(Type objectType)
         {
-            if (objectType.Name.Equals(typeof(Dictionary<Peer, Channel.PeerOptions>).Name))
+            if (objectType.Name.Equals(typeof(Dictionary<Peer, PeerOptions>).Name))
             {
                 return base.CreateArrayContract(objectType);
             }
@@ -455,6 +461,4 @@ byte[] data = ByteStreams.toByteArray(is);
             return base.CreateContract(objectType);
         }
     }
-
-
 }

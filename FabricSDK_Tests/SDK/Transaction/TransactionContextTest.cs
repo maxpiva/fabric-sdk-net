@@ -15,6 +15,7 @@
 using Google.Protobuf;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Builders;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Security;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

@@ -27,6 +27,8 @@ using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
@@ -323,7 +325,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     Assert.Fail($"Peer {peerName} does not appear to belong to channel {name}");
                 }
 
-                Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.EVENT_SOURCE);
+                PeerOptions peerOptions = PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.CHAINCODE_QUERY, PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.EVENT_SOURCE);
 
                 if (i % 2 == 0)
                 {
@@ -351,15 +353,15 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // Note peer eventing will always start with sending the last block so this will get the last endorser block
                 int transactions = 0;
                 int nonTransactions = 0;
-                foreach (BlockInfo.EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
+                foreach (EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
                 {
-                    if (BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE == envelopeInfo.EnvelopeType)
+                    if (EnvelopeType.TRANSACTION_ENVELOPE == envelopeInfo.EnvelopeType)
                     {
                         ++transactions;
                     }
                     else
                     {
-                        Assert.AreEqual(BlockInfo.EnvelopeType.ENVELOPE, envelopeInfo.EnvelopeType);
+                        Assert.AreEqual(EnvelopeType.ENVELOPE, envelopeInfo.EnvelopeType);
                         ++nonTransactions;
                     }
                 }
@@ -383,7 +385,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Assert.AreEqual(0, blockEvent.TransactionCount);
                     Assert.AreEqual(1, blockEvent.EnvelopeCount);
-                    foreach (BlockEvent.TransactionEvent _ in blockEvent.TransactionEvents)
+                    foreach (TransactionEvent _ in blockEvent.TransactionEvents)
                     {
                         Assert.Fail("Got transaction event in a block update"); // only events for update should not have transactions.
                     }

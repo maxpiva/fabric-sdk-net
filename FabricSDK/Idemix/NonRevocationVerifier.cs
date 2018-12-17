@@ -15,11 +15,9 @@
  */
 
 using System;
-using System.Linq;
-using Google.Protobuf;
-using Hyperledger.Fabric.SDK.AMCL;
+using Hyperledger.Fabric.Protos.Idemix;
 using Hyperledger.Fabric.SDK.AMCL.FP256BN;
-using Org.BouncyCastle.Security;
+using ECP2 = Hyperledger.Fabric.SDK.AMCL.FP256BN.ECP2;
 
 namespace Hyperledger.Fabric.SDK.Idemix
 {
@@ -38,7 +36,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
          * @param proofSRh  Proof of revocation handle
          * @return The recomputed FSContribution
          */
-        byte[] RecomputeFSContribution(Protos.Idemix.NonRevocationProof proof, BIG challenge, ECP2 epochPK, BIG proofSRh);
+        byte[] RecomputeFSContribution(NonRevocationProof proof, BIG challenge, ECP2 epochPK, BIG proofSRh);
     }
 
     public static class NonRevocationVerifier
@@ -60,6 +58,5 @@ namespace Hyperledger.Fabric.SDK.Idemix
                     throw new Exception("Revocation algorithm " + algorithm.ToString() + " not supported");
             }
         }
-
     }
 }

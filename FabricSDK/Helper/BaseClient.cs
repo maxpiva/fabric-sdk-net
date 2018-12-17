@@ -1,4 +1,5 @@
 ﻿using System;
+using Hyperledger.Fabric.SDK.Channels;
 using Newtonsoft.Json;
 
 namespace Hyperledger.Fabric.SDK.Helper

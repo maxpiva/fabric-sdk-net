@@ -19,14 +19,14 @@ namespace Hyperledger.Fabric.SDK.Identity
         {
             if (signingKeyPair==null)
                 throw new ArgumentException("KeyPair cannot be null");
-            this.Key = KeyPair.AsymmetricCipherKeyPairToPEM(null, signingKeyPair.PrivateKey);
-            this.Cert = signedPem;
+            Key = KeyPair.AsymmetricCipherKeyPairToPEM(null, signingKeyPair.PrivateKey);
+            Cert = signedPem;
         }
 
         public X509Enrollment(AsymmetricKeyParameter key, string signedPem)
         {
-            this.Key = KeyPair.AsymmetricCipherKeyPairToPEM(null, key);
-            this.Cert = signedPem;
+            Key = KeyPair.AsymmetricCipherKeyPairToPEM(null, key);
+            Cert = signedPem;
         }
         [DataMember(Name = "key")]
         public string Key { get; }

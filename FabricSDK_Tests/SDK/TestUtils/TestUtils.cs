@@ -22,6 +22,7 @@ using System.Threading;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Identity;
@@ -86,7 +87,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
     */
         public static void TestRemovingAddingPeersOrderers(HFClient client, Channel channel)
         {
-            Dictionary<Peer, Channel.PeerOptions> perm = new Dictionary<Peer, Channel.PeerOptions>();
+            Dictionary<Peer, PeerOptions> perm = new Dictionary<Peer, PeerOptions>();
 
             Assert.IsTrue(channel.IsInitialized);
             Assert.IsFalse(channel.IsShutdown);
@@ -100,7 +101,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
             perm.Keys.ToList().ForEach(peer =>
             {
-                Channel.PeerOptions value = perm[peer];
+                PeerOptions value = perm[peer];
                 Peer newPeer = client.NewPeer(peer.Name, peer.Url, peer.Properties);
                 channel.AddPeer(newPeer, value);
             });

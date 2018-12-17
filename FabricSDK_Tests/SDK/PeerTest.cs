@@ -14,6 +14,7 @@
 
 using System;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.Tests.Helper;

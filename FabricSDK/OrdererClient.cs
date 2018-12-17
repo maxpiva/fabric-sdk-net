@@ -36,12 +36,10 @@ namespace Hyperledger.Fabric.SDK
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
         private readonly string channelName;
         private readonly Endpoint endPoint;
-        private readonly string name;
         private readonly long ORDERER_WAIT_TIME = Config.Instance.GetOrdererWaitTime();
         private readonly long ordererWaitTimeMilliSecs;
-        private readonly string url;
-        private Grpc.Core.Channel managedChannel;
-        private readonly String toString;
+        private readonly string toString;
+        private Channel managedChannel;
         private bool shutdown;
 
         /**
@@ -50,9 +48,9 @@ namespace Hyperledger.Fabric.SDK
         public OrdererClient(Orderer orderer, Endpoint endPoint, Properties properties)
         {
             this.endPoint = endPoint;
-            name = orderer.Name;
-            
-            url = orderer.Url;
+            string name = orderer.Name;
+
+            string url = orderer.Url;
             channelName = orderer.Channel.Name;
             toString = $"OrdererClient{{id: {Config.Instance.GetNextID()}, channel: {channelName}, name: {name}, url: {url}}}";
 
@@ -68,7 +66,26 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-  
+        public virtual bool IsChannelActive
+        {
+            get
+            {
+                Channel lchannel = managedChannel;
+                if (null == lchannel)
+                {
+                    logger.Trace($"{ToString()} Grpc channel needs creation.");
+                    return false;
+                }
+
+                bool isTransientFailure = lchannel.State == ChannelState.TransientFailure;
+                bool isShutdown = lchannel.State == ChannelState.Shutdown;
+                bool ret = !isShutdown && !isTransientFailure;
+                if (IS_TRACE_LEVEL)
+                    logger.Trace("%s grpc channel isActive: %b, isShutdown: %b, isTransientFailure: %b, state: %s ");
+                return ret;
+            }
+        }
+
 
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Shutdown(bool force)
@@ -77,6 +94,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 logger.Trace($"{ToString()} shutdown called force: {force}, shutdown: {shutdown}, managedChannel: {managedChannel}");
             }
+
             if (shutdown)
             {
                 return;
@@ -84,7 +102,7 @@ namespace Hyperledger.Fabric.SDK
 
             logger.Debug($"Shutdown {this}");
             shutdown = true;
-            Grpc.Core.Channel lchannel = managedChannel;
+            Channel lchannel = managedChannel;
             managedChannel = null;
             if (lchannel == null)
             {
@@ -159,7 +177,7 @@ namespace Hyperledger.Fabric.SDK
             }, token);
             await call.Call.RequestStream.WriteAsync(envelope).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
-            await rtask.TimeoutAsync(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs),token).ConfigureAwait(false);
+            await rtask.TimeoutAsync(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs), token).ConfigureAwait(false);
             logger.Trace($"{this} Broadcast Complete.");
             return resp;
         }
@@ -192,7 +210,7 @@ namespace Hyperledger.Fabric.SDK
             }, token);
             await call.Call.RequestStream.WriteAsync(envelope).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
-            await rtask.TimeoutAsync(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs),token).ConfigureAwait(false);
+            await rtask.TimeoutAsync(TimeSpan.FromMilliseconds(ordererWaitTimeMilliSecs), token).ConfigureAwait(false);
             logger.Trace($"{this} Deliver Complete.");
             return ret;
         }
@@ -226,7 +244,7 @@ namespace Hyperledger.Fabric.SDK
             logger.Trace($"{this} OrdererClient.sendTransaction entered.");
             if (shutdown)
                 throw new TransactionException("Orderer client is shutdown");
-            Grpc.Core.Channel lmanagedChannel = managedChannel;
+            Channel lmanagedChannel = managedChannel;
             if (IS_TRACE_LEVEL && lmanagedChannel != null)
             {
                 logger.Trace($"{this} managed channel State: {lmanagedChannel.State.ToString()}");
@@ -280,7 +298,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (shutdown)
                 throw new TransactionException("Orderer client is shutdown");
-            Grpc.Core.Channel lmanagedChannel = managedChannel;
+            Channel lmanagedChannel = managedChannel;
             if (IS_TRACE_LEVEL && lmanagedChannel != null)
             {
                 logger.Trace($"{this} managed channel State: {lmanagedChannel.State.ToString()}");
@@ -321,28 +339,10 @@ namespace Hyperledger.Fabric.SDK
                 }
             }
         }
+
         public override string ToString()
         {
             return toString;
         }
-        public virtual bool IsChannelActive
-        {
-            get
-            {
-                Grpc.Core.Channel lchannel = managedChannel;
-                if (null == lchannel)
-                {
-                    logger.Trace($"{ToString()} Grpc channel needs creation.");
-                    return false;
-                }
-                bool isTransientFailure = lchannel.State == ChannelState.TransientFailure;
-                bool isShutdown = lchannel.State == ChannelState.Shutdown;
-                bool ret = !isShutdown && !isTransientFailure;
-                if (IS_TRACE_LEVEL)
-                    logger.Trace("%s grpc channel isActive: %b, isShutdown: %b, isTransientFailure: %b, state: %s ");
-                return ret;
-            }
-        }
-
     }
 }

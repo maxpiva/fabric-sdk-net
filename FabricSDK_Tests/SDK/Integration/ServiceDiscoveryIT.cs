@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Discovery;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -53,7 +55,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Peer discoveryPeer = client.NewPeer("peer0.org1.example.com", protocol + "//localhost:7051", properties);
             Channel foo = client.NewChannel("foo"); //create channel that will be discovered.
 
-            foo.AddPeer(discoveryPeer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.SERVICE_DISCOVERY, PeerRole.LEDGER_QUERY, PeerRole.EVENT_SOURCE, PeerRole.CHAINCODE_QUERY));
+            foo.AddPeer(discoveryPeer, PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.SERVICE_DISCOVERY, PeerRole.LEDGER_QUERY, PeerRole.EVENT_SOURCE, PeerRole.CHAINCODE_QUERY));
 
             // Need to provide client TLS certificate and key files when running mutual tls.
             if (testConfig.IsRunningFabricTLS())
@@ -105,7 +107,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             //Send proposal request discovering the what endorsers (peers) are needed.
 
-            List<ProposalResponse> transactionPropResp = foo.SendTransactionProposalToEndorsers(transactionProposalRequest, Channel.DiscoveryOptions.CreateDiscoveryOptions().SetEndorsementSelector(ServiceDiscovery.ENDORSEMENT_SELECTION_RANDOM).SetForceDiscovery(true));
+            List<ProposalResponse> transactionPropResp = foo.SendTransactionProposalToEndorsers(transactionProposalRequest, DiscoveryOptions.CreateDiscoveryOptions().SetEndorsementSelector(ServiceDiscovery.ENDORSEMENT_SELECTION_RANDOM).SetForceDiscovery(true));
             Assert.IsFalse(transactionPropResp.Count == 0);
 
             transactionProposalRequest = client.NewTransactionProposalRequest();
@@ -116,7 +118,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             transactionProposalRequest.SetArgs("a", "b", "1");
 
             //Send proposal request discovering the what endorsers (peers) are needed.
-            transactionPropResp = foo.SendTransactionProposalToEndorsers(transactionProposalRequest, Channel.DiscoveryOptions.CreateDiscoveryOptions().IgnoreEndpoints("blah.blah.blah.com:90", "blah.com:80",
+            transactionPropResp = foo.SendTransactionProposalToEndorsers(transactionProposalRequest, DiscoveryOptions.CreateDiscoveryOptions().IgnoreEndpoints("blah.blah.blah.com:90", "blah.com:80",
                     // aka peer0.org1.example.com our discovery peer. Lets ignore it in endorsers selection and see if other discovered peer endorses.
                     "peer0.org1.example.com:7051")
                 // if chaincode makes additional chaincode calls or uses collections you should add them with setServiceDiscoveryChaincodeInterests
@@ -143,7 +145,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             //Send it to the orderer that was discovered.
             try
             {
-                BlockEvent.TransactionEvent transactionEvent = foo.SendTransaction(transactionPropResp);
+                TransactionEvent transactionEvent = foo.SendTransaction(transactionPropResp);
 
                 evenTransactionId.Length = 0;
 
@@ -151,7 +153,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (TransactionEventException e)
             {
-                BlockEvent.TransactionEvent te = e.TransactionEvent;
+                TransactionEvent te = e.TransactionEvent;
                 if (te != null)
                     throw new System.Exception($"Transaction with txid {te.TransactionID} failed. {e.Message}");
             }

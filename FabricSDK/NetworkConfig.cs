@@ -27,6 +27,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Identity;
@@ -442,7 +443,7 @@ namespace Hyperledger.Fabric.SDK
                         throw new NetworkConfigurationException($"Channel {channelName} is already configured in the client!");
                     }
 
-                    channel = await ReconstructChannelAsync(client, channelName, jsonChannel, token).ConfigureAwait(false); 
+                    channel = await ReconstructChannelAsync(client, channelName, jsonChannel, token).ConfigureAwait(false);
                 }
                 else
                 {
@@ -671,7 +672,7 @@ namespace Hyperledger.Fabric.SDK
                     }
 
                     // Set the various roles
-                    Channel.PeerOptions peerOptions = Channel.PeerOptions.CreatePeerOptions();
+                    PeerOptions peerOptions = PeerOptions.CreatePeerOptions();
                     foreach (PeerRole peerRole in Enum.GetValues(typeof(PeerRole)))
                     {
                         SetPeerRole(peerOptions, jsonPeer, peerRole);
@@ -711,7 +712,7 @@ namespace Hyperledger.Fabric.SDK
         }
 
         // ReSharper disable once UnusedParameter.Local
-        private static void SetPeerRole(Channel.PeerOptions peerOptions, JToken jsonPeer, PeerRole role)
+        private static void SetPeerRole(PeerOptions peerOptions, JToken jsonPeer, PeerRole role)
         {
             string propName = RoleNameRemap(role);
             JToken val = jsonPeer[propName];
@@ -789,11 +790,12 @@ namespace Hyperledger.Fabric.SDK
                     props.GetAndRemove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                     props.Set("grpc.max_receive_message_length", value);
                 }
+
                 value = props.Get("grpc.http2.keepalive_time");
-                if (null != value) 
+                if (null != value)
                 {
                     props.GetAndRemove("grpc.http2.keepalive_time");
-                    props.Set("grpc.keepalive_time_ms", (int.Parse(value)*1000).ToString());
+                    props.Set("grpc.keepalive_time_ms", (int.Parse(value) * 1000).ToString());
                 }
             }
         }
@@ -881,6 +883,7 @@ namespace Hyperledger.Fabric.SDK
                 {
                     throw new NetworkConfigurationException($"{msgPrefix}: Invalid private key", ioe);
                 }
+
                 try
                 {
                     org.PeerAdmin = new UserInfo(Factory.GetCryptoSuite(), mspId, "PeerAdmin_" + mspId + "_" + orgName, null);
@@ -889,7 +892,8 @@ namespace Hyperledger.Fabric.SDK
                 {
                     throw new NetworkConfigurationException(e.Message, e);
                 }
-                org.PeerAdmin.Enrollment=new X509Enrollment(privateKey, signedCert);
+
+                org.PeerAdmin.Enrollment = new X509Enrollment(privateKey, signedCert);
             }
 
             return org;
@@ -1171,14 +1175,14 @@ namespace Hyperledger.Fabric.SDK
 
             public string EnrollSecret { get; set; }
 
+            public ICryptoSuite Suite { get; }
+
             public string Name { get; set; }
             public HashSet<string> Roles { get; set; }
             public string Account { get; set; }
             public string Affiliation { get; set; }
             public IEnrollment Enrollment { get; set; }
             public string MspId { get; set; }
-
-            public ICryptoSuite Suite { get; }
         }
 
 

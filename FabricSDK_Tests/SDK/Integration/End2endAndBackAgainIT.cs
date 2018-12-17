@@ -22,6 +22,8 @@ using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -35,6 +37,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using BlockchainInfo = Hyperledger.Fabric.SDK.BlockchainInfo;
 using ChaincodeID = Hyperledger.Fabric.SDK.ChaincodeID;
 using Config = Hyperledger.Fabric.Protos.Common.Config;
+
 // ReSharper disable UnusedMethodReturnValue.Local
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
@@ -62,6 +65,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         internal readonly string sampleStoreFile = Path.Combine(Path.GetTempPath() + "HFCSampletest.properties");
         internal SampleStore sampleStore;
+
         private IReadOnlyList<SampleOrg> testSampleOrgs;
         //private string testTxID = null; // save the CC invoke TxID and use in queries
 
@@ -312,8 +316,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 InstallProposalRequest installProposalRequest = client.NewInstallProposalRequest();
                 installProposalRequest.ChaincodeID = chaincodeID;
                 ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
-                installProposalRequest.ChaincodeSourceLocation =Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).Locate();
- 
+                installProposalRequest.ChaincodeSourceLocation = Path.Combine(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).Locate();
+
                 installProposalRequest.ChaincodeVersion = CHAIN_CODE_VERSION_11;
                 installProposalRequest.ProposalWaitTime = DEPLOYWAITTIME;
                 installProposalRequest.ChaincodeLanguage = CHAIN_CODE_LANG;
@@ -418,7 +422,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 if (changeContext)
                 {
-                   channel.SendTransaction(successful, sampleOrg.PeerAdmin, testConfig.GetTransactionWaitTime() * 1000);
+                    channel.SendTransaction(successful, sampleOrg.PeerAdmin, testConfig.GetTransactionWaitTime() * 1000);
                 }
                 else
                 {
@@ -461,7 +465,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (TransactionEventException t)
             {
-                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                TransactionEvent te = t.TransactionEvent;
                 if (te != null)
                     Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
             }
@@ -475,7 +479,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             Util.COut("Running for Channel {0} done", channelName);
         }
 
-        private BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, string moveAmount, IUser user)
+        private TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, string moveAmount, IUser user)
         {
             try
             {
@@ -558,6 +562,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     Assert.IsFalse(newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count == 0);
                     Assert.IsFalse(newChannel.GetPeers(new[] {PeerRole.EVENT_SOURCE}).Count == 0);
                 }
+
                 Assert.AreEqual(testConfig.IsFabricVersionAtOrAfter("1.3") ? 0 : 2, newChannel.EventHubs.Count);
                 Util.COut("Retrieved channel {0} from sample store.", name);
             }
@@ -577,10 +582,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     string peerLocation = sampleOrg.GetPeerLocation(peerName);
                     Properties peerProperties = testConfig.GetPeerProperties(peerName);
                     Peer peer = client.NewPeer(peerName, peerLocation, peerProperties);
-                    Channel.PeerOptions peerEventingOptions = // we have two peers on one use block on other use filtered
-                        everyOther ? Channel.PeerOptions.CreatePeerOptions().RegisterEventsForBlocks().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE) : Channel.PeerOptions.CreatePeerOptions().RegisterEventsForFilteredBlocks().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE);
+                    PeerOptions peerEventingOptions = // we have two peers on one use block on other use filtered
+                        everyOther ? PeerOptions.CreatePeerOptions().RegisterEventsForBlocks().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE) : PeerOptions.CreatePeerOptions().RegisterEventsForFilteredBlocks().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE);
 
-                    newChannel.AddPeer(peer, IS_FABRIC_V10 ? Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY) : peerEventingOptions);
+                    newChannel.AddPeer(peer, IS_FABRIC_V10 ? PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY) : peerEventingOptions);
 
                     everyOther = !everyOther;
                 }
@@ -718,7 +723,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             eventingPeer = client.NewPeer(eventingPeer.Name, eventingPeer.Url, eventingPeer.Properties);
             Peer ledgerPeer = savedPeers[1];
             ledgerPeer = client.NewPeer(ledgerPeer.Name, ledgerPeer.Url, ledgerPeer.Properties);
-            
+
             savedPeers.RemoveAt(0);
             savedPeers.RemoveAt(0);
 
@@ -728,7 +733,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
             Assert.IsNotNull(client.GetChannel(replayTestChannel.Name)); // should be known by client.
 
-            Channel.PeerOptions eventingPeerOptions = Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.EVENT_SOURCE});
+            PeerOptions eventingPeerOptions = PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.EVENT_SOURCE});
             if (useFilteredBlocks)
             {
                 eventingPeerOptions.RegisterEventsForFilteredBlocks();
@@ -746,7 +751,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
 
             //add a ledger peer
-            replayTestChannel.AddPeer(ledgerPeer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.LEDGER_QUERY}));
+            replayTestChannel.AddPeer(ledgerPeer, PeerOptions.CreatePeerOptions().SetPeerRoles(new List<PeerRole> {PeerRole.LEDGER_QUERY}));
 
             TaskCompletionSource<long> done = new TaskCompletionSource<long>(); // future to set when done.
             // some variable used by the block listener being set up.
@@ -767,7 +772,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
 
                     Assert.IsTrue(useFilteredBlocks ? blockEvent.IsFiltered : !blockEvent.IsFiltered, $"Wrong type of block seen block number {blockNumber}. expected filtered block {useFilteredBlocks} but got {blockEvent.IsFiltered}");
-                    long count = Interlocked.Increment(ref bcount)-1;
+                    long count = Interlocked.Increment(ref bcount) - 1;
 
 
                     //out("Block count: %d, block number: %d  received from peer: %s", count, blockNumber, blockEvent.getPeer().getName());
@@ -844,16 +849,16 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Assert.AreEqual(replayTestChannel.Name, blockEvent.ChannelId);
 
-                    foreach (BlockInfo.EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
+                    foreach (EnvelopeInfo envelopeInfo in blockEvent.EnvelopeInfos)
                     {
-                        if (envelopeInfo.EnvelopeType == BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE)
+                        if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
                         {
-                            BlockInfo.TransactionEnvelopeInfo transactionEnvelopeInfo = (BlockInfo.TransactionEnvelopeInfo) envelopeInfo;
+                            TransactionEnvelopeInfo transactionEnvelopeInfo = (TransactionEnvelopeInfo) envelopeInfo;
                             Assert.IsTrue(envelopeInfo.IsValid); // only have valid blocks.
                             Assert.AreEqual(envelopeInfo.ValidationCode, 0);
 
                             ++transactionEventCounts;
-                            foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo ta in transactionEnvelopeInfo.TransactionActionInfos)
+                            foreach (TransactionActionInfo ta in transactionEnvelopeInfo.TransactionActionInfos)
                             {
                                 //    out("\nTA:", ta + "\n\n");
                                 ChaincodeEventDeserializer evnt = ta.Event;

@@ -231,6 +231,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
          * @param epoch           monotonically increasing counter representing a time window
          * @return true iff valid
          */
+        // ReSharper disable once ParameterHidesMember
         public bool Verify(bool[] disclosure, IdemixIssuerPublicKey ipk, byte[] msg, BIG[] attributeValues, int rhIndex, KeyPair revPk, int epoch)
         {
             if (disclosure == null || ipk == null || msg == null || attributeValues == null || attributeValues.Length != ipk.AttributeNames.Length || disclosure.Length != ipk.AttributeNames.Length)

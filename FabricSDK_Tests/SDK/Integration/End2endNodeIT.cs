@@ -1,4 +1,5 @@
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

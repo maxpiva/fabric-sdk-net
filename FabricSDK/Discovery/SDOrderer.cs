@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Helper;
 
 namespace Hyperledger.Fabric.SDK.Discovery

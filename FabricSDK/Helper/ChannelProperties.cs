@@ -10,6 +10,6 @@ namespace Hyperledger.Fabric.SDK.Helper
         public ChannelCredentials Credentials { get; set; }
         public List<ChannelOption> Options { get; set; } = new List<ChannelOption>();
 
-        public Grpc.Core.Channel CreateChannel() => new Grpc.Core.Channel(Host, Port, Credentials, Options);
+        public Channel CreateChannel() => new Channel(Host, Port, Credentials, Options);
     }
 }

@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Logging;

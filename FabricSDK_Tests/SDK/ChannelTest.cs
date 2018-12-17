@@ -26,6 +26,7 @@ using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.SDK;
 using Hyperledger.Fabric.SDK.Builders;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
@@ -208,7 +209,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Channel testChannel = new MockChannel(CHANNEL_NAME, hfclient);
             Peer peer = hfclient.NewPeer("peer_", "grpc://localhost:7051");
 
-            testChannel.AddPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER));
+            testChannel.AddPeer(peer, PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER));
             Assert.IsFalse(testChannel.IsInitialized);
             testChannel.Initialize();
             Assert.IsTrue(testChannel.IsInitialized);
@@ -696,9 +697,9 @@ namespace Hyperledger.Fabric.Tests.SDK
             Peer peer2Org22nd = new Peer("peer2Org22nd", "grpc://localhost:9", null);
 
             //One from each set.
-            Channel.NOfEvents nOfEvents = Channel.NOfEvents.CreateNofEvents().AddNOfs(Channel.NOfEvents.CreateNofEvents().SetN(1).AddPeers(peer1Org1, peer1Org12nd), Channel.NOfEvents.CreateNofEvents().SetN(1).AddPeers(peer2Org2, peer2Org22nd));
+            NOfEvents nOfEvents = NOfEvents.CreateNofEvents().AddNOfs(NOfEvents.CreateNofEvents().SetN(1).AddPeers(peer1Org1, peer1Org12nd), NOfEvents.CreateNofEvents().SetN(1).AddPeers(peer2Org2, peer2Org22nd));
 
-            Channel.NOfEvents nOfEvents1 = new Channel.NOfEvents(nOfEvents);
+            NOfEvents nOfEvents1 = new NOfEvents(nOfEvents);
             Assert.IsFalse(nOfEvents1.Ready);
             nOfEvents1.Seen(peer1Org1);
             Assert.IsFalse(nOfEvents1.Ready);
@@ -708,8 +709,8 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsTrue(nOfEvents1.Ready);
             Assert.IsFalse(nOfEvents.Ready);
 
-            nOfEvents = Channel.NOfEvents.CreateNofEvents().AddNOfs(Channel.NOfEvents.CreateNofEvents().AddPeers(peer1Org1, peer1Org12nd), Channel.NOfEvents.CreateNofEvents().AddPeers(peer2Org2, peer2Org22nd));
-            nOfEvents1 = new Channel.NOfEvents(nOfEvents);
+            nOfEvents = NOfEvents.CreateNofEvents().AddNOfs(NOfEvents.CreateNofEvents().AddPeers(peer1Org1, peer1Org12nd), NOfEvents.CreateNofEvents().AddPeers(peer2Org2, peer2Org22nd));
+            nOfEvents1 = new NOfEvents(nOfEvents);
             Assert.IsFalse(nOfEvents1.Ready);
             nOfEvents1.Seen(peer1Org1);
             Assert.IsFalse(nOfEvents1.Ready);
@@ -724,9 +725,9 @@ namespace Hyperledger.Fabric.Tests.SDK
             EventHub peer2Org2eh = new EventHub("peer2Org2", "grpc://localhost:9", null);
             EventHub peer2Org22ndeh = new EventHub("peer2Org22nd", "grpc://localhost:9", null);
 
-            nOfEvents = Channel.NOfEvents.CreateNofEvents().SetN(1).AddNOfs(Channel.NOfEvents.CreateNofEvents().AddPeers(peer1Org1, peer1Org12nd), Channel.NOfEvents.CreateNofEvents().AddEventHubs(peer2Org2eh, peer2Org22ndeh));
+            nOfEvents = NOfEvents.CreateNofEvents().SetN(1).AddNOfs(NOfEvents.CreateNofEvents().AddPeers(peer1Org1, peer1Org12nd), NOfEvents.CreateNofEvents().AddEventHubs(peer2Org2eh, peer2Org22ndeh));
 
-            nOfEvents1 = new Channel.NOfEvents(nOfEvents);
+            nOfEvents1 = new NOfEvents(nOfEvents);
             Assert.IsFalse(nOfEvents1.Ready);
             nOfEvents1.Seen(peer1Org1);
             Assert.IsFalse(nOfEvents1.Ready);
@@ -736,7 +737,7 @@ namespace Hyperledger.Fabric.Tests.SDK
             Assert.IsTrue(nOfEvents1.Ready);
             Assert.IsFalse(nOfEvents.Ready);
 
-            nOfEvents = Channel.NOfEvents.CreateNoEvents();
+            nOfEvents = NOfEvents.CreateNoEvents();
             Assert.IsTrue(nOfEvents.Ready);
         }
 

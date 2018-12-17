@@ -34,6 +34,8 @@ using System.IO;
 using System.Linq;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
@@ -239,7 +241,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (TransactionEventException t)
             {
-                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                TransactionEvent te = t.TransactionEvent;
                 if (te != null)
                     Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
                 Assert.Fail($"Transaction failed with exception message {t.Message}");
@@ -302,7 +304,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
         // ReSharper disable once UnusedMethodReturnValue.Local
-        private static BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
+        private static TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincodeID, string from, string to, string moveAmount, IUser user)
         {
             List<ProposalResponse> successful = new List<ProposalResponse>();
             List<ProposalResponse> failed = new List<ProposalResponse>();
@@ -483,7 +485,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // Send instantiate transaction to orderer
                 Util.COut("Sending instantiateTransaction to orderer...");
                 Util.COut("calling get...");
-                BlockEvent.TransactionEvent evnt = channel.SendTransaction(successful, orderers, 30 * 1000);
+                TransactionEvent evnt = channel.SendTransaction(successful, orderers, 30 * 1000);
                 Util.COut("get done...");
 
                 Assert.IsTrue(evnt.IsValid); // must be valid to be here.

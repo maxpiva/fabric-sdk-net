@@ -22,10 +22,11 @@ using System.Threading.Tasks;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Gossip;
 using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
-
 using Properties = Hyperledger.Fabric.SDK.Helper.Properties;
+
 // ReSharper disable UnusedMethodReturnValue.Local
 // ReSharper disable NonReadonlyMemberInGetHashCode
 
@@ -42,10 +43,11 @@ namespace Hyperledger.Fabric.SDK.Discovery
             TLSCerts = null;
             TLSIntermediateCerts = null;
         }
+
         internal SDEndorser()
         {
-       
         }
+
         public SDEndorser(Channel channel, Protos.Discovery.Peer peerRet, IEnumerable<byte[]> tlsCerts, IEnumerable<byte[]> tlsIntermediateCerts)
         {
             Channel = channel;
@@ -111,8 +113,8 @@ namespace Hyperledger.Fabric.SDK.Discovery
             byte[] pemBytes = this.GetAllTLSCerts();
             if (pemBytes?.Length > 0)
                 properties.Set("pemBytes", pemBytes);
-            peer=Client.NewPeer(Endpoint, protocol + "//" + Endpoint, properties);
-            Channel.PeerOptions opts = Channel.PeerOptions.CreatePeerOptions();
+            peer = Client.NewPeer(Endpoint, protocol + "//" + Endpoint, properties);
+            PeerOptions opts = PeerOptions.CreatePeerOptions();
             opts.SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.EVENT_SOURCE, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY);
             await Channel.AddPeerAsync(peer, opts, token).ConfigureAwait(false);
             return peer;
@@ -190,7 +192,6 @@ namespace Hyperledger.Fabric.SDK.Discovery
 
         public override int GetHashCode()
         {
-
             return MspId.GetHashCode() ^ Endpoint.GetHashCode();
         }
 

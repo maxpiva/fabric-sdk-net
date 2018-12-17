@@ -15,6 +15,7 @@
 using System;
 using System.IO;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 // ReSharper disable ObjectCreationAsStatement

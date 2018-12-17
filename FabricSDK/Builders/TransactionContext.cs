@@ -18,6 +18,7 @@ using System.Linq;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Hyperledger.Fabric.Protos.Msp;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Identity;
 using Hyperledger.Fabric.SDK.Security;

@@ -27,14 +27,13 @@ using System.Threading.Tasks;
 using Google.Protobuf;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
-using Hyperledger.Fabric.Protos.Discovery;
-using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.Protos.Msp.MspConfig;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
+using Hyperledger.Fabric.SDK.Blocks;
 using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Deserializers;
@@ -52,6 +51,7 @@ using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using Metadata = Hyperledger.Fabric.Protos.Common.Metadata;
 using ProposalResponse = Hyperledger.Fabric.SDK.Responses.ProposalResponse;
 using Status = Hyperledger.Fabric.Protos.Common.Status;
+
 // ReSharper disable UnusedVariable
 
 // ReSharper disable UnusedMember.Local
@@ -60,7 +60,7 @@ using Status = Hyperledger.Fabric.Protos.Common.Status;
 // ReSharper disable UnusedMethodReturnValue.Local
 // ReSharper disable LocalVariableHidesMember
 
-namespace Hyperledger.Fabric.SDK
+namespace Hyperledger.Fabric.SDK.Channels
 {
 /**
  * The class representing a channel with which the client SDK interacts.
@@ -97,11 +97,11 @@ namespace Hyperledger.Fabric.SDK
             ContractResolver = new PeerPeerOptionsResolver()
         };*/
 
-        private readonly LinkedHashMap<string, BL> blockListeners = new LinkedHashMap<string, BL>();
+        internal readonly LinkedHashMap<string, BlockListener> blockListeners = new LinkedHashMap<string, BlockListener>();
 
         // final Set<Peer> eventingPeers = Collections.synchronizedSet(new HashSet<>());
 
-        private readonly LinkedHashMap<string, ChaincodeEventListenerEntry> chainCodeListeners = new LinkedHashMap<string, ChaincodeEventListenerEntry>();
+        internal readonly LinkedHashMap<string, ChaincodeEventListenerEntry> chainCodeListeners = new LinkedHashMap<string, ChaincodeEventListenerEntry>();
 
         private readonly long CHANNEL_CONFIG_WAIT_TIME = Config.Instance.GetChannelConfigWaitTime();
         /**
@@ -117,15 +117,17 @@ namespace Hyperledger.Fabric.SDK
         private readonly long ORDERER_RETRY_WAIT_TIME = Config.Instance.GetOrdererRetryWaitTime();
         private readonly ConcurrentDictionary<string, Orderer> ordererEndpointMap = new ConcurrentDictionary<string, Orderer>();
         private readonly ConcurrentDictionary<string, Peer> peerEndpointMap = new ConcurrentDictionary<string, Peer>();
-        private readonly LinkedHashMap<string, LinkedList<TL>> txListeners = new LinkedHashMap<string, LinkedList<TL>>();
+        internal readonly LinkedHashMap<string, LinkedList<TransactionListener>> txListeners = new LinkedHashMap<string, LinkedList<TransactionListener>>();
         private string blh;
         private string chaincodeEventUpgradeListenerHandle;
-        private string transactionListenerProcessorHandle;
 
         internal HFClient client;
         private Func<SDChaindcode, SDEndorserState> endorsementSelector = ServiceDiscovery.DEFAULT_ENDORSEMENT_SELECTION;
 
         private ConcurrentHashSet<EventHub> eventHubs = new ConcurrentHashSet<EventHub>();
+
+        //////////  Transaction monitoring  /////////////////////////////
+        private Task eventQueueThread;
         /**
          * Runs processing events from event hubs.
          */
@@ -133,10 +135,12 @@ namespace Hyperledger.Fabric.SDK
         private CancellationTokenSource eventQueueTokenSource;
         private Block genesisBlock;
         internal volatile bool initialized;
+        private long lastBlock = -1L;
         private long lastChaincodeUpgradeEventBlock;
         private IReadOnlyDictionary<string, MSP> msps = new Dictionary<string, MSP>();
+
         internal ConcurrentHashSet<Orderer> orderers = new ConcurrentHashSet<Orderer>();
-        private volatile string toString;
+
         // Name of the channel is only meaningful to the client
         private ConcurrentDictionary<Peer, PeerOptions> peerOptionsMap = new ConcurrentDictionary<Peer, PeerOptions>();
 
@@ -148,6 +152,8 @@ namespace Hyperledger.Fabric.SDK
 
         //Cleans up any transaction listeners that will probably never complete.
         private Timer sweeper;
+        private volatile string toString;
+        private string transactionListenerProcessorHandle;
 
         public Channel(string name, HFClient client) : this(name, client, false)
         {
@@ -188,17 +194,12 @@ namespace Hyperledger.Fabric.SDK
             IsShutdown = false;
             FillRoles();
             msps = new Dictionary<string, MSP>();
-            txListeners = new LinkedHashMap<string, LinkedList<TL>>();
+            txListeners = new LinkedHashMap<string, LinkedList<TransactionListener>>();
             ChannelEventQueue = new ChannelEventQue(this);
-            blockListeners = new LinkedHashMap<string, BL>();
+            blockListeners = new LinkedHashMap<string, BlockListener>();
         }
 
         public HFClient Client => client;
-
-        public override string ToString()
-        {
-            return toString;
-        }
 
         /**
          * Get all Event Hubs on this channel.
@@ -286,6 +287,11 @@ namespace Hyperledger.Fabric.SDK
         public IEnrollment Enrollment => client.UserContext.Enrollment;
 
         public Properties ServiceDiscoveryProperties { get; set; }
+
+        public override string ToString()
+        {
+            return toString;
+        }
 
 
         private async Task InitChannelAsync(Orderer orderer, ChannelConfiguration channelConfiguration, CancellationToken token, params byte[][] signers)
@@ -556,7 +562,7 @@ namespace Hyperledger.Fabric.SDK
                         {
                             try
                             {
-                                await Task.Delay((int) ORDERER_RETRY_WAIT_TIME,token).ConfigureAwait(false); //try again sleep
+                                await Task.Delay((int) ORDERER_RETRY_WAIT_TIME, token).ConfigureAwait(false); //try again sleep
                             }
                             catch (Exception e)
                             {
@@ -659,18 +665,21 @@ namespace Hyperledger.Fabric.SDK
          * @return Channel The current channel added.
          * @throws InvalidArgumentException
          */
-        public Task<Channel> AddPeerAsync(Peer peer, CancellationToken token=default(CancellationToken))
+        public Task<Channel> AddPeerAsync(Peer peer, CancellationToken token = default(CancellationToken))
         {
-            return AddPeerAsync(peer, PeerOptions.CreatePeerOptions(),token);
+            return AddPeerAsync(peer, PeerOptions.CreatePeerOptions(), token);
         }
+
         public Channel AddPeer(Peer peer)
         {
             return AddPeerAsync(peer).RunAndUnwrap();
         }
+
         public Channel AddPeer(Peer peer, PeerOptions peerOptions)
         {
             return AddPeerAsync(peer, peerOptions).RunAndUnwrap();
         }
+
         /**
          * Add a peer to the channel
          *
@@ -826,7 +835,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new ProposalException($"Can not add peer {peer.Name} to channel {Name} because it already belongs to channel {peerChannel.Name}.");
 
             logger.Info($"{this} joining {peer}.");
-                
+
             if (genesisBlock == null && orderers.Count == 0)
             {
                 ProposalException e = new ProposalException("Channel missing genesis block and no orderers configured");
@@ -843,7 +852,7 @@ namespace Hyperledger.Fabric.SDK
                 logger.Debug("Getting signed proposal.");
                 SignedProposal signedProposal = GetSignedProposal(transactionContext, joinProposal);
                 logger.Debug("Got signed proposal.");
-                await AddPeerAsync(peer, peerOptions,token).ConfigureAwait(false); //need to add peer.
+                await AddPeerAsync(peer, peerOptions, token).ConfigureAwait(false); //need to add peer.
                 List<ProposalResponse> resp = await SendProposalToPeersAsync(new[] {peer}, signedProposal, transactionContext, token).ConfigureAwait(false);
                 ProposalResponse pro = resp.First();
                 if (pro.Status == ChaincodeResponse.ChaincodeResponseStatus.SUCCESS)
@@ -874,7 +883,6 @@ namespace Hyperledger.Fabric.SDK
 
         private async Task<Block> GetConfigBlockAsync(List<Peer> pers, CancellationToken token)
         {
-           
             if (IsShutdown)
                 throw new ProposalException($"Channel {Name} has been shutdown.");
             if (pers.Count == 0)
@@ -972,8 +980,8 @@ namespace Hyperledger.Fabric.SDK
                 throw new ArgumentException("Orderer is invalid can not be null.");
             }
 
-            logger.Debug($"Channel {this} adding {orderer.ToString()}");
-                
+            logger.Debug($"Channel {this} adding {orderer}");
+
             orderer.Channel = this;
             ordererEndpointMap[orderer.Endpoint] = orderer;
             orderers.TryAdd(orderer);
@@ -986,7 +994,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new ArgumentException($"Channel {Name} has been shutdown.");
             if (null == orderer)
                 throw new ArgumentException("Orderer is invalid can not be null.");
-            logger.Debug($"Channel {this} removing {orderer.ToString()}");
+            logger.Debug($"Channel {this} removing {orderer}");
             ordererEndpointMap.TryRemove(orderer.Endpoint, out _);
             orderers.TryRemove(orderer);
             orderer.Shutdown(true);
@@ -1017,7 +1025,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new ArgumentException($"Channel {Name} has been shutdown.");
             if (null == eventHub)
                 throw new ArgumentException("EventHub is invalid can not be null.");
-            logger.Debug($"Channel {this} adding event hub {eventHub.ToString()}");
+            logger.Debug($"Channel {this} adding event hub {eventHub}");
             eventHub.Channel = this;
             eventHub.SetEventQue(ChannelEventQueue);
             eventHubs.TryAdd(eventHub);
@@ -1066,6 +1074,7 @@ namespace Hyperledger.Fabric.SDK
                 return peers.ToList();
             return GetPeers((IEnumerable<PeerRole>) roles);
         }
+
         /**
          * Set peerOptions in the channel that has not be initialized yet.
          *
@@ -1077,7 +1086,8 @@ namespace Hyperledger.Fabric.SDK
         {
             return SetPeerOptionsAsync(peer, peerOptions).RunAndUnwrap();
         }
-        public async Task<PeerOptions> SetPeerOptionsAsync(Peer peer, PeerOptions peerOptions, CancellationToken token=default(CancellationToken))
+
+        public async Task<PeerOptions> SetPeerOptionsAsync(Peer peer, PeerOptions peerOptions, CancellationToken token = default(CancellationToken))
         {
             if (initialized)
                 throw new ArgumentException($"Channel {Name} already initialized.");
@@ -1177,7 +1187,7 @@ namespace Hyperledger.Fabric.SDK
                 StartEventQue(); //Run the event for event messages from event hubs.
                 string tskname = eventQueueThread == null ? "null" : eventQueueThread.Id.ToString();
                 logger.Info($"Channel {this} eventThread started shutdown: {IsShutdown} Task Id: {tskname} ");
-                    
+
                 initialized = true;
                 logger.Debug($"Channel {Name} initialized");
                 return this;
@@ -1193,7 +1203,7 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        public async Task SdUpdateAsync(SDNetwork sdNetwork, CancellationToken token=default(CancellationToken))
+        public async Task SdUpdateAsync(SDNetwork sdNetwork, CancellationToken token = default(CancellationToken))
         {
             if (IsShutdown)
             {
@@ -1233,7 +1243,7 @@ namespace Hyperledger.Fabric.SDK
                 if (null == orderer)
                 {
                     logger.Debug($"Channel {Name} doing channel update adding new orderer endpoint: {sdOrderer.Endpoint}");
-                    await sdOrderer.AddAsync(ServiceDiscoveryProperties,token).ConfigureAwait(false);
+                    await sdOrderer.AddAsync(ServiceDiscoveryProperties, token).ConfigureAwait(false);
                 }
             }
 
@@ -1276,7 +1286,7 @@ namespace Hyperledger.Fabric.SDK
                     }
 
                     logger.Debug($"Channel {Name} doing channel update found new peer endpoint {sdEndorser.Endpoint}");
-                    await sdEndorser.AddAsync(ServiceDiscoveryProperties,token).ConfigureAwait(false);
+                    await sdEndorser.AddAsync(ServiceDiscoveryProperties, token).ConfigureAwait(false);
                 }
             }
         }
@@ -1436,58 +1446,6 @@ namespace Hyperledger.Fabric.SDK
             return dicmsps;
         }
 
-        public class AnchorPeersConfigUpdateResult
-        {
-
-            /**
-             * The actual config update @see {@link UpdateChannelConfiguration}
-             *
-             * @return The config update. May be null when there is an error on no change needs to be done.
-             */
-            public UpdateChannelConfiguration UpdateChannelConfiguration { get; set; } = null;
-            /**
-             * The peers to be added.
-             *
-             * @return The anchor peers to be added. This is less any that may be already present.
-             */
-            public List<string> PeersAdded { get; set; } = new List<string>();
-            /**
-             * The peers to be removed..
-             *
-             * @return The anchor peers to be removed. This is less any peers not present.
-             */
-            public List<string> PeersRemoved { get; set; } = new List<string>();
-            /**
-             * The anchor peers found in the current channel configuration.
-             *
-             * @return The anchor peers found in the current channel configuration.
-             */
-            public List<string> CurrentPeers { get; set; } = new List<string>();
-            /**
-             * The anchor peers found in the updated channel configuration.
-             */
-            public List<string> UpdatedPeers { get; set; } = new List<string>();
-
-
-            public override string ToString()
-            {
-                StringBuilder sb = new StringBuilder(10000);
-                sb.Append("AnchorPeersConfigUpdateResult:{peersAdded= ");
-                sb.Append(PeersAdded == null ? "null" : string.Join(",", PeersAdded));
-                sb.Append(", peersRemoved= ");
-                sb.Append(PeersRemoved == null ? "null" : string.Join(",", PeersRemoved));
-                sb.Append(", currentPeers= ");
-                sb.Append(CurrentPeers == null ? "null" : string.Join(",", CurrentPeers));
-                sb.Append(", updatedPeers= ");
-                sb.Append(UpdatedPeers == null ? "null" : string.Join(",", UpdatedPeers));
-                sb.Append(", updateChannelConfiguration= ");
-                sb.Append(UpdateChannelConfiguration == null ? "null" : UpdateChannelConfiguration.UpdateChannelConfigurationBytes.ToHexString());
-                sb.Append("}");
-                return sb.ToString();
-            }
-
-        }
-
         /**
          * Get a channel configuration update to add or remove peers.
          * If both peersToAdd AND peersToRemove are null then only the current anchor peers are reported with @see {@link AnchorPeersConfigUpdateResult#getCurrentPeers()}
@@ -1504,7 +1462,7 @@ namespace Hyperledger.Fabric.SDK
             return GetConfigUpdateAnchorPeersAsync(peer, userContext, peersToAdd, peersToRemove).RunAndUnwrap();
         }
 
-        public async Task<AnchorPeersConfigUpdateResult> GetConfigUpdateAnchorPeersAsync(Peer peer, IUser userContext, List<string> peersToAdd, List<string> peersToRemove, CancellationToken token=default(CancellationToken))
+        public async Task<AnchorPeersConfigUpdateResult> GetConfigUpdateAnchorPeersAsync(Peer peer, IUser userContext, List<string> peersToAdd, List<string> peersToRemove, CancellationToken token = default(CancellationToken))
         {
             userContext.UserContextCheck();
 
@@ -1514,63 +1472,74 @@ namespace Hyperledger.Fabric.SDK
 
             bool reportOnly = peersToAdd == null && peersToRemove == null;
 
-            if (!reportOnly && ((peersToAdd == null || peersToAdd.Count==0) && (peersToRemove == null || peersToRemove.Count==0)))
+            if (!reportOnly && (peersToAdd == null || peersToAdd.Count == 0) && (peersToRemove == null || peersToRemove.Count == 0))
                 throw new ArgumentException("No anchor peers to add or remove!");
 
-            if (IS_TRACE_LEVEL) {
-
+            if (IS_TRACE_LEVEL)
+            {
                 StringBuilder sbp = new StringBuilder("null");
                 string sep = "";
-                if (peersToAdd != null) {
+                if (peersToAdd != null)
+                {
                     sbp = new StringBuilder("[");
-                    foreach (string s in peersToAdd) {
+                    foreach (string s in peersToAdd)
+                    {
                         sbp.Append(sep).Append("'").Append(s).Append("'");
-                    sep = ", ";
+                        sep = ", ";
                     }
-                    sbp.Append("]");
 
+                    sbp.Append("]");
                 }
+
                 StringBuilder sbr = new StringBuilder("null");
                 sep = "";
-                if (peersToRemove != null) {
+                if (peersToRemove != null)
+                {
                     sbr = new StringBuilder("[");
 
-                    foreach (String s in peersToRemove)
+                    foreach (string s in peersToRemove)
                     {
                         sbr.Append(sep).Append("'").Append(s).Append("'");
                         sep = ", ";
                     }
-                    sbr.Append("]");
 
+                    sbr.Append("]");
                 }
-                logger.Trace($"getConfigUpdateAnchorPeers channel {Name}, peer: {peer.ToString()}, user: {userContext.MspId}, peers to add: {sbp.ToString()}, peers to remove: {sbr.ToString()}");
+
+                logger.Trace($"getConfigUpdateAnchorPeers channel {Name}, peer: {peer}, user: {userContext.MspId}, peers to add: {sbp}, peers to remove: {sbr}");
             }
 
             HashSet<string> peersToAddHS = new HashSet<string>();
-            if (null != peersToAdd) {
-                foreach (string s in peersToAdd) {
+            if (null != peersToAdd)
+            {
+                foreach (string s in peersToAdd)
+                {
                     string[] ep = ParseEndpoint(s);
                     peersToAddHS.Add(ep[0] + ":" + ep[1]);
                 }
+
                 //  peersToAddHS.addAll(peersToAdd);
             }
 
             HashSet<string> peersToRemoveHS = new HashSet<string>();
-            if (null != peersToRemove && peersToRemove.Count>0) {
-                foreach (string s in peersToRemove) {
-
+            if (null != peersToRemove && peersToRemove.Count > 0)
+            {
+                foreach (string s in peersToRemove)
+                {
                     string[] ep = ParseEndpoint(s);
                     peersToRemoveHS.Add(ep[0] + ":" + ep[1]);
                 }
+
                 foreach (string s in peersToAddHS)
                 {
                     peersToRemoveHS.Remove(s); //add overrides remove;
-                }            
+                }
             }
+
             HashSet<string> peersRemoved = new HashSet<string>();
             HashSet<string> peersAdded = new HashSet<string>();
 
-            Block configBlock = await GetConfigBlockAsync(new List<Peer> { peer },token).ConfigureAwait(false);
+            Block configBlock = await GetConfigBlockAsync(new List<Peer> {peer}, token).ConfigureAwait(false);
             if (IS_TRACE_LEVEL)
             {
                 logger.Trace($"getConfigUpdateAnchorPeers  configBlock: {configBlock.ToByteArray().ToHexString()}");
@@ -1578,7 +1547,7 @@ namespace Hyperledger.Fabric.SDK
 
             Envelope envelope = Envelope.Parser.ParseFrom(configBlock.Data.Data[0]);
             Payload payload = Payload.Parser.ParseFrom(envelope.Payload);
-            Header header = payload.Header;        
+            Header header = payload.Header;
             ChannelHeader channelHeader = ChannelHeader.Parser.ParseFrom(header.ChannelHeader);
             if (!channelHeader.ChannelId.Equals(Name))
             {
@@ -1592,10 +1561,8 @@ namespace Hyperledger.Fabric.SDK
             Protos.Common.Config configBuilderUpdate = Protos.Common.Config.Parser.ParseFrom(config.ToByteArray());
 
 
+            ConfigGroup channelGroupBuild = ConfigGroup.Parser.ParseFrom(configBuilderUpdate.ChannelGroup.ToByteArray());
 
-
-            ConfigGroup channelGroupBuild = Protos.Common.ConfigGroup.Parser.ParseFrom(configBuilderUpdate.ChannelGroup.ToByteArray());
-            
             IDictionary<string, ConfigGroup> groupsMap = channelGroupBuild.Groups;
             ConfigGroup application = ConfigGroup.Parser.ParseFrom(groupsMap["Application"].ToByteArray());
             string mspid = userContext.MspId;
@@ -1610,26 +1577,30 @@ namespace Hyperledger.Fabric.SDK
                     sb.Append(sep).Append(amspid);
                     sep = ", ";
                 }
-                throw new ArgumentException($"Expected to find organization matching user context's mspid: {mspid}, but only found {sb.ToString()}.");
+
+                throw new ArgumentException($"Expected to find organization matching user context's mspid: {mspid}, but only found {sb}.");
             }
+
             ConfigGroup peerOrgConfigGroupBuilder = ConfigGroup.Parser.ParseFrom(peerOrgConfigGroup.ToByteArray());
 
             string modPolicy = peerOrgConfigGroup.ModPolicy != null ? peerOrgConfigGroup.ModPolicy : "Admins";
 
             IDictionary<string, ConfigValue> valuesMap = peerOrgConfigGroupBuilder.Values;
-            
+
             ConfigValue anchorPeersCV = valuesMap.ContainsKey("AnchorPeers") ? valuesMap["AnchorPeers"] : null;
 
             HashSet<string> currentAP = new HashSet<string>(); // The anchor peers that exist already.
-                
-            if (null != anchorPeersCV && anchorPeersCV.Value != null) {
+
+            if (null != anchorPeersCV && anchorPeersCV.Value != null)
+            {
                 modPolicy = anchorPeersCV.ModPolicy != null ? "Admins" : modPolicy;
 
                 AnchorPeers anchorPeerss = AnchorPeers.Parser.ParseFrom(anchorPeersCV.Value);
                 List<AnchorPeer> anchorPeersList = anchorPeerss.AnchorPeers_?.ToList();
                 if (anchorPeersList != null)
                 {
-                    foreach (AnchorPeer anchorPeer in anchorPeersList) {
+                    foreach (AnchorPeer anchorPeer in anchorPeersList)
+                    {
                         currentAP.Add(anchorPeer.Host.ToLowerInvariant() + ":" + anchorPeer.Port);
                     }
                 }
@@ -1637,18 +1608,18 @@ namespace Hyperledger.Fabric.SDK
 
             if (IS_TRACE_LEVEL)
             {
-
                 StringBuilder sbp = new StringBuilder("[");
                 string sep = "";
 
-                foreach (string s in currentAP) {
+                foreach (string s in currentAP)
+                {
                     sbp.Append(sep).Append("'").Append(s).Append("'");
                     sep = ", ";
                 }
+
                 sbp.Append("]");
 
-                logger.Trace($"getConfigUpdateAnchorPeers channel {Name},  current anchor peers: {sbp.ToString()}");
-
+                logger.Trace($"getConfigUpdateAnchorPeers channel {Name},  current anchor peers: {sbp}");
             }
 
             if (reportOnly)
@@ -1659,17 +1630,17 @@ namespace Hyperledger.Fabric.SDK
                 ret3.CurrentPeers = currentAP.ToList();
 
                 if (IS_TRACE_LEVEL)
-                    logger.Trace($"getConfigUpdateAnchorPeers returned: {ret3.ToString()}");
+                    logger.Trace($"getConfigUpdateAnchorPeers returned: {ret3}");
                 return ret3;
-
             }
 
             HashSet<string> peersFinalHS = new HashSet<string>();
 
             AnchorPeers anchorPeers = new AnchorPeers();
-            foreach (string s in currentAP) {
-
-                if (peersToRemoveHS.Contains(s)) {
+            foreach (string s in currentAP)
+            {
+                if (peersToRemoveHS.Contains(s))
+                {
                     peersRemoved.Add(s);
                     continue;
                 }
@@ -1677,7 +1648,7 @@ namespace Hyperledger.Fabric.SDK
                 if (!peersToAddHS.Contains(s))
                 {
                     string[] split = s.Split(':');
-                    anchorPeers.AnchorPeers_.Add(new AnchorPeer { Host=split[0], Port=int.Parse(split[1])});
+                    anchorPeers.AnchorPeers_.Add(new AnchorPeer {Host = split[0], Port = int.Parse(split[1])});
                     peersFinalHS.Add(s);
                 }
             }
@@ -1688,25 +1659,25 @@ namespace Hyperledger.Fabric.SDK
                 {
                     peersAdded.Add(s);
                     string[] split = s.Split(':');
-                    anchorPeers.AnchorPeers_.Add(new AnchorPeer { Host = split[0], Port = int.Parse(split[1]) });
+                    anchorPeers.AnchorPeers_.Add(new AnchorPeer {Host = split[0], Port = int.Parse(split[1])});
                     peersFinalHS.Add(s);
                 }
             }
 
-            if (peersRemoved.Count==0 && peersAdded.Count==0)
+            if (peersRemoved.Count == 0 && peersAdded.Count == 0)
             {
                 logger.Trace("getConfigUpdateAnchorPeers no Peers need adding or removing.");
                 AnchorPeersConfigUpdateResult ret2 = new AnchorPeersConfigUpdateResult();
                 ret2.CurrentPeers = currentAP.ToList();
                 if (IS_TRACE_LEVEL)
-                    logger.Trace($"getConfigUpdateAnchorPeers returned: {ret2.ToString()}");
+                    logger.Trace($"getConfigUpdateAnchorPeers returned: {ret2}");
                 return ret2;
             }
 
             var m = valuesMap.ToDictionary(a => a.Key, a => a.Value);
             //       org1MSP.clearValues();
 
-    //        if (!peersFinalHS.isEmpty()) { // if there are anchor peers to add...   LEAVE IT.
+            //        if (!peersFinalHS.isEmpty()) { // if there are anchor peers to add...   LEAVE IT.
 
             m["AnchorPeers"] = new ConfigValue {Value = anchorPeers.ToByteString(), ModPolicy = modPolicy};
             //       }
@@ -1719,7 +1690,7 @@ namespace Hyperledger.Fabric.SDK
             application.Groups.Clear();
             application.Groups.Add(m2);
             var m3 = channelGroupBuild.Groups.ToDictionary(a => a.Key, a => a.Value);
-            m3["Application"]=application;
+            m3["Application"] = application;
             channelGroupBuild.Groups.Clear();
             channelGroupBuild.Groups.Add(m3);
             configBuilderUpdate.ChannelGroup = channelGroupBuild;
@@ -1736,7 +1707,7 @@ namespace Hyperledger.Fabric.SDK
             ret.UpdatedPeers = peersFinalHS.ToList();
             ret.UpdateChannelConfiguration = new UpdateChannelConfiguration(updateBlockBuilder.ToByteArray());
             if (IS_TRACE_LEVEL)
-                logger.Trace($"getConfigUpdateAnchorPeers returned: {ret.ToString()}");
+                logger.Trace($"getConfigUpdateAnchorPeers returned: {ret}");
 
             return ret;
         }
@@ -1784,6 +1755,7 @@ namespace Hyperledger.Fabric.SDK
                 throw new TransactionException(e);
             }
         }
+
         private string[] ParseEndpoint(string endPoint)
         {
             if (string.IsNullOrEmpty(endPoint))
@@ -1799,14 +1771,13 @@ namespace Hyperledger.Fabric.SDK
                     throw new ArgumentException($"Endpoint '{endPoint}' expected to be format \"host:port\". Port does not seem to be a valid port number. ");
                 if (port < 1)
                     throw new ArgumentException($"Endpoint '{endPoint}' expected to be format \"host:port\". Port does not seem to be a valid port number. ");
-                if (port > 65535) 
+                if (port > 65535)
                     throw new ArgumentException($"Endpoint '{endPoint}' expected to be format \"host:port\". Port does not seem to be a valid port number less than 65535. ");
-                return new string[] {host, port + ""};
-
+                return new [] {host, port + ""};
             }
             catch (Exception e)
             {
-                throw new ArgumentException($"Endpoint '{endPoint}' expected to be format \"host:port\".",e);
+                throw new ArgumentException($"Endpoint '{endPoint}' expected to be format \"host:port\".", e);
             }
         }
 
@@ -2946,7 +2917,7 @@ namespace Hyperledger.Fabric.SDK
                 Protos.Peer.FabricProposalResponse.ProposalResponse fabricResponse = proposalResponse.ProtoProposalResponse;
                 if (null == fabricResponse)
                     throw new ProposalException($"Peer {peer.Name} channel query return with empty fabric response");
-                Protos.Peer.FabricProposalResponse.Response fabricResponseResponse = fabricResponse.Response;
+                Response fabricResponseResponse = fabricResponse.Response;
                 if (null == fabricResponseResponse)
                 {
                     //not likely but check it.
@@ -2995,7 +2966,7 @@ namespace Hyperledger.Fabric.SDK
                 Protos.Peer.FabricProposalResponse.ProposalResponse fabricResponse = proposalResponse.ProtoProposalResponse;
                 if (null == fabricResponse)
                     throw new ProposalException($"Peer {peer.Name} channel query return with empty fabric response");
-                Protos.Peer.FabricProposalResponse.Response fabricResponseResponse = fabricResponse.Response;
+                Response fabricResponseResponse = fabricResponse.Response;
                 if (null == fabricResponseResponse)
                 {
                     //not likely but check it.
@@ -3071,7 +3042,7 @@ namespace Hyperledger.Fabric.SDK
                 Protos.Peer.FabricProposalResponse.ProposalResponse fabricResponse = proposalResponse.ProtoProposalResponse;
                 if (null == fabricResponse)
                     throw new ProposalException($"Peer {peer.Name} channel query return with empty fabric response");
-                Protos.Peer.FabricProposalResponse.Response fabricResponseResponse = fabricResponse.Response;
+                Response fabricResponseResponse = fabricResponse.Response;
                 if (null == fabricResponseResponse)
                 {
                     //not likely but check it.
@@ -3107,25 +3078,25 @@ namespace Hyperledger.Fabric.SDK
         {
             return QueryCollectionsConfigAsync(chaincodeName, peer, userContext).RunAndUnwrap();
         }
-        public async Task<CollectionConfigPackage> QueryCollectionsConfigAsync(string chaincodeName, Peer peer, IUser userContext, CancellationToken token=default(CancellationToken))
+
+        public async Task<CollectionConfigPackage> QueryCollectionsConfigAsync(string chaincodeName, Peer peer, IUser userContext, CancellationToken token = default(CancellationToken))
         {
+            if (string.IsNullOrEmpty(chaincodeName))
+                throw new ArgumentException("Parameter chaincodeName expected to be non null or empty string.");
 
-        if (string.IsNullOrEmpty(chaincodeName))
-            throw new ArgumentException("Parameter chaincodeName expected to be non null or empty string.");
+            CheckChannelState();
+            CheckPeer(peer);
+            userContext.UserContextCheck();
 
-        CheckChannelState();
-        CheckPeer(peer);
-        userContext.UserContextCheck();
-
-        try {
-
+            try
+            {
                 TransactionContext context = GetTransactionContext(userContext);
                 QueryCollectionsConfigBuilder queryCollectionsConfigBuilder = QueryCollectionsConfigBuilder.Create();
                 queryCollectionsConfigBuilder.Context(context).ChaincodeName(chaincodeName);
                 Proposal q = queryCollectionsConfigBuilder.Build();
 
                 SignedProposal qProposal = GetSignedProposal(context, q);
-                List<ProposalResponse> proposalResponses = await SendProposalToPeersAsync(new [] { peer }, qProposal, context, token).ConfigureAwait(false);
+                List<ProposalResponse> proposalResponses = await SendProposalToPeersAsync(new[] {peer}, qProposal, context, token).ConfigureAwait(false);
 
                 if (null == proposalResponses)
                     throw new ProposalException($"Peer {peer.Name} channel query return with null for responses");
@@ -3139,8 +3110,8 @@ namespace Hyperledger.Fabric.SDK
                 if (null == fabricResponse)
                     throw new ProposalException($"Peer {peer.Name} channel query return with empty fabric response");
 
-                Protos.Peer.FabricProposalResponse.Response fabricResponseResponse = fabricResponse.Response;
-                
+                Response fabricResponseResponse = fabricResponse.Response;
+
                 if (null == fabricResponseResponse) //not likely but check it.
                     throw new ProposalException($"Peer {peer.Name} channel query return with empty fabricResponseResponse");
 
@@ -3148,15 +3119,17 @@ namespace Hyperledger.Fabric.SDK
                 if (200 != fabricResponseResponse.Status)
                     throw new ProposalException($"Peer {peer.Name} channel query expected 200, actual returned was: {fabricResponseResponse.Status}. {fabricResponseResponse.Message}");
                 return new CollectionConfigPackage(fabricResponseResponse.Payload);
-
-            } catch (ProposalException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new ProposalException($"Query for peer {Name} channels failed. {e.Message}", e);
-
             }
-
+            catch (ProposalException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                throw new ProposalException($"Query for peer {Name} channels failed. {e.Message}", e);
+            }
         }
+
         /**
          * Send a transaction  proposal.
          *
@@ -3642,7 +3615,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 foreach (Peer peer in pers)
                 {
-                    logger.Debug($"Channel {Name} send proposal to {peer.ToString()}, txID: {txID}");
+                    logger.Debug($"Channel {Name} send proposal to {peer}, txID: {txID}");
                     if (null != diagnosticFileDumper)
                         logger.Trace($"Sending to channel {Name}, peer: {peer.Name}, proposal: {diagnosticFileDumper.CreateDiagnosticProtobufFile(signedProposal.ToByteArray())}, txID: {txID}");
                     tasks.Add(peer, peer.SendProposalAsync(signedProposal, stoken.Token));
@@ -3652,11 +3625,10 @@ namespace Hyperledger.Fabric.SDK
                 {
                     try
                     {
-                        await Task.WhenAll(tasks.Values).TimeoutAsync(TimeSpan.FromMilliseconds((int)transactionContext.ProposalWaitTime),token).ConfigureAwait(false);
+                        await Task.WhenAll(tasks.Values).TimeoutAsync(TimeSpan.FromMilliseconds((int) transactionContext.ProposalWaitTime), token).ConfigureAwait(false);
                     }
                     catch (Exception)
                     {
-                        int a = 1;
                         //ignored, processed below
                     }
                 }
@@ -3684,9 +3656,9 @@ namespace Hyperledger.Fabric.SDK
                         message = $"Sending proposal to {peerName} with transaction {txID} failed because of: {e?.Message}";
 
                     logger.ErrorException(message, e);
-                    throw e;
+                    if (e != null) throw e;
                 }
-                else if (ctask.IsCanceled)
+                if (ctask.IsCanceled)
                 {
                     message = $"Sending proposal to {peerName} with transaction {txID} failed because of timeout({transactionContext.ProposalWaitTime} milliseconds) expiration";
                     logger.Error(message);
@@ -3720,12 +3692,12 @@ namespace Hyperledger.Fabric.SDK
          * @param userContext       The usercontext used for signing transaction.
          * @return a future allowing access to the result of the transaction invocation once complete.
          */
-        public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IUser userContext, int? waittimeinmilliseconds = 10000)
+        public TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IUser userContext, int? waittimeinmilliseconds = 10000)
         {
             return SendTransaction(proposalResponses, Orderers, userContext, waittimeinmilliseconds);
         }
 
-        public Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IUser userContext, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
+        public Task<TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IUser userContext, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
         {
             return SendTransactionAsync(proposalResponses, Orderers, userContext, waittimeinmilliseconds, token);
         }
@@ -3736,12 +3708,12 @@ namespace Hyperledger.Fabric.SDK
          * @param proposalResponses .
          * @return a future allowing access to the result of the transaction invocation once complete.
          */
-        public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, int? waittimeinmilliseconds = 10000)
+        public TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, int? waittimeinmilliseconds = 10000)
         {
             return SendTransaction(proposalResponses, Orderers, waittimeinmilliseconds);
         }
 
-        public Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
+        public Task<TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
         {
             return SendTransactionAsync(proposalResponses, Orderers, waittimeinmilliseconds, token);
         }
@@ -3753,12 +3725,12 @@ namespace Hyperledger.Fabric.SDK
          * @param orderers          The orderers to send the transaction to.
          * @return a future allowing access to the result of the transaction invocation once complete.
          */
-        public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, int? waittimeinmilliseconds = 10000)
+        public TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, int? waittimeinmilliseconds = 10000)
         {
             return SendTransaction(proposalResponses, Orderers, client.UserContext, waittimeinmilliseconds);
         }
 
-        public Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
+        public Task<TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
         {
             return SendTransactionAsync(proposalResponses, Orderers, client.UserContext, waittimeinmilliseconds, token);
         }
@@ -3772,12 +3744,12 @@ namespace Hyperledger.Fabric.SDK
          * @param orderers
          * @return Future allowing access to the result of the transaction invocation.
          */
-        public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, IUser userContext, int? waittimeinmilliseconds = 10000)
+        public TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, IUser userContext, int? waittimeinmilliseconds = 10000)
         {
             return SendTransaction(proposalResponses, TransactionOptions.Create().SetOrderers(ordrers).SetUserContext(userContext), waittimeinmilliseconds);
         }
 
-        public Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, IUser userContext, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
+        public Task<TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, IEnumerable<Orderer> ordrers, IUser userContext, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
         {
             return SendTransactionAsync(proposalResponses, TransactionOptions.Create().SetOrderers(ordrers).SetUserContext(userContext), waittimeinmilliseconds, token);
         }
@@ -3792,12 +3764,12 @@ namespace Hyperledger.Fabric.SDK
          * @param transactionOptions
          * @return Future allowing access to the result of the transaction invocation.
          */
-        public BlockEvent.TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000)
+        public TransactionEvent SendTransaction(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000)
         {
             return SendTransactionAsync(proposalResponses, transactionOptions, waittimeinmilliseconds).RunAndUnwrap();
         }
 
-        public async Task<BlockEvent.TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
+        public async Task<TransactionEvent> SendTransactionAsync(IEnumerable<ProposalResponse> proposalResponses, TransactionOptions transactionOptions, int? waittimeinmilliseconds = 10000, CancellationToken token = default(CancellationToken))
         {
             try
             {
@@ -3840,7 +3812,6 @@ namespace Hyperledger.Fabric.SDK
                         transactionContext = sdkProposalResponse.TransactionContext;
                         if (transactionContext == null)
                             throw new ArgumentException("Proposals with missing transaction context.");
-
                     }
                     else
                     {
@@ -3903,7 +3874,7 @@ namespace Hyperledger.Fabric.SDK
                 }
 
                 bool replyonly = nOfEvents == NOfEvents.NofNoEvents || EventHubs.Count == 0 && GetEventingPeers().Count == 0;
-                TaskCompletionSource<BlockEvent.TransactionEvent> sret=null;
+                TaskCompletionSource<TransactionEvent> sret = null;
                 if (replyonly)
                 {
                     //If there are no eventhubs to complete the future, complete it
@@ -3969,13 +3940,11 @@ namespace Hyperledger.Fabric.SDK
                                     Exception ex = new OperationCanceledException("The operation has timed out.");
                                     throw new TransactionException(ex.Message, ex);
                                 }
-
                             }
-                            catch (Exception exception)
+                            catch (Exception)
                             {
                                 //Ignored processed below
                             }
-
                         }
                     }
 
@@ -3986,7 +3955,7 @@ namespace Hyperledger.Fabric.SDK
                         string message;
                         if (e3 is RpcException)
                         {
-                            RpcException rpce = (RpcException)e3;
+                            RpcException rpce = (RpcException) e3;
                             message = $"Channel {Name} failed to recieve event from {proposalTransactionID}. gRPC failure={rpce.Status}";
                         }
                         else
@@ -3995,12 +3964,14 @@ namespace Hyperledger.Fabric.SDK
                         logger.ErrorException(message, e3);
                         throw new TransactionException(message, ex);
                     }
+
                     if (sret.Task.IsCanceled)
                     {
                         token.ThrowIfCancellationRequested();
                         Exception ex2 = new OperationCanceledException("The operation has timed out.");
                         throw new TransactionException(ex2.Message, ex2);
                     }
+
                     return sret.Task.Result;
                 }
 
@@ -4088,7 +4059,7 @@ namespace Hyperledger.Fabric.SDK
         {
             if (IsShutdown)
                 throw new ArgumentException($"Channel {Name} has been shutdown.");
-            return new BL(this, listenerAction).Handle;
+            return new BlockListener(this, listenerAction).Handle;
         }
 
         /**
@@ -4102,7 +4073,7 @@ namespace Hyperledger.Fabric.SDK
         {
             if (IsShutdown)
                 throw new ArgumentException($"Channel {Name} has been shutdown.");
-            CheckHandle(BL.BLOCK_LISTENER_TAG, handle);
+            CheckHandle(BlockListener.BLOCK_LISTENER_TAG, handle);
             lock (blockListeners)
             {
                 if (blockListeners.ContainsKey(handle))
@@ -4114,8 +4085,6 @@ namespace Hyperledger.Fabric.SDK
                 return false;
             }
         }
-        //////////  Transaction monitoring  /////////////////////////////
-        private Task eventQueueThread;
 
         private void StartEventQue()
         {
@@ -4124,7 +4093,7 @@ namespace Hyperledger.Fabric.SDK
             eventQueueTokenSource = new CancellationTokenSource();
             CancellationToken ct = eventQueueTokenSource.Token;
 
-            eventQueueThread=Task.Run(() =>
+            eventQueueThread = Task.Run(() =>
             {
                 while (!IsShutdown)
                 {
@@ -4173,13 +4142,13 @@ namespace Hyperledger.Fabric.SDK
                             continue; // not targeted for this channel
                         }
 
-                        List<BL> blcopy = new List<BL>();
+                        List<BlockListener> blcopy = new List<BlockListener>();
                         lock (blockListeners)
                         {
                             blcopy.AddRange(blockListeners.Values);
                         }
 
-                        foreach (BL l in blcopy)
+                        foreach (BlockListener l in blcopy)
                         {
                             try
                             {
@@ -4202,8 +4171,8 @@ namespace Hyperledger.Fabric.SDK
 
                     ct.ThrowIfCancellationRequested();
                 }
-                logger.Info($"Channel {Name} eventThread shutting down. shutdown: {IsShutdown}  task: {eventQueueThread.Id.ToString()}");
 
+                logger.Info($"Channel {Name} eventThread shutting down. shutdown: {IsShutdown}  task: {eventQueueThread.Id.ToString()}");
             }, ct);
         }
 
@@ -4214,7 +4183,7 @@ namespace Hyperledger.Fabric.SDK
             return RegisterBlockListener(TransactionBlockReceived);
         }
 
-        private void RunSweeper()
+        internal void RunSweeper()
         {
             if (IsShutdown || DELTA_SWEEP < 1)
                 return;
@@ -4253,10 +4222,10 @@ namespace Hyperledger.Fabric.SDK
          * @return
          */
 
-        private TaskCompletionSource<BlockEvent.TransactionEvent> RegisterTxListener(string txid, NOfEvents nOfEvents, bool failFast)
+        private TaskCompletionSource<TransactionEvent> RegisterTxListener(string txid, NOfEvents nOfEvents, bool failFast)
         {
-            TaskCompletionSource<BlockEvent.TransactionEvent> future = new TaskCompletionSource<BlockEvent.TransactionEvent>();
-            var _ = new TL(this, txid, future, nOfEvents, failFast);
+            TaskCompletionSource<TransactionEvent> future = new TaskCompletionSource<TransactionEvent>();
+            var _ = new TransactionListener(this, txid, future, nOfEvents, failFast);
             return future;
         }
 
@@ -4366,7 +4335,6 @@ namespace Hyperledger.Fabric.SDK
             transactionListenerProcessorHandle = null;
             if (null != ltransactionListenerProcessorHandle)
             {
-
                 try
                 {
                     UnregisterBlockListener(ltransactionListenerProcessorHandle);
@@ -4399,7 +4367,6 @@ namespace Hyperledger.Fabric.SDK
                 {
                     chainCodeListeners.Clear();
                 }
-
             }
 
             if (blockListeners != null)
@@ -4526,20 +4493,19 @@ namespace Hyperledger.Fabric.SDK
         {
             HFClient lclient = client;
             if (null == lclient || IsShutdown)
-            { //can happen if were not quite shutdown
+            {
+                //can happen if were not quite shutdown
                 return;
             }
 
-            string source = blockEvent.Peer != null ? blockEvent.Peer.ToString() :
-                (blockEvent.EventHub != null ? blockEvent.EventHub.ToString() : "not peer or eventhub!");
+            string source = blockEvent.Peer != null ? blockEvent.Peer.ToString() : blockEvent.EventHub != null ? blockEvent.EventHub.ToString() : "not peer or eventhub!";
 
 
-            logger.Debug($"is peer {blockEvent.Peer!=null}, is filtered: {blockEvent.IsFiltered}");
-            List<BlockEvent.TransactionEvent> transactionEvents = blockEvent.TransactionEvents?.ToList() ?? new List<BlockEvent.TransactionEvent>();
+            logger.Debug($"is peer {blockEvent.Peer != null}, is filtered: {blockEvent.IsFiltered}");
+            List<TransactionEvent> transactionEvents = blockEvent.TransactionEvents?.ToList() ?? new List<TransactionEvent>();
 
-            if (transactionEvents.Count==0)
+            if (transactionEvents.Count == 0)
             {
-
                 // no transactions today we can assume it was a config or update block.
 
                 if (IsLaterBlock(blockEvent.BlockNumber))
@@ -4565,30 +4531,30 @@ namespace Hyperledger.Fabric.SDK
                         }
                     });
                 }
+
                 return;
             }
 
 
-
-
-
-            if (txListeners.Count == 0 || IsShutdown)
-                return;
-            foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
+            lock (txListeners)
             {
-
+                if (txListeners.Count == 0 || IsShutdown || blockEvent.TransactionEvents==null)
+                    return;
+            }
+            foreach (TransactionEvent transactionEvent in blockEvent.TransactionEvents)
+            {
                 logger.Debug($"Channel {Name} got event from {source} for transaction {transactionEvent.TransactionID} in block number: {blockEvent.BlockNumber}");
-                List<TL> txL = new List<TL>();
+                List<TransactionListener> txL = new List<TransactionListener>();
                 lock (txListeners)
                 {
-                    LinkedList<TL> list = txListeners[transactionEvent.TransactionID];
+                    LinkedList<TransactionListener> list = txListeners[transactionEvent.TransactionID];
                     if (null != list)
                     {
                         txL.AddRange(list);
                     }
                 }
 
-                foreach (TL l in txL)
+                foreach (TransactionListener l in txL)
                 {
                     try
                     {
@@ -4598,6 +4564,7 @@ namespace Hyperledger.Fabric.SDK
                         {
                             break;
                         }
+
                         if (l.EventReceived(transactionEvent))
                         {
                             l.Fire(transactionEvent);
@@ -4610,7 +4577,7 @@ namespace Hyperledger.Fabric.SDK
                 }
             }
         }
-        private long lastBlock = -1L;
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         private bool IsLaterBlock(long blockno)
         {
@@ -4619,8 +4586,10 @@ namespace Hyperledger.Fabric.SDK
                 lastBlock = blockno;
                 return true;
             }
+
             return false;
         }
+
         internal void ChaincodeBlockReceived(BlockEvent blockEvent)
         {
             lock (chainCodeListeners)
@@ -4628,12 +4597,13 @@ namespace Hyperledger.Fabric.SDK
                 if (chainCodeListeners.Count == 0)
                     return;
             }
+
             List<ChaincodeEventDeserializer> chaincodeEvents = new List<ChaincodeEventDeserializer>();
             //Find the chaincode events in the transactions.
-            foreach (BlockEvent.TransactionEvent transactionEvent in blockEvent.TransactionEvents)
+            foreach (TransactionEvent transactionEvent in blockEvent.TransactionEvents)
             {
                 logger.Debug($"Channel {Name} got event for transaction {transactionEvent.TransactionID}");
-                foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo info in transactionEvent.TransactionActionInfos)
+                foreach (TransactionActionInfo info in transactionEvent.TransactionActionInfos)
                 {
                     ChaincodeEventDeserializer evnt = info.Event;
                     if (null != evnt)
@@ -4666,1166 +4636,57 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-
-        /**
-         * Additional metadata used by service discovery to find the endorsements needed.
-         * Specify which chaincode is invoked and what collections are used.
-         */
-
-        public class ServiceDiscoveryChaincodeCalls
+        public class AnchorPeersConfigUpdateResult
         {
-            private readonly ChaincodeCall ret = null;
-
-            public ServiceDiscoveryChaincodeCalls(string chaincodeName)
-            {
-                Name = chaincodeName;
-            }
-
-            public string Name { get; set; }
-            public List<string> Collections { get; set; } = new List<string>();
-
             /**
-             * The collections used by this chaincode.
+             * The actual config update @see {@link UpdateChannelConfiguration}
              *
-             * @param collectionName name of collection.
-             * @return
+             * @return The config update. May be null when there is an error on no change needs to be done.
              */
-
-            public ServiceDiscoveryChaincodeCalls AddCollections(params string[] collectionName)
-            {
-                if (Collections == null)
-                    Collections = new List<string>();
-                Collections.AddRange(collectionName);
-                return this;
-            }
-
-            public string Write(List<ServiceDiscoveryChaincodeCalls> dep)
-            {
-                StringBuilder cns = new StringBuilder(1000);
-                cns.Append("ServiceDiscoveryChaincodeCalls(name: ").Append(Name);
-                List<string> collections = Collections;
-                if (collections.Count > 0)
-                {
-                    cns.Append(", collections:[");
-                    string sep2 = "";
-                    foreach (string collection in collections)
-                    {
-                        cns.Append(sep2).Append(collection);
-                        sep2 = ", ";
-                    }
-
-                    cns.Append("]");
-                }
-
-                if (dep != null && dep.Count > 0)
-                {
-                    cns.Append(" ,dependents:[");
-                    string sep2 = "";
-
-                    foreach (ServiceDiscoveryChaincodeCalls chaincodeCalls in dep)
-                    {
-                        cns.Append(sep2).Append(chaincodeCalls.Write(null));
-                        sep2 = ", ";
-                    }
-
-                    cns.Append("]");
-                }
-
-                cns.Append(")");
-                return cns.ToString();
-            }
+            public UpdateChannelConfiguration UpdateChannelConfiguration { get; set; }
 
             /**
-             * Create ch
+             * The peers to be added.
              *
-             * @param name
-             * @return
-             * @throws InvalidArgumentException
+             * @return The anchor peers to be added. This is less any that may be already present.
              */
-
-            public static ServiceDiscoveryChaincodeCalls CreateServiceDiscoveryChaincodeCalls(string name)
-            {
-                if (string.IsNullOrEmpty(name))
-                    throw new ArgumentException("The name parameter must be non null nor an empty string.");
-                return new ServiceDiscoveryChaincodeCalls(name);
-            }
-
-            public ChaincodeCall Build()
-            {
-                if (ret == null)
-                {
-                    ChaincodeCall rt = new ChaincodeCall();
-                    rt.Name = Name;
-                    if (Collections != null && Collections.Count > 0)
-                    {
-                        rt.CollectionNames.AddRange(Collections);
-                    }
-                }
-
-                return ret;
-            }
-        }
-
-        /**
-         * Options for doing service discovery.
-         */
-        public class DiscoveryOptions
-        {
-            private readonly HashSet<string> ignoreList = new HashSet<string>();
-
-            public Func<SDChaindcode, SDEndorserState> EndorsementSelector { get; private set; }
-
-            public List<ServiceDiscoveryChaincodeCalls> ServiceDiscoveryChaincodeInterests { get; private set; }
-
-            public bool ForceDiscovery { get; private set; }
-
-            public bool IsInspectResults { get; set; }
-
-            public List<string> IgnoreList => ignoreList.ToList();
+            public List<string> PeersAdded { get; set; } = new List<string>();
 
             /**
-             * Create transaction options.
+             * The peers to be removed..
              *
-             * @return return transaction options.
+             * @return The anchor peers to be removed. This is less any peers not present.
              */
-            public static DiscoveryOptions CreateDiscoveryOptions()
-            {
-                return new DiscoveryOptions();
-            }
+            public List<string> PeersRemoved { get; set; } = new List<string>();
 
             /**
-             * Set to true to inspect proposals results on error.
+             * The anchor peers found in the current channel configuration.
              *
-             * @param inspectResults
-             * @return
+             * @return The anchor peers found in the current channel configuration.
              */
-            public DiscoveryOptions SetInspectResults(bool inspectResults)
-            {
-                IsInspectResults = inspectResults;
-                return this;
-            }
+            public List<string> CurrentPeers { get; set; } = new List<string>();
 
             /**
-             * Set the handler which selects the endorser endpoints from the alternatives provided by service discovery.
-             *
-             * @param endorsementSelector
-             * @return
-             * @throws InvalidArgumentException
+             * The anchor peers found in the updated channel configuration.
              */
-            public DiscoveryOptions SetEndorsementSelector(Func<SDChaindcode, SDEndorserState> endorsementSelector)
+            public List<string> UpdatedPeers { get; set; } = new List<string>();
+
+
+            public override string ToString()
             {
-                EndorsementSelector = endorsementSelector ?? throw new ArgumentException("endorsementSelector parameter is null.");
-                return this;
-            }
-
-            /**
-             * Set which other chaincode calls are made by this chaincode and they're collections.
-             *
-             * @param serviceDiscoveryChaincodeInterests
-             * @return DiscoveryOptions
-             */
-
-            public DiscoveryOptions SetServiceDiscoveryChaincodeInterests(params ServiceDiscoveryChaincodeCalls[] serviceDiscoveryChaincodeInterests)
-            {
-                if (ServiceDiscoveryChaincodeInterests == null)
-                {
-                    ServiceDiscoveryChaincodeInterests = new List<ServiceDiscoveryChaincodeCalls>();
-                }
-
-                ServiceDiscoveryChaincodeInterests.AddRange(ServiceDiscoveryChaincodeInterests);
-                return this;
-            }
-
-            /**
-         * Force new service discovery
-         *
-         * @param forceDiscovery
-         * @return
-         */
-
-            public DiscoveryOptions SetForceDiscovery(bool forceDiscovery)
-            {
-                ForceDiscovery = forceDiscovery;
-                return this;
-            }
-
-            public DiscoveryOptions IgnoreEndpoints(params string[] endpoints)
-            {
-                if (endpoints == null)
-                {
-                    throw new ArgumentException("endpoints parameter is null.");
-                }
-
-                foreach (string endpoint in endpoints)
-                {
-                    if (endpoint == null)
-                    {
-                        throw new ArgumentException("endpoints parameter is null.");
-                    }
-
-                    ignoreList.Add(endpoint);
-                }
-
-                return this;
-            }
-        }
-
-
-        /**
-     * Options for the peer.
-     * These options are channel based.
-     */
-
-
-        public class PeerOptions
-        {
-            protected List<PeerRole> peerRoles;
-
-            protected PeerOptions()
-            {
-            }
-
-            /**
-             * Get newest block on startup of peer eventing service.
-             *
-             * @return
-             */
-
-            public bool? Newest { get; private set; } = true;
-            /**
-             * The block number to start getting events from on start up of the peer eventing service..
-             *
-             * @return the start number
-             */
-
-            public long? StartEventsBlock { get; private set; }
-
-            /**
-             * The stopping block number when the peer eventing service will stop sending blocks.
-             *
-             * @return the stop block number.
-             */
-
-
-            public long StopEventsBlock { get; private set; } = long.MaxValue;
-
-            /**
-             * Clone.
-             *
-             * @return return a duplicate of this instance.
-             */
-
-
-            /**
-             * Is the peer eventing service registered for filtered blocks
-             *
-             * @return true if filtered blocks will be returned by the peer eventing service.
-             */
-
-            public bool IsRegisterEventsForFilteredBlocks { get; protected set; }
-
-            /**
-             * Return the roles the peer has.
-             *
-             * @return the roles {@link PeerRole}
-             */
-
-            public List<PeerRole> PeerRoles
-            {
-                get => peerRoles ?? (peerRoles = PeerRoleExtensions.NoDiscovery());
-                internal set => peerRoles = value;
-            }
-
-            public PeerOptions Clone()
-            {
-                PeerOptions p = new PeerOptions();
-                p.peerRoles = peerRoles?.ToList();
-                p.IsRegisterEventsForFilteredBlocks = IsRegisterEventsForFilteredBlocks;
-                p.Newest = Newest;
-                p.StartEventsBlock = StartEventsBlock;
-                p.StopEventsBlock = StopEventsBlock;
-                return p;
-            }
-
-            /**
-             * Register the peer eventing services to return filtered blocks.
-             *
-             * @return the PeerOptions instance.
-             */
-
-            public PeerOptions RegisterEventsForFilteredBlocks()
-            {
-                IsRegisterEventsForFilteredBlocks = true;
-                return this;
-            }
-
-            /**
-             * Register the peer eventing services to return full event blocks.
-             *
-             * @return the PeerOptions instance.
-             */
-
-            public PeerOptions RegisterEventsForBlocks()
-            {
-                IsRegisterEventsForFilteredBlocks = false;
-                return this;
-            }
-
-            /**
-             * Create an instance of PeerOptions.
-             *
-             * @return the PeerOptions instance.
-             */
-
-            public static PeerOptions CreatePeerOptions()
-            {
-                return new PeerOptions();
-            }
-
-            public bool HasPeerRoles()
-            {
-                return peerRoles != null && peerRoles.Count > 0;
-            }
-            /**
-             * Set the roles this peer will have on the chain it will added or joined.
-             *
-             * @param peerRoles {@link PeerRole}
-             * @return This PeerOptions.
-             */
-
-            public PeerOptions SetPeerRoles(List<PeerRole> pRoles)
-            {
-                peerRoles = pRoles;
-                return this;
-            }
-
-            public PeerOptions SetPeerRoles(params PeerRole[] pRoles)
-            {
-                peerRoles = pRoles.ToList();
-                return this;
-            }
-            /**
-             * Add to the roles this peer will have on the chain it will added or joined.
-             *
-             * @param peerRole see {@link PeerRole}
-             * @return This PeerOptions.
-             */
-
-            public PeerOptions AddPeerRole(PeerRole peerRole)
-            {
-                if (peerRoles == null)
-                    peerRoles = new List<PeerRole>();
-                if (!peerRoles.Contains(peerRole))
-                    peerRoles.Add(peerRole);
-                return this;
-            }
-
-            /**
-             * Set the block number the eventing peer will start relieving events.
-             *
-             * @param start The staring block number.
-             * @return This PeerOptions.
-             */
-            public PeerOptions StartEvents(long start)
-            {
-                StartEventsBlock = start;
-                Newest = null;
-                return this;
-            }
-
-
-            /**
-             * This is the default. It will start retrieving events with the newest. Note this is not the
-             * next block that is added to the chain  but the current block on the chain.
-             *
-             * @return This PeerOptions.
-             */
-
-            public PeerOptions StartEventsNewest()
-            {
-                StartEventsBlock = null;
-                Newest = true;
-                return this;
-            }
-
-            /**
-             * The block number to stop sending events.
-             *
-             * @param stop the number to stop sending events.
-             * @return This PeerOptions.
-             */
-            public PeerOptions StopEvents(long stop)
-            {
-                StopEventsBlock = stop;
-                return this;
-            }
-        }
-
-        /**
-         * NofEvents may be used with @see {@link TransactionOptions#nOfEvents(NOfEvents)}  to control how reporting Peer service events and Eventhubs will
-         * complete the future acknowledging the transaction has been seen by those Peers.
-         * <p/>
-         * You can use the method @see {@link #nofNoEvents} to create an NOEvents that will result in the future being completed immediately
-         * when the Orderer has accepted the transaction. Note in this case the transaction event will be set to null.
-         * <p/>
-         * NofEvents can add Peer Eventing services and Eventhubs that should complete the future. By default all will need to
-         * see the transactions to complete the future.  The method @see {@link #setN(int)} can set how many in the group need to see the transaction
-         * completion. Essentially setting it to 1 is any.
-         * </p>
-         * NofEvents may also contain other NofEvent grouping. They can be nested.
-         */
-        public class NOfEvents
-        {
-            private readonly HashSet<EventHub> eventHubs = new HashSet<EventHub>();
-            private readonly HashSet<NOfEvents> nOfEvents = new HashSet<NOfEvents>();
-            private readonly HashSet<Peer> peers = new HashSet<Peer>();
-            private long n = long.MaxValue; //all
-            private bool started;
-
-            public NOfEvents(NOfEvents nof)
-            {
-                // Deep Copy.
-                if (nof == NofNoEvents)
-                    throw new ArgumentException("nofNoEvents may not be copied.");
-                Ready = false; // no use in one set to ready.
-                started = false;
-                n = nof.n;
-                peers = new HashSet<Peer>(nof.peers);
-                eventHubs = new HashSet<EventHub>(nof.eventHubs);
-                foreach (NOfEvents nofc in nof.nOfEvents)
-                    nOfEvents.Add(new NOfEvents(nofc));
-            }
-
-            private NOfEvents()
-            {
-            }
-
-            public bool Ready { get; private set; }
-
-            public static NOfEvents NofNoEvents { get; } = new NoEvents();
-
-            public virtual NOfEvents SetN(int num)
-            {
-                if (num < 1)
-                    throw new ArgumentException($"N was {num} but needs to be greater than 0.");
-                n = num;
-                return this;
-            }
-            /**
-              * Peers that need to see the transaction event to complete.
-              *
-              * @param peers The peers that need to see the transaction event to complete.
-              * @return This NofEvents.
-              */
-            public virtual NOfEvents AddPeers(params Peer[] pers)
-            {
-                if (pers == null || pers.Length == 0)
-                    throw new ArgumentException("Peers added must be not null or empty.");
-                peers.AddRange(pers);
-                return this;
-            }
-            /**
-             * Peers that need to see the transaction event to complete.
-             *
-             * @param peers The peers that need to see the transaction event to complete.
-             * @return This NofEvents.
-             */
-            public virtual NOfEvents AddPeers(IEnumerable<Peer> pers)
-            {
-                AddPeers(pers.ToArray());
-                return this;
-            }
-            /**
-             * EventHubs that need to see the transaction event to complete.
-             * @param eventHubs The peers that need to see the transaction event to complete.
-             * @return This NofEvents.
-             */
-            public virtual NOfEvents AddEventHubs(params EventHub[] evntHubs)
-            {
-                if (evntHubs == null || evntHubs.Length == 0)
-                    throw new ArgumentException("EventHubs added must be not null or empty.");
-                eventHubs.AddRange(evntHubs);
-                return this;
-            }
-            /**
-             * EventHubs that need to see the transaction event to complete.
-             * @param eventHubs The peers that need to see the transaction event to complete.
-             * @return This NofEvents.
-             */
-            public virtual NOfEvents AddEventHubs(IEnumerable<EventHub> evntHubs)
-            {
-                AddEventHubs(evntHubs.ToArray());
-                return this;
-            }
-            /**
-             * NOfEvents that need to see the transaction event to complete.
-             * @param nOfEvents  The nested event group that need to set the transacton event to complete.
-             * @return This NofEvents.
-             */
-            public virtual NOfEvents AddNOfs(params NOfEvents[] nofEvents)
-            {
-                if (nofEvents == null || nofEvents.Length == 0)
-                    throw new ArgumentException("nofEvents added must be not null or empty.");
-                foreach (NOfEvents num in nofEvents)
-                {
-                    if (NofNoEvents == num)
-                        throw new ArgumentException("nofNoEvents may not be added as an event.");
-                    if (InHayStack(num))
-                        throw new ArgumentException("nofEvents already was added..");
-                    nOfEvents.Add(new NOfEvents(num));
-                }
-
-                return this;
-            }
-
-            private bool InHayStack(NOfEvents needle)
-            {
-                if (this == needle)
-                    return true;
-                foreach (NOfEvents straw in nOfEvents)
-                {
-                    if (straw.InHayStack(needle))
-                        return true;
-                }
-
-                return false;
-            }
-            /**
-             * NOfEvents that need to see the transaction event to complete.
-             * @param nofs  The nested event group that need to set the transacton event to complete.
-             * @return This NofEvents.
-             */
-            public NOfEvents AddNOfs(IEnumerable<NOfEvents> nofs)
-            {
-                AddNOfs(nofs.ToArray());
-                return this;
-            }
-
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            public List<Peer> UnSeenPeers()
-            {
-                HashSet<Peer> unseen = new HashSet<Peer>();
-                unseen.AddRange(peers);
-                foreach (NOfEvents nOfEvents in nOfEvents)
-                    unseen.AddRange(NofNoEvents.UnSeenPeers());
-                return unseen.ToList();
-            }
-
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            public List<EventHub> UnSeenEventHubs()
-            {
-                HashSet<EventHub> unseen = new HashSet<EventHub>();
-                unseen.AddRange(eventHubs);
-                foreach (NOfEvents nOfEvents in nOfEvents)
-                    unseen.AddRange(NofNoEvents.UnSeenEventHubs());
-                return unseen.ToList();
-            }
-
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            public bool Seen(EventHub eventHub)
-            {
-                if (!started)
-                {
-                    started = true;
-                    n = Math.Min(eventHubs.Count + peers.Count + nOfEvents.Count, n);
-                }
-
-                if (!Ready)
-                {
-                    if (eventHubs.Remove(eventHub))
-                    {
-                        if (--n == 0)
-                        {
-                            Ready = true;
-                        }
-                    }
-
-                    if (!Ready)
-                    {
-                        foreach (NOfEvents e in nOfEvents.ToList())
-                        {
-                            if (e.Seen(eventHub))
-                            {
-                                nOfEvents.Remove(e);
-                                if (--n == 0)
-                                {
-                                    Ready = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (Ready)
-                {
-                    eventHubs.Clear();
-                    peers.Clear();
-                    nOfEvents.Clear();
-                }
-
-                return Ready;
-            }
-
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            public bool Seen(Peer peer)
-            {
-                if (!started)
-                {
-                    started = true;
-                    n = Math.Min(eventHubs.Count + peers.Count + nOfEvents.Count, n);
-                }
-
-                if (!Ready)
-                {
-                    if (peers.Remove(peer))
-                    {
-                        if (--n == 0)
-                            Ready = true;
-                    }
-
-                    if (!Ready)
-                    {
-                        foreach (NOfEvents e in nOfEvents.ToList())
-                        {
-                            if (e.Seen(peer))
-                            {
-                                nOfEvents.Remove(e);
-                                if (--n == 0)
-                                {
-                                    Ready = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (Ready)
-                {
-                    eventHubs.Clear();
-                    peers.Clear();
-                    nOfEvents.Clear();
-                }
-
-                return Ready;
-            }
-
-            public static NOfEvents CreateNofEvents()
-            {
-                return new NOfEvents();
-            }
-
-
-            public static NOfEvents CreateNoEvents()
-            {
-                return NofNoEvents;
-            }
-            /**
-            * Special NofEvents indicating that no transaction events are needed to complete the Future.
-            * This will result in the Future being completed as soon has the Orderer has seen the transaction.
-            */
-
-            public class NoEvents : NOfEvents
-            {
-                public NoEvents() 
-                {
-                    Ready = true;
-                }
-
-                public override NOfEvents AddNOfs(params NOfEvents[] nofEvents)
-                {
-                    throw new ArgumentException("Can not add any events.");
-                }
-
-                public override NOfEvents AddEventHubs(params EventHub[] eventHub)
-                {
-                    throw new ArgumentException("Can not add any events.");
-                }
-
-                public override NOfEvents AddPeers(params Peer[] pers)
-                {
-                    throw new ArgumentException("Can not add any events.");
-                }
-
-                public override NOfEvents SetN(int num)
-                {
-                    throw new ArgumentException("Can not set N");
-                }
-
-                public override NOfEvents AddEventHubs(IEnumerable<EventHub> evntHubs)
-                {
-                    throw new ArgumentException("Can not add any events.");
-                }
-
-                public override NOfEvents AddPeers(IEnumerable<Peer> pers)
-                {
-                    throw new ArgumentException("Can not add any events.");
-                }
-            }
-        }
-        /**
-         * TransactionOptions class can be used to change how the SDK processes the Transaction.
-         */
-        public class TransactionOptions
-        {
-            private TransactionOptions()
-            {
-            }
-
-            public List<Orderer> Orderers { get; set; }
-            public bool ShuffleOrders { get; set; } = true;
-            public NOfEvents NOfEvents { get; set; }
-            public IUser UserContext { get; set; }
-            public bool FailFast { get; set; } = true;
-
-            /**
-             * Fail fast when there is an invalid transaction received on the eventhub or eventing peer being observed.
-             * The default value is true.
-             *
-             * @param failFast fail fast.
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetFailFast(bool failFast)
-            {
-                FailFast = failFast;
-                return this;
-            }
-
-            /**
-             * The user context that is to be used. The default is the user context on the client.
-             *
-             * @param userContext
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetUserContext(IUser userContext)
-            {
-                UserContext = userContext;
-                return this;
-            }
-
-            /**
-             * The orders to try on this transaction. Each order is tried in turn for a successful submission.
-             * The default is try all orderers on the chain.
-             *
-             * @param orderers the orderers to try.
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetOrderers(params Orderer[] orderers)
-            {
-                Orderers = orderers.ToList();
-                return this;
-            }
-
-            /**
-             * Shuffle the order the Orderers are tried. The default is true.
-             *
-             * @param shuffleOrders
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetShuffleOrders(bool shuffleOrders)
-            {
-                ShuffleOrders = shuffleOrders;
-                return this;
-            }
-
-            /**
-             * Events reporting Eventing Peers and EventHubs to complete the transaction.
-             * This maybe set to NOfEvents.nofNoEvents that will complete the future as soon as a successful submission
-             * to an Orderer, but the completed Transaction event in that case will be null.
-             *
-             * @param nOfEvents @see {@link NOfEvents}
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetNOfEvents(NOfEvents nOfEvents)
-            {
-                NOfEvents = nOfEvents == NOfEvents.NofNoEvents ? nOfEvents : new NOfEvents(nOfEvents);
-                return this;
-            }
-
-            /**
-             * Create transaction options.
-             *
-             * @return return transaction options.
-             */
-            public static TransactionOptions Create()
-            {
-                return new TransactionOptions();
-            }
-
-            /**
-             * The orders to try on this transaction. Each order is tried in turn for a successful submission.
-             * The default is try all orderers on the chain.
-             *
-             * @param orderers the orderers to try.
-             * @return This TransactionOptions
-             */
-            public TransactionOptions SetOrderers(IEnumerable<Orderer> orderers)
-            {
-                return SetOrderers(orderers.ToArray());
-            }
-        }
-
-
-        /**
-          * MSPs
-          */
-
-        public class MSP
-        {
-            private readonly FabricMSPConfig fabricMSPConfig;
-            private byte[][] adminCerts;
-            private byte[][] intermediateCerts;
-            private byte[][] rootCerts;
-
-            public MSP(string orgName, FabricMSPConfig fabricMSPConfig)
-            {
-                OrgName = orgName;
-                this.fabricMSPConfig = fabricMSPConfig;
-            }
-
-            public string OrgName { get; }
-
-            /**
-             * Known as the MSPID internally
-             *
-             * @return
-             */
-
-            public string ID => fabricMSPConfig.Name;
-
-
-            /**
-             * AdminCerts
-             *
-             * @return array of admin certs in PEM bytes format.
-             */
-            public byte[][] AdminCerts
-            {
-                get
-                {
-                    if (null == adminCerts)
-                    {
-                        adminCerts = new byte[fabricMSPConfig.Admins.Count][];
-                        int i = 0;
-                        foreach (ByteString cert in fabricMSPConfig.Admins)
-                        {
-                            adminCerts[i++] = cert.ToByteArray();
-                        }
-                    }
-
-                    return adminCerts;
-                }
-            }
-
-            /**
-             * RootCerts
-             *
-             * @return array of admin certs in PEM bytes format.
-             */
-            public byte[][] RootCerts
-            {
-                get
-                {
-                    if (null == rootCerts)
-                    {
-                        rootCerts = new byte[fabricMSPConfig.RootCerts.Count][];
-                        int i = 0;
-                        foreach (ByteString cert in fabricMSPConfig.RootCerts)
-                        {
-                            rootCerts[i++] = cert.ToByteArray();
-                        }
-                    }
-
-                    return rootCerts;
-                }
-            }
-
-            /**
-             * IntermediateCerts
-             *
-             * @return array of intermediate certs in PEM bytes format.
-             */
-            public byte[][] IntermediateCerts
-            {
-                get
-                {
-                    if (null == intermediateCerts)
-                    {
-                        intermediateCerts = new byte[fabricMSPConfig.IntermediateCerts.Count][];
-                        int i = 0;
-                        foreach (ByteString cert in fabricMSPConfig.IntermediateCerts)
-                        {
-                            intermediateCerts[i++] = cert.ToByteArray();
-                        }
-                    }
-
-                    return intermediateCerts;
-                }
-            }
-        }
-
-        public class ChannelEventQue
-        {
-            private static readonly ILog intlogger = LogProvider.GetLogger(typeof(ChannelEventQue));
-            private readonly Channel channel;
-            private readonly BlockingCollection<BlockEvent> events = new BlockingCollection<BlockEvent>(); //Thread safe
-            private Exception eventException;
-
-            public ChannelEventQue(Channel ch)
-            {
-                channel = ch;
-            }
-
-            public void EventError(Exception t)
-            {
-                eventException = t;
-            }
-
-            public bool AddBEvent(BlockEvent evnt)
-            {
-                if (channel.IsShutdown)
-                    return false;
-                //For now just support blocks --- other types are also reported as blocks.
-
-                if (!evnt.IsBlockEvent)
-                    return false;
-                // May be fed by multiple eventhubs but BlockingQueue.add() is thread-safe
-                events.Add(evnt);
-                return true;
-            }
-
-            public BlockEvent GetNextEvent()
-            {
-                if (channel.IsShutdown)
-                    throw new EventHubException($"Channel {channel.Name} has been shutdown");
-                BlockEvent ret = null;
-                if (eventException != null)
-                    throw new EventHubException(eventException);
-                try
-                {
-                    ret = events.Take();
-                }
-                catch (Exception e)
-                {
-                    if (channel.IsShutdown)
-                        throw new EventHubException($"Channel {channel.Name} has been shutdown");
-                    intlogger.WarnException(e.Message, e);
-                    if (eventException != null)
-                    {
-                        EventHubException eve = new EventHubException(e);
-                        intlogger.ErrorException(eve.Message, eve);
-                        throw eve;
-                    }
-                }
-
-                if (eventException != null)
-                    throw new EventHubException(eventException);
-                if (channel.IsShutdown)
-                    throw new EventHubException($"Channel {channel.Name} has been shutdown.");
-                return ret;
-            }
-        }
-
-        public class BL
-        {
-            public static readonly string BLOCK_LISTENER_TAG = "BLOCK_LISTENER_HANDLE";
-            private static readonly ILog intlogger = LogProvider.GetLogger(typeof(BL));
-
-            public BL(Channel ch, Action<BlockEvent> listenerAction)
-            {
-                Channel = ch;
-                Handle = BLOCK_LISTENER_TAG + Utils.GenerateUUID() + BLOCK_LISTENER_TAG;
-                intlogger.Debug($"Channel {Channel.Name} blockListener {Handle} starting");
-                ListenerAction = listenerAction;
-                lock (Channel.blockListeners)
-                {
-                    Channel.blockListeners.Add(Handle, this);
-                }
-            }
-
-            public Channel Channel { get; }
-
-            public Action<BlockEvent> ListenerAction { get; }
-            public string Handle { get; }
-        }
-
-        private class TL
-        {
-            private static readonly ILog intlogger = LogProvider.GetLogger(typeof(TL));
-            private readonly Channel channel;
-            private readonly long createTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            private readonly long DELTA_SWEEP = Config.Instance.GetTransactionListenerCleanUpTimeout();
-            private readonly HashSet<EventHub> eventHubs;
-            private readonly bool failFast;
-            private readonly TaskCompletionSource<BlockEvent.TransactionEvent> future;
-            private readonly NOfEvents nOfEvents;
-            private readonly HashSet<Peer> peers;
-            private readonly string txID;
-            private bool fired;
-            private long sweepTime;
-
-            public TL(Channel ch, string txID, TaskCompletionSource<BlockEvent.TransactionEvent> future, NOfEvents nOfEvents, bool failFast)
-            {
-                sweepTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long) (DELTA_SWEEP * 1.5);
-                this.txID = txID;
-                this.future = future;
-                channel = ch;
-                this.nOfEvents = new NOfEvents(nOfEvents);
-                peers = new HashSet<Peer>(nOfEvents.UnSeenPeers());
-                eventHubs = new HashSet<EventHub>(nOfEvents.UnSeenEventHubs());
-                this.failFast = failFast;
-                AddListener();
-            }
-
-            /**
-             * Record transactions event.
-             *
-             * @param transactionEvent
-             * @return True if transactions have been seen on all eventing peers and eventhubs.
-             */
-            public bool EventReceived(BlockEvent.TransactionEvent transactionEvent)
-            {
-                sweepTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + DELTA_SWEEP; //seen activity keep it active.
-                Peer peer = transactionEvent.Peer;
-                EventHub eventHub = transactionEvent.EventHub;
-                if (peer != null && !peers.Contains(peer))
-                    return false;
-                if (eventHub != null && !eventHubs.Contains(eventHub))
-                    return false;
-                if (failFast && !transactionEvent.IsValid)
-                    return true;
-                if (peer != null)
-                {
-                    nOfEvents.Seen(peer);
-                    intlogger.Debug($"Channel {channel.Name} seen transaction event {txID} for peer {peer.ToString()}");
-                }
-                else if (null != eventHub)
-                {
-                    nOfEvents.Seen(eventHub);
-                    intlogger.Debug($"Channel {channel.Name} seen transaction event {txID} for eventHub {eventHub.ToString()}");
-                }
-                else
-                    intlogger.Error($"Channel {channel.Name} seen transaction event {txID} with no associated peer or eventhub");
-
-                return nOfEvents.Ready;
-            }
-
-            private void AddListener()
-            {
-                channel.RunSweeper();
-                lock (channel.txListeners)
-                {
-                    LinkedList<TL> tl;
-                    if (channel.txListeners.ContainsKey(txID))
-                        tl = channel.txListeners[txID];
-                    else
-                    {
-                        tl = new LinkedList<TL>();
-                        channel.txListeners.Add(txID, tl);
-                    }
-
-                    tl.AddLast(this);
-                }
-            }
-
-            public bool sweepMe()
-            {
-                // Sweeps DO NOT fire future. user needs to put timeout on their futures for timeouts.
-
-                bool ret = sweepTime < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() || fired || future.Task.IsCompleted;
-                if (intlogger.IsWarnEnabled() && ret)
-                {
-                    StringBuilder sb = new StringBuilder(10000);
-                    sb.Append("Non reporting event hubs:");
-                    string sep = "";
-                    foreach (EventHub eh in nOfEvents.UnSeenEventHubs())
-                    {
-                        sb.Append(sep).Append(eh.ToString()).Append(" status: ").Append(eh.Status);
-                        sep = ",";
-                    }
-
-                    if (sb.Length != 0)
-                        sb.Append(". ");
-                    sep = "Non reporting peers: ";
-                    foreach (Peer peer in nOfEvents.UnSeenPeers())
-                    {
-                        sb.Append(sep).Append(peer.ToString()).Append(" status: ").Append(peer.EventingStatus);
-                        sep = ",";
-                    }
-
-                    intlogger.Warn($"Force removing transaction listener after {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - createTime} ms for transaction {txID}. {sb}" + $". sweep timeout: {sweepTime < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}, fired: {fired}, future done:{future.Task.IsCompleted}");
-                }
-
-                return ret;
-            }
-
-            public void Fire(BlockEvent.TransactionEvent transactionEvent)
-            {
-                if (fired)
-                    return;
-                lock (channel.txListeners)
-                {
-                    if (channel.txListeners.ContainsKey(txID))
-                    {
-                        LinkedList<TL> l = channel.txListeners[txID];
-                        l.RemoveFirst();
-                        if (l.Count == 0)
-                            channel.txListeners.Remove(txID);
-                    }
-                }
-
-                if (future.Task.IsCompleted)
-                {
-                    fired = true;
-                    return;
-                }
-
-                if (transactionEvent.IsValid)
-                {
-                    intlogger.Debug($"Completing future for channel {channel.Name} and transaction id: {txID}");
-                    future.TrySetResult(transactionEvent);
-                }
-                else
-                {
-                    intlogger.Debug($"Completing future as exception for channel {channel.Name} and transaction id: {txID}, validation code: {transactionEvent.ValidationCode:02X}");
-                    future.TrySetException(new TransactionEventException($"Received invalid transaction event. Transaction ID {transactionEvent.TransactionID} status {transactionEvent.ValidationCode}", transactionEvent));
-                }
-            }
-        }
-
-        public class ChaincodeEventListenerEntry
-        {
-            public static readonly string CHAINCODE_EVENTS_TAG = "CHAINCODE_EVENTS_HANDLE";
-            private readonly Regex chaincodeIdPattern;
-            private readonly Regex eventNamePattern;
-            private readonly Action<string, BlockEvent, ChaincodeEventDeserializer> listenerAction;
-
-            public ChaincodeEventListenerEntry(Channel ch, Regex chaincodeIdPattern, Regex eventNamePattern, Action<string, BlockEvent, ChaincodeEventDeserializer> listenerAction)
-            {
-                Channel = ch;
-                this.chaincodeIdPattern = chaincodeIdPattern;
-                this.eventNamePattern = eventNamePattern;
-                this.listenerAction = listenerAction;
-                Handle = CHAINCODE_EVENTS_TAG + Utils.GenerateUUID() + CHAINCODE_EVENTS_TAG;
-                lock (Channel.chainCodeListeners)
-                {
-                    Channel.chainCodeListeners.Add(Handle, this);
-                }
-            }
-
-            public Channel Channel { get; }
-
-            public string Handle { get; }
-
-            public bool IsMatch(ChaincodeEventDeserializer chaincodeEvent)
-            {
-                return chaincodeIdPattern.Match(chaincodeEvent.ChaincodeId).Success && eventNamePattern.Match(chaincodeEvent.EventName).Success;
-            }
-
-            public void Fire(BlockEvent blockEvent, ChaincodeEventDeserializer ce)
-            {
-                Task.Run(() => listenerAction(Handle, blockEvent, ce));
+                StringBuilder sb = new StringBuilder(10000);
+                sb.Append("AnchorPeersConfigUpdateResult:{peersAdded= ");
+                sb.Append(PeersAdded == null ? "null" : string.Join(",", PeersAdded));
+                sb.Append(", peersRemoved= ");
+                sb.Append(PeersRemoved == null ? "null" : string.Join(",", PeersRemoved));
+                sb.Append(", currentPeers= ");
+                sb.Append(CurrentPeers == null ? "null" : string.Join(",", CurrentPeers));
+                sb.Append(", updatedPeers= ");
+                sb.Append(UpdatedPeers == null ? "null" : string.Join(",", UpdatedPeers));
+                sb.Append(", updateChannelConfiguration= ");
+                sb.Append(UpdateChannelConfiguration == null ? "null" : UpdateChannelConfiguration.UpdateChannelConfigurationBytes.ToHexString());
+                sb.Append("}");
+                return sb.ToString();
             }
         }
     }

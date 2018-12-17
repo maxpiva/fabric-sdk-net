@@ -2,6 +2,8 @@
 using System.IO;
 using System.Linq;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
@@ -160,7 +162,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
         // ReSharper disable once UnusedMethodReturnValue.Local
-        private BlockEvent.TransactionEvent SetAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, int delta, IUser user)
+        private TransactionEvent SetAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, int delta, IUser user)
         {
             List<ProposalResponse> successful = new List<ProposalResponse>();
             List<ProposalResponse> failed = new List<ProposalResponse>();
@@ -222,7 +224,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         }
 
         // ReSharper disable once UnusedMethodReturnValue.Local
-        private BlockEvent.TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, string moveAmount, IUser user)
+        private TransactionEvent MoveAmount(HFClient client, Channel channel, ChaincodeID chaincdeID, string moveAmount, IUser user)
         {
             List<ProposalResponse> successful = new List<ProposalResponse>();
             List<ProposalResponse> failed = new List<ProposalResponse>();
@@ -401,7 +403,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (TransactionEventException e)
             {
-                BlockEvent.TransactionEvent te = e.TransactionEvent;
+                TransactionEvent te = e.TransactionEvent;
                 Assert.Fail($"Transaction with txid %s failed. %s", te.TransactionID, e.Message);
             }
 

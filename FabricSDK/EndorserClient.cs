@@ -16,7 +16,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Google.Protobuf.Collections;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Discovery;
 using Hyperledger.Fabric.Protos.Peer;
@@ -34,16 +33,15 @@ namespace Hyperledger.Fabric.SDK
      */
     public class EndorserClient
     {
-
         private static readonly ILog logger = LogProvider.GetLogger(typeof(EndorserClient));
         private static readonly bool IS_TRACE_LEVEL = logger.IsTraceEnabled();
 
         private Protos.Discovery.Discovery.DiscoveryClient dfs;
         private Endorser.EndorserClient ecl;
 
-        private Grpc.Core.Channel managedChannel;
+        private Channel managedChannel;
         private bool shutdown;
-        private string toString;
+        private readonly string toString;
 
 
         /**
@@ -57,19 +55,20 @@ namespace Hyperledger.Fabric.SDK
             ecl = new Endorser.EndorserClient(managedChannel);
             dfs = new Protos.Discovery.Discovery.DiscoveryClient(managedChannel);
             toString = $"EndorserClient{{id: {Config.Instance.GetNextID()}, channel: {channelName}, name:{name}, url: {endpoint.Url}}}";
-            logger.Trace("Created " + ToString());
+            logger.Trace("Created " + this);
         }
 
         public virtual bool IsChannelActive
         {
             get
             {
-                Grpc.Core.Channel lchannel = managedChannel;
+                Channel lchannel = managedChannel;
                 if (null == lchannel)
                 {
                     logger.Trace($"{ToString()} Grpc channel needs creation.");
                     return false;
                 }
+
                 bool isTransientFailure = lchannel.State == ChannelState.TransientFailure;
                 bool isShutdown = lchannel.State == ChannelState.Shutdown;
                 bool ret = !isShutdown && !isTransientFailure;
@@ -93,7 +92,7 @@ namespace Hyperledger.Fabric.SDK
                 return;
 
             shutdown = true;
-            Grpc.Core.Channel lchannel = managedChannel;
+            Channel lchannel = managedChannel;
             // let all referenced resource finalize
             managedChannel = null;
             ecl = null;
@@ -153,7 +152,7 @@ namespace Hyperledger.Fabric.SDK
             if (shutdown)
                 throw new PeerException("Shutdown");
             if (milliseconds.HasValue && milliseconds > 0)
-                return SendDiscoveryRequestInternalAsync(signedRequest, token).TimeoutAsync(TimeSpan.FromMilliseconds(milliseconds.Value),token);
+                return SendDiscoveryRequestInternalAsync(signedRequest, token).TimeoutAsync(TimeSpan.FromMilliseconds(milliseconds.Value), token);
             return SendDiscoveryRequestInternalAsync(signedRequest, token);
         }
 
@@ -164,7 +163,7 @@ namespace Hyperledger.Fabric.SDK
 
         private async Task<Response> SendDiscoveryRequestInternalAsync(SignedRequest signedRequest, CancellationToken token)
         {
-                return await dfs.DiscoverAsync(signedRequest, null, null, token);
+            return await dfs.DiscoverAsync(signedRequest, null, null, token);
         }
 
         public ProposalResponse SendProposal(SignedProposal proposal)

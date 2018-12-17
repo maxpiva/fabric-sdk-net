@@ -210,9 +210,9 @@ namespace Hyperledger.Fabric.SDK
 
         public List<ChannelOption> ChannelOptions { get; }
 
-        public Grpc.Core.Channel BuildChannel()
+        public Channel BuildChannel()
         {
-            return new Grpc.Core.Channel(Host, Port, Credentials ?? ChannelCredentials.Insecure, ChannelOptions);
+            return new Channel(Host, Port, Credentials ?? ChannelCredentials.Insecure, ChannelOptions);
         }
 
         public byte[] GetClientTLSCertificateDigest()

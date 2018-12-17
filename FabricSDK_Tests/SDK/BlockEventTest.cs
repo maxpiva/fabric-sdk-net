@@ -19,6 +19,7 @@ using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Peer.FabricTransaction;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
 using Hyperledger.Fabric.SDK.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -127,9 +128,9 @@ namespace Hyperledger.Fabric.Tests.SDK
                 BlockEvent be = new BlockEvent(eventHub, goodEventBlock);
                 Assert.AreEqual(be.ChannelId, "TESTCHANNEL");
                 CollectionAssert.AreEqual(be.Block.ToByteArray(), block.ToByteArray());
-                List<BlockEvent.TransactionEvent> txList = be.TransactionEvents.ToList();
+                List<TransactionEvent> txList = be.TransactionEvents.ToList();
                 Assert.AreEqual(txList.Count, 3);
-                BlockEvent.TransactionEvent te = txList[1];
+                TransactionEvent te = txList[1];
                 Assert.IsFalse(te.IsValid);
                 Assert.AreEqual(te.ValidationCode, (byte) TxValidationCode.InvalidOtherReason);
                 te = txList[2];

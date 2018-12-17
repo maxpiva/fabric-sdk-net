@@ -25,7 +25,7 @@ using Hyperledger.Fabric.SDK.Security;
 using Hyperledger.Fabric.Tests.Helper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json.Linq;
-using Channel = Hyperledger.Fabric.SDK.Channel;
+using Channel = Hyperledger.Fabric.SDK.Channels.Channel;
 
 namespace Hyperledger.Fabric.Tests.SDK
 {

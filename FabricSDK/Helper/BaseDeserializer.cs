@@ -7,7 +7,7 @@ namespace Hyperledger.Fabric.SDK.Helper
     public class BaseDeserializer<T> where T : class, IMessage<T>, new()
     {
         protected internal ByteString bs;
-        protected WeakReference<T> reference = null;
+        protected WeakReference<T> reference;
 
         public BaseDeserializer(ByteString byteString)
         {

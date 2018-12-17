@@ -14,22 +14,18 @@
 *
 */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Common;
 
 namespace Hyperledger.Fabric.SDK
 {
-
     /**
      * Collection of information on chaincode collection.
      */
     public class CollectionConfigPackage
     {
-
         private readonly ByteString collectionConfigBytes;
         private Protos.Common.CollectionConfigPackage cp;
 
@@ -63,7 +59,6 @@ namespace Hyperledger.Fabric.SDK
          * @throws InvalidProtocolBufferException
          */
         public List<CollectionConfig> CollectionConfigs => CollectionConfigPackageProto.Config.Select(a => new CollectionConfig(a)).ToList();
-
     }
     /**
      * Collection information.
@@ -71,8 +66,15 @@ namespace Hyperledger.Fabric.SDK
 
     public class CollectionConfig
     {
-        readonly Protos.Common.CollectionConfig collectionConfig;
-        readonly Protos.Common.StaticCollectionConfig getStaticCollectionConfig;
+        private readonly Protos.Common.CollectionConfig collectionConfig;
+        private readonly StaticCollectionConfig getStaticCollectionConfig;
+
+
+        public CollectionConfig(Protos.Common.CollectionConfig cConfig)
+        {
+            collectionConfig = cConfig;
+            getStaticCollectionConfig = collectionConfig.StaticCollectionConfig;
+        }
 
         /**
          * Name of the collection.
@@ -101,15 +103,7 @@ namespace Hyperledger.Fabric.SDK
          *
          * @return block to live.
          */
-        public long BlockToLive => (long)getStaticCollectionConfig.BlockToLive;
-
-
-        public CollectionConfig(Protos.Common.CollectionConfig cConfig)
-        {
-            this.collectionConfig = cConfig;
-            this.getStaticCollectionConfig = collectionConfig.StaticCollectionConfig;
-
-        }
+        public long BlockToLive => (long) getStaticCollectionConfig.BlockToLive;
 
         /**
          * The collection information returned directly from the peer.
@@ -120,11 +114,9 @@ namespace Hyperledger.Fabric.SDK
         {
             get
             {
-                var _ = collectionConfig.StaticCollectionConfig;                
+                var _ = collectionConfig.StaticCollectionConfig;
                 return collectionConfig;
             }
         }
-
     }
-
 }

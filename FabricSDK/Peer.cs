@@ -25,12 +25,14 @@ using Grpc.Core;
 using Hyperledger.Fabric.Protos.Discovery;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
+using Hyperledger.Fabric.SDK.Blocks;
 using Hyperledger.Fabric.SDK.Builders;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Hyperledger.Fabric.SDK.Security;
 using Newtonsoft.Json;
+using Channel = Hyperledger.Fabric.SDK.Channels.Channel;
 using Response = Hyperledger.Fabric.Protos.Discovery.Response;
 
 namespace Hyperledger.Fabric.SDK
@@ -63,7 +65,7 @@ namespace Hyperledger.Fabric.SDK
         {
             _disconnectedHandler = DefaultDisconnectHandler;
             reconnectCount = 0L;
-            logger.Debug("Created " + ToString());
+            logger.Debug("Created " + this);
         }
 
         [JsonIgnore]
@@ -185,7 +187,7 @@ namespace Hyperledger.Fabric.SDK
         }
 
 
-        public async Task InitiateEventingAsync(TransactionContext transContext, Channel.PeerOptions peersOptions, CancellationToken token = default(CancellationToken))
+        public async Task InitiateEventingAsync(TransactionContext transContext, Channels.PeerOptions peersOptions, CancellationToken token = default(CancellationToken))
         {
             transactionContext = transContext.RetryTransactionSameContext();
             if (peerEventingClient == null)
@@ -246,7 +248,7 @@ namespace Hyperledger.Fabric.SDK
                 clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
                 localEndorserClient = new EndorserClient(channelName, Name, endpoint);
                 if (IS_DEBUG_LEVEL)
-                    logger.Debug($"{ToString()} created new  {localEndorserClient.ToString()}");
+                    logger.Debug($"{ToString()} created new  {localEndorserClient}");
                 endorserClent = localEndorserClient;
             }
 
@@ -262,7 +264,7 @@ namespace Hyperledger.Fabric.SDK
             if (null != localEndorserClient)
             {
                 if (IS_DEBUG_LEVEL)
-                    logger.Debug($"Peer {ToString()} removing endorser client {localEndorserClient.ToString()}, isActive: {localEndorserClient.IsChannelActive}");
+                    logger.Debug($"Peer {ToString()} removing endorser client {localEndorserClient}, isActive: {localEndorserClient.IsChannelActive}");
                 try
                 {
                     localEndorserClient.Shutdown(force);
@@ -383,7 +385,7 @@ namespace Hyperledger.Fabric.SDK
 
             TransactionContext fltransactionContext = ltransactionContext.RetryTransactionSameContext();
 
-            Channel.PeerOptions peerOptions = null != failedPeerEventServiceClient.GetPeerOptions() ? failedPeerEventServiceClient.GetPeerOptions() : Channel.PeerOptions.CreatePeerOptions();
+            Channels.PeerOptions peerOptions = null != failedPeerEventServiceClient.GetPeerOptions() ? failedPeerEventServiceClient.GetPeerOptions() : Channels.PeerOptions.CreatePeerOptions();
             Task.Run(async () => { await ldisconnectedHandler.DisconnectedAsync(new PeerEventingServiceDisconnectEvent(this, throwable, peerOptions, fltransactionContext), token).ConfigureAwait(false); }, token);
         }
 
@@ -479,16 +481,16 @@ namespace Hyperledger.Fabric.SDK
             Task ReconnectAsync(long? startEvent, CancellationToken token);
         }
 
-
+        
         public class PeerEventingServiceDisconnectEvent : IPeerEventingServiceDisconnectEvent
         {
             // ReSharper disable once MemberHidesStaticFromOuterClass
             private static readonly ILog logger = LogProvider.GetLogger(typeof(PeerEventingServiceDisconnectEvent));
             private readonly TransactionContext filteredTransactionContext;
             private readonly Peer peer;
-            private readonly Channel.PeerOptions peerOptions;
+            private readonly Channels.PeerOptions peerOptions;
 
-            public PeerEventingServiceDisconnectEvent(Peer peer, Exception throwable, Channel.PeerOptions options, TransactionContext context)
+            public PeerEventingServiceDisconnectEvent(Peer peer, Exception throwable, Channels.PeerOptions options, TransactionContext context)
             {
                 this.peer = peer;
                 ExceptionThrown = throwable;
@@ -554,7 +556,6 @@ namespace Hyperledger.Fabric.SDK
                     try
                     {
                         await Task.Delay((int) sleepTime, token).ConfigureAwait(false);
-                        ;
                     }
                     catch (Exception e)
                     {

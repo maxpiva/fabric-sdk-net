@@ -23,14 +23,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Hyperledger.Fabric.Protos.Discovery;
-using Hyperledger.Fabric.Protos.Msp;
 using Hyperledger.Fabric.Protos.Msp.MspConfig;
 using Hyperledger.Fabric.SDK.Builders;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Nito.AsyncEx;
-
 
 namespace Hyperledger.Fabric.SDK.Discovery
 {
@@ -71,10 +70,10 @@ namespace Hyperledger.Fabric.SDK.Discovery
             SDChaindcode sd = lchaindcodeMap?.GetOrNull(name);
             if (sd != null)
                 return sd;
-            Channel.ServiceDiscoveryChaincodeCalls serviceDiscoveryChaincodeCalls = new Channel.ServiceDiscoveryChaincodeCalls(name);
-            List<Channel.ServiceDiscoveryChaincodeCalls> cc = new List<Channel.ServiceDiscoveryChaincodeCalls>();
+            ServiceDiscoveryChaincodeCalls serviceDiscoveryChaincodeCalls = new ServiceDiscoveryChaincodeCalls(name);
+            List<ServiceDiscoveryChaincodeCalls> cc = new List<ServiceDiscoveryChaincodeCalls>();
             cc.Add(serviceDiscoveryChaincodeCalls);
-            List<List<Channel.ServiceDiscoveryChaincodeCalls>> ccl = new List<List<Channel.ServiceDiscoveryChaincodeCalls>>();
+            List<List<ServiceDiscoveryChaincodeCalls>> ccl = new List<List<ServiceDiscoveryChaincodeCalls>>();
             ccl.Add(cc);
             Dictionary<string, SDChaindcode> dchaindcodeMap = await DiscoverEndorserEndpointsAsync(tContext, ccl, token).ConfigureAwait(false);
             SDChaindcode sdChaindcode = dchaindcodeMap.GetOrNull(name);
@@ -230,7 +229,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
         }
 
 
-        public async Task<Dictionary<string, SDChaindcode>> DiscoverEndorserEndpointsAsync(TransactionContext tContext, List<List<Channel.ServiceDiscoveryChaincodeCalls>> chaincodeNames, CancellationToken token = default(CancellationToken))
+        public async Task<Dictionary<string, SDChaindcode>> DiscoverEndorserEndpointsAsync(TransactionContext tContext, List<List<ServiceDiscoveryChaincodeCalls>> chaincodeNames, CancellationToken token = default(CancellationToken))
         {
             if (null == chaincodeNames)
             {
@@ -249,9 +248,9 @@ namespace Hyperledger.Fabric.SDK.Discovery
                 StringBuilder cns = new StringBuilder(1000);
                 string sep = "";
                 cns.Append("[");
-                foreach (List<Channel.ServiceDiscoveryChaincodeCalls> s in chaincodeNames)
+                foreach (List<ServiceDiscoveryChaincodeCalls> s in chaincodeNames)
                 {
-                    Channel.ServiceDiscoveryChaincodeCalls n = s[0];
+                    ServiceDiscoveryChaincodeCalls n = s[0];
                     cns.Append(sep).Append(n.Write(s.GetRange(1, s.Count - 1)));
                     sep = ", ";
                 }
@@ -286,7 +285,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
                     authentication.ClientIdentity = clientIdent;
                     authentication.ClientTlsCertHash = tlshash;
                     List<Query> fq = new List<Query>(chaincodeNames.Count);
-                    foreach (List<Channel.ServiceDiscoveryChaincodeCalls> chaincodeName in chaincodeNames)
+                    foreach (List<ServiceDiscoveryChaincodeCalls> chaincodeName in chaincodeNames)
                     {
                         if (ret.ContainsKey(chaincodeName[0].Name))
                         {
@@ -536,7 +535,7 @@ namespace Hyperledger.Fabric.SDK.Discovery
                         foreach (SDEndorser sdEndorser in group.Endorsers)
                         {
                             if (matchCount.ContainsKey(sdEndorser))
-                                matchCount[sdEndorser] = matchCount[sdEndorser]+1;
+                                matchCount[sdEndorser] = matchCount[sdEndorser] + 1;
                             else
                                 matchCount[sdEndorser] = 1;
                         }
@@ -687,18 +686,18 @@ namespace Hyperledger.Fabric.SDK.Discovery
                 return;
             if (timer == null)
             {
-                timer = new Timer(async (state)=>
-                {
-                    try
+                timer = new Timer(async (state) =>
                     {
-                        logger.Debug($"Channel {channelName} starting service rediscovery after {SERVICE_DISCOVER_FREQ_SECONDS} seconds.");
-                        await FullNetworkDiscoveryAsync(true).ConfigureAwait(false);
-                    }
-                    catch(Exception)
-                    {
-                        //Ignored (Should never happen)
-                    }
-                }, null, SERVICE_DISCOVER_FREQ_SECONDS * 1000, SERVICE_DISCOVER_FREQ_SECONDS * 1000);
+                        try
+                        {
+                            logger.Debug($"Channel {channelName} starting service rediscovery after {SERVICE_DISCOVER_FREQ_SECONDS} seconds.");
+                            await FullNetworkDiscoveryAsync(true).ConfigureAwait(false);
+                        }
+                        catch (Exception)
+                        {
+                            //Ignored (Should never happen)
+                        }
+                    }, null, SERVICE_DISCOVER_FREQ_SECONDS * 1000, SERVICE_DISCOVER_FREQ_SECONDS * 1000);
             }
         }
 
@@ -743,11 +742,11 @@ namespace Hyperledger.Fabric.SDK.Discovery
                 {
                     // means it changed.
                     HashSet<string> chaincodesNames = lsdNetwork.ChaincodesNames;
-                    List<List<Channel.ServiceDiscoveryChaincodeCalls>> lcc = new List<List<Channel.ServiceDiscoveryChaincodeCalls>>();
+                    List<List<ServiceDiscoveryChaincodeCalls>> lcc = new List<List<ServiceDiscoveryChaincodeCalls>>();
                     chaincodesNames.ToList().ForEach(s =>
                     {
-                        List<Channel.ServiceDiscoveryChaincodeCalls> lc = new List<Channel.ServiceDiscoveryChaincodeCalls>();
-                        lc.Add(new Channel.ServiceDiscoveryChaincodeCalls(s));
+                        List<ServiceDiscoveryChaincodeCalls> lc = new List<ServiceDiscoveryChaincodeCalls>();
+                        lc.Add(new ServiceDiscoveryChaincodeCalls(s));
                         lcc.Add(lc);
                     });
                     chaindcodeMap = await DiscoverEndorserEndpointsAsync(transactionContext.RetryTransactionSameContext(), lcc, token).ConfigureAwait(false);

@@ -55,7 +55,6 @@ On this SDK
 - Add .NET chaincode upload (source and/or compiled)
 - More Cleanup, and .NET Design Guidelines. Code already start to diverge from the original JAVA version
 - Remove JAVA idiosyncrasies 
-- Continue with the split and re-order of the source code, some files are becoming unmanageable, like channel
 - Better Multi-Thread and Locking approach on some Methods. Like ServiceDiscovery Thread (Not felling right about it)
 
 On the SHIM

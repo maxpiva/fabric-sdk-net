@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Requests;
 using Hyperledger.Fabric.SDK.Security;

@@ -23,13 +23,15 @@ using Grpc.Core;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
 using Hyperledger.Fabric.Protos.Peer.PeerEvents;
+using Hyperledger.Fabric.SDK.Blocks;
 using Hyperledger.Fabric.SDK.Builders;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
+using Channel = Grpc.Core.Channel;
 using Config = Hyperledger.Fabric.SDK.Helper.Config;
 using DeliverResponse = Hyperledger.Fabric.Protos.Peer.PeerEvents.DeliverResponse;
-using Status = Hyperledger.Fabric.Protos.Common.Status;
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -49,25 +51,25 @@ namespace Hyperledger.Fabric.SDK
         private readonly long PEER_EVENT_REGISTRATION_WAIT_TIME = Config.Instance.GetPeerEventRegistrationWaitTime();
         private readonly long peerEventRegistrationWaitTimeMilliSecs;
 
-        private readonly Channel.PeerOptions peerOptions;
+        private readonly PeerOptions peerOptions;
 
         private readonly string url;
 
-        private Channel.ChannelEventQue channelEventQue;
+        private ChannelEventQue channelEventQue;
 
-        [NonSerialized] private Grpc.Core.Channel managedChannel;
+        [NonSerialized] private Channel managedChannel;
 
 
-        [NonSerialized] private Peer peer;
-        private string toString;
+        [NonSerialized] private readonly Peer peer;
+        private bool retry;
 
         private bool shutdown;
-        private bool retry;
+        private readonly string toString;
 
         /**
          * Construct client for accessing Peer eventing service using the existing managedChannel.
          */
-        public PeerEventServiceClient(Peer peer, Endpoint endpoint, Properties properties, Channel.PeerOptions peerOptions)
+        public PeerEventServiceClient(Peer peer, Endpoint endpoint, Properties properties, PeerOptions peerOptions)
         {
             channelBuilder = endpoint;
             filterBlock = peerOptions.IsRegisterEventsForFilteredBlocks;
@@ -87,15 +89,35 @@ namespace Hyperledger.Fabric.SDK
             }
             else
             {
- 
                 peerEventRegistrationWaitTimeMilliSecs = properties.GetLongProperty("peerEventRegistrationWaitTime", PEER_EVENT_REGISTRATION_WAIT_TIME);
             }
         }
+
+        public string Status
+        {
+            get
+            {
+                Channel lmanagedChannel = managedChannel;
+                if (lmanagedChannel == null)
+                {
+                    return "No grpc managed channel active. peer eventing client service is shutdown: " + shutdown;
+                }
+                else
+                {
+                    StringBuilder sb = new StringBuilder(1000);
+
+                    sb.Append("peer eventing client service is shutdown: ").Append(shutdown).Append(", grpc isShutdown: ").Append(lmanagedChannel.State == ChannelState.Shutdown).Append(", grpc isTransientFailure: ").Append(lmanagedChannel.State == ChannelState.TransientFailure).Append(", grpc state: ").Append("" + lmanagedChannel.State);
+                    return sb.ToString();
+                }
+            }
+        }
+
         public override string ToString()
         {
             return toString;
         }
-        public Channel.PeerOptions GetPeerOptions()
+
+        public PeerOptions GetPeerOptions()
         {
             return peerOptions.Clone();
         }
@@ -115,8 +137,9 @@ namespace Hyperledger.Fabric.SDK
             {
                 logger.Error(ToString() + " error message: " + e.Message, e);
             }
+
             shutdown = true;
-            Grpc.Core.Channel lchannel = managedChannel;
+            Channel lchannel = managedChannel;
             managedChannel = null;
 
             if (lchannel != null)
@@ -157,6 +180,7 @@ namespace Hyperledger.Fabric.SDK
                     }
                 }
             }
+
             channelEventQue = null;
             logger.Debug($"{me} is down.");
         }
@@ -187,7 +211,7 @@ namespace Hyperledger.Fabric.SDK
 
             if (fnal == null)
                 fnal = new TransactionException($"{ToString()} Channel {channelName}, send eventing service failed on orderer {name}. Reason: {e.Message}", e);
-            Grpc.Core.Channel lmanagedChannel = managedChannel;
+            Channel lmanagedChannel = managedChannel;
             if (lmanagedChannel != null)
             {
                 try
@@ -197,7 +221,7 @@ namespace Hyperledger.Fabric.SDK
                 }
                 catch (Exception)
                 {
-                    logger.WarnException($"{ToString()} Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {(peer?.ReconnectCount ?? -1).ToString()}. {e.Message} shut down of grpc channel.",e);
+                    logger.WarnException($"{ToString()} Received error on peer eventing service on channel {channelName}, peer {name}, url {url}, attempts {(peer?.ReconnectCount ?? -1).ToString()}. {e.Message} shut down of grpc channel.", e);
                 }
             }
 
@@ -213,28 +237,28 @@ namespace Hyperledger.Fabric.SDK
                     if (retry)
                         peer.ReconnectPeerEventServiceClient(this, fnal, token);
                 }
+
                 retry = false;
             }
             else
                 logger.Trace($"{ToString()} was shutdown.");
         }
 
-        private async Task DeliverAsync(Grpc.Core.Channel channel, Envelope envelope, CancellationToken token)
+        private async Task DeliverAsync(Channel channel, Envelope envelope, CancellationToken token)
         {
             retry = true;
             try
             {
                 var ch = filterBlock ? new Deliver.DeliverClient(channel).DeliverFiltered() : new Deliver.DeliverClient(channel).Deliver();
 
-                Task connect = dtask.ConnectAsync(ch,
-                    (resp) =>
+                Task connect = dtask.ConnectAsync(ch, (resp) =>
                 {
                     logger.Trace($"{ToString()}DeliverResponse channel {channelName} peer {peer.Name} resp status value:{resp.Status} typecase {resp.TypeCase}");
                     switch (resp.TypeCase)
                     {
                         case DeliverResponse.TypeOneofCase.Status:
                             logger.Debug($"{ToString()}DeliverResponse channel {channelName} peer {peer.Name} setting done.");
-                            if (resp.Status == Hyperledger.Fabric.Protos.Common.Status.Success)
+                            if (resp.Status == Protos.Common.Status.Success)
                             {
                                 // unlike you may think this only happens when all blocks are fetched.
                                 peer.LastConnectTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -268,27 +292,24 @@ namespace Hyperledger.Fabric.SDK
                             peerEventingServiceException2.Response = resp;
                             throw peerEventingServiceException2;
                     }
-                }, 
-                    (ex) => ProcessException(ex, token),
-                     token);
+                }, (ex) => ProcessException(ex, token), token);
                 if (token.IsCancellationRequested)
                     dtask.Cancel();
                 token.ThrowIfCancellationRequested();
                 await dtask.Sender.Call.RequestStream.WriteAsync(envelope).ConfigureAwait(false);
-                await connect.TimeoutAsync(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs),token).ConfigureAwait(false);
+                await connect.TimeoutAsync(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs), token).ConfigureAwait(false);
                 logger.Debug($"{ToString()} DeliverResponse onCompleted channel {channelName} peer {peer.Name} setting done.");
             }
             catch (TimeoutException)
             {
                 PeerEventingServiceException ex = new PeerEventingServiceException($"{ToString()} Channel {channelName} connect time exceeded for peer eventing service {name}, timed out at {peerEventRegistrationWaitTimeMilliSecs} ms.");
-                ex.TimedOut=peerEventRegistrationWaitTimeMilliSecs;
-                ProcessException(ex,token);
+                ex.TimedOut = peerEventRegistrationWaitTimeMilliSecs;
+                ProcessException(ex, token);
             }
             catch (Exception e)
             {
                 ProcessException(e, token);
             }
-           
         }
 
         /**
@@ -305,18 +326,20 @@ namespace Hyperledger.Fabric.SDK
                 logger.Warn($"{ToString()} not connecting is shutdown.");
                 return Task.FromResult(0);
             }
-            Grpc.Core.Channel lmanagedChannel = managedChannel;
+
+            Channel lmanagedChannel = managedChannel;
             if (lmanagedChannel == null || lmanagedChannel.State == ChannelState.Shutdown || lmanagedChannel.State == ChannelState.TransientFailure)
             {
                 lmanagedChannel = channelBuilder.BuildChannel();
                 managedChannel = lmanagedChannel;
             }
+
             return DeliverAsync(lmanagedChannel, envelope, token);
         }
 
         public bool IsChannelActive()
         {
-            Grpc.Core.Channel lchannel = managedChannel;
+            Channel lchannel = managedChannel;
             return lchannel != null && lchannel.State != ChannelState.Shutdown && lchannel.State != ChannelState.TransientFailure;
         }
 
@@ -354,32 +377,8 @@ namespace Hyperledger.Fabric.SDK
             }
             catch (CryptoException e)
             {
-                throw new TransactionException($"{ToString()} error message {e.Message}",e);
+                throw new TransactionException($"{ToString()} error message {e.Message}", e);
             }
-        }
-
-        public string Status
-        {
-            get
-            {
-                Grpc.Core.Channel lmanagedChannel = managedChannel;
-                if (lmanagedChannel == null)
-                {
-                    return "No grpc managed channel active. peer eventing client service is shutdown: " + shutdown;
-                }
-                else
-                {
-                    StringBuilder sb = new StringBuilder(1000);
-
-                    sb.Append("peer eventing client service is shutdown: ").Append(shutdown)
-                        .Append(", grpc isShutdown: ").Append(lmanagedChannel.State==ChannelState.Shutdown)
-                        .Append(", grpc isTransientFailure: ").Append(lmanagedChannel.State==ChannelState.TransientFailure)
-                        .Append(", grpc state: ").Append("" + lmanagedChannel.State);
-                    return sb.ToString();
-                }
-            }
-
-
         }
     }
 }

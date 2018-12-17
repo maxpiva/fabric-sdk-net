@@ -111,7 +111,7 @@ namespace Hyperledger.Fabric.SDK.Helper
 
         private int extraLogLevel = -1;
 
-        private static long count = 0;
+        private static long count;
         
         //Provides a unique id for logging to identify a specific instance.
         public string GetNextID()

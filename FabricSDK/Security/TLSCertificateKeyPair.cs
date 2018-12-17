@@ -353,7 +353,7 @@ namespace Hyperledger.Fabric.SDK.Security
             KeyUsage usage = new KeyUsage(Org.BouncyCastle.Asn1.X509.KeyUsage.KeyEncipherment | Org.BouncyCastle.Asn1.X509.KeyUsage.DigitalSignature | Org.BouncyCastle.Asn1.X509.KeyUsage.KeyCertSign);
             certBuilder.AddExtension(X509Extensions.KeyUsage, false, usage);
             // Extended key usage
-            var usages = new[] { KeyPurposeID.IdKPServerAuth, KeyPurposeID.IdKPClientAuth };
+            //var usages = new[] { KeyPurposeID.IdKPServerAuth, KeyPurposeID.IdKPClientAuth };
             certBuilder.AddExtension(X509Extensions.ExtendedKeyUsage, false, KeyUsage(certType));
             if (san != null)
                 AddSAN(certBuilder, san);

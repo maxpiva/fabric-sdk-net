@@ -19,12 +19,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Common;
 using Hyperledger.Fabric.Protos.Orderer;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json;
-using Config = Hyperledger.Fabric.SDK.Helper.Config;
-
 
 namespace Hyperledger.Fabric.SDK
 {
@@ -45,7 +44,7 @@ namespace Hyperledger.Fabric.SDK
 
         public Orderer(string name, string url, Properties properties) : base(name, url, properties)
         {
-            logger.Trace($"Created {ToString()}");
+            logger.Trace($"Created {this}");
         }
 
         public byte[] ClientTLSCertificateDigest => clientTLSCertificateDigest ?? (clientTLSCertificateDigest = SDK.Endpoint.Create(Url, Properties).GetClientTLSCertificateDigest());
@@ -70,7 +69,6 @@ namespace Hyperledger.Fabric.SDK
                 channelName = value.Name;
             }
         }
-
 
 
         public string Endpoint
@@ -143,8 +141,10 @@ namespace Hyperledger.Fabric.SDK
                 localOrdererClient = new OrdererClient(this, SDK.Endpoint.Create(Url, Properties), Properties);
                 ordererClient = localOrdererClient;
             }
+
             return localOrdererClient;
         }
+
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void RemoveOrdererClient(bool force)
         {
@@ -160,11 +160,11 @@ namespace Hyperledger.Fabric.SDK
                 catch (Exception e)
                 {
                     logger.Error($"{ToString()} error message: {e.Message}");
-                    logger.Trace(e.Message,e);
+                    logger.Trace(e.Message, e);
                 }
-
             }
         }
+
         public List<DeliverResponse> SendDeliver(Envelope transaction)
         {
             return SendDeliverAsync(transaction).RunAndUnwrap();

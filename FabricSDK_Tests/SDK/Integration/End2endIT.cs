@@ -26,6 +26,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Hyperledger.Fabric.Protos.Ledger.Rwset.Kvrwset;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Blocks;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Deserializers;
 using Hyperledger.Fabric.SDK.Exceptions;
@@ -487,7 +489,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 // for all to complete. It's possible to specify many different combinations like
                 //any from a group, all from one group and just one from another or even None(NOfEvents.createNoEvents).
                 // See. Channel.NOfEvents
-                Channel.NOfEvents nOfEvents = Channel.NOfEvents.CreateNofEvents();
+                NOfEvents nOfEvents = NOfEvents.CreateNofEvents();
                 if (channel.GetPeers(PeerRole.EVENT_SOURCE).Count > 0)
                 {
                     nOfEvents.AddPeers(channel.GetPeers(PeerRole.EVENT_SOURCE));
@@ -498,7 +500,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     nOfEvents.AddEventHubs(channel.EventHubs);
                 }
 
-                BlockEvent.TransactionEvent transactionEvent = channel.SendTransaction(successful, Channel.TransactionOptions.Create() //Basically the default options but shows it's usage.
+                TransactionEvent transactionEvent = channel.SendTransaction(successful, TransactionOptions.Create() //Basically the default options but shows it's usage.
                         .SetUserContext(client.UserContext) //could be a different user context. this is the default.
                         .SetShuffleOrders(false) // don't shuffle any orderers the default is true.
                         .SetOrderers(channel.Orderers) // specify the orderers we want to try this transaction. Fails once all Orderers are tried.
@@ -754,7 +756,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
             catch (TransactionEventException t)
             {
-                BlockEvent.TransactionEvent te = t.TransactionEvent;
+                TransactionEvent te = t.TransactionEvent;
                 if (te != null)
                     Assert.Fail($"Transaction with txid {te.TransactionID} failed. {t.Message}");
                 Assert.Fail($"Test failed with exception message {t.Message}");
@@ -828,19 +830,19 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 if (testConfig.IsFabricVersionAtOrAfter("1.3"))
                 {
-                    newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)); //Default is all roles.
+                    newChannel.JoinPeer(peer, PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)); //Default is all roles.
 
                 }
                 else
                 {
                     if (doPeerEventing && everyother)
                     {
-                        newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)); //Default is all roles.
+                        newChannel.JoinPeer(peer, PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)); //Default is all roles.
                     }
                     else
                     {
                         // Set peer to not be all roles but eventing.
-                        newChannel.JoinPeer(peer, Channel.PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY));
+                        newChannel.JoinPeer(peer, PeerOptions.CreatePeerOptions().SetPeerRoles(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY));
                     }
                 }
 
@@ -911,7 +913,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     Util.COut("current block number {0} has {1} envelope count:", blockNumber, returnedBlock.EnvelopeCount);
                     int i = 0;
                     int transactionCount = 0;
-                    foreach (BlockInfo.EnvelopeInfo envelopeInfo in returnedBlock.EnvelopeInfos)
+                    foreach (EnvelopeInfo envelopeInfo in returnedBlock.EnvelopeInfos)
                     {
                         ++i;
 
@@ -926,10 +928,10 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                         Util.COut("  Transaction number {0} has nonce : {1}", i, "" + envelopeInfo.Nonce.ToHexString());
                         Util.COut("  Transaction number {0} has submitter mspid: {1},  certificate: {2}", i, envelopeInfo.Creator.Mspid, envelopeInfo.Creator.Id);
 
-                        if (envelopeInfo.EnvelopeType == BlockInfo.EnvelopeType.TRANSACTION_ENVELOPE)
+                        if (envelopeInfo.EnvelopeType == EnvelopeType.TRANSACTION_ENVELOPE)
                         {
                             ++transactionCount;
-                            BlockInfo.TransactionEnvelopeInfo transactionEnvelopeInfo = (BlockInfo.TransactionEnvelopeInfo) envelopeInfo;
+                            TransactionEnvelopeInfo transactionEnvelopeInfo = (TransactionEnvelopeInfo) envelopeInfo;
 
                             Util.COut("  Transaction number {0} has {1} actions", i, transactionEnvelopeInfo.TransactionActionInfoCount);
                             Assert.AreEqual(1, transactionEnvelopeInfo.TransactionActionInfoCount); // for now there is only 1 action per transaction.
@@ -939,7 +941,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                             Assert.AreEqual(0, transactionEnvelopeInfo.ValidationCode);
 
                             int j = 0;
-                            foreach (BlockInfo.TransactionEnvelopeInfo.TransactionActionInfo transactionActionInfo in transactionEnvelopeInfo.TransactionActionInfos)
+                            foreach (TransactionActionInfo transactionActionInfo in transactionEnvelopeInfo.TransactionActionInfos)
                             {
                                 ++j;
                                 Util.COut("   Transaction action {0} has response status {1}", j, transactionActionInfo.ResponseStatus);
@@ -952,7 +954,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                                 for (int n = 0; n < transactionActionInfo.EndorsementsCount; ++n)
                                 {
-                                    BlockInfo.EndorserInfo endorserInfo = transactionActionInfo.GetEndorsementInfo(n);
+                                    EndorserInfo endorserInfo = transactionActionInfo.GetEndorsementInfo(n);
                                     Util.COut("Endorser {0} signature: {1}", n, endorserInfo.Signature.ToHexString());
                                     Util.COut("Endorser {0} endorser: mspid {1} \n certificate {2}", n, endorserInfo.Mspid, endorserInfo.Id);
                                 }

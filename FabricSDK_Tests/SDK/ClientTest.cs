@@ -14,6 +14,7 @@
 
 using System;
 using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Security;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

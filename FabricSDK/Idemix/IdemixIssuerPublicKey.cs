@@ -18,10 +18,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
-using Google.Protobuf.Collections;
+using Hyperledger.Fabric.Protos.Idemix;
 using Hyperledger.Fabric.SDK.AMCL;
 using Hyperledger.Fabric.SDK.AMCL.FP256BN;
-using Org.BouncyCastle.Security;
+using ECP = Hyperledger.Fabric.SDK.AMCL.FP256BN.ECP;
+using ECP2 = Hyperledger.Fabric.SDK.AMCL.FP256BN.ECP2;
 
 namespace Hyperledger.Fabric.SDK.Idemix
 {
@@ -35,21 +36,6 @@ namespace Hyperledger.Fabric.SDK.Idemix
         private readonly BIG ProofC;
         private readonly BIG ProofS;
 
-
-        /**
-         * @return The names of the attributes certified with this issuer public key
-         */
-        public string[] AttributeNames { get; }
-        public ECP Hsk { get; }
-        public ECP HRand { get; }
-        public ECP[] HAttrs { get; }
-        public ECP2 W { get; }
-
-        /**
-         * @return A digest of this issuer public key
-         */
-        public byte[] Hash { get; private set; }=new byte[0];
-            
         /**
          * Constructor
          *
@@ -68,10 +54,11 @@ namespace Hyperledger.Fabric.SDK.Idemix
             HashSet<string> map = new HashSet<string>();
             foreach (string item in attributeNames)
             {
-				if (map.Contains(item))
+                if (map.Contains(item))
                     throw new ArgumentException("Attribute " + item + " appears multiple times in attributeNames");
                 map.Add(item);
             }
+
             RAND rng = IdemixUtils.GetRand();
             // Attaching Attribute Names array correctly
             AttributeNames = attributeNames;
@@ -133,7 +120,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
          *
          * @param proto a protobuf representation of an issuer public key
          */
-        public IdemixIssuerPublicKey(Protos.Idemix.IssuerPublicKey proto)
+        public IdemixIssuerPublicKey(IssuerPublicKey proto)
         {
             // check for bad input
             if (proto == null)
@@ -146,7 +133,7 @@ namespace Hyperledger.Fabric.SDK.Idemix
                 throw new ArgumentException("Serialized IPk does not contain enough HAttr values");
             }
 
-            AttributeNames = new String[proto.AttributeNames.Count];
+            AttributeNames = new string[proto.AttributeNames.Count];
             for (int i = 0; i < proto.AttributeNames.Count; i++)
             {
                 AttributeNames[i] = proto.AttributeNames[i];
@@ -170,6 +157,22 @@ namespace Hyperledger.Fabric.SDK.Idemix
             byte[] serializedIpk = ToProto().ToByteArray();
             Hash = serializedIpk.HashModOrder().ToBytes();
         }
+
+
+        /**
+         * @return The names of the attributes certified with this issuer public key
+         */
+        public string[] AttributeNames { get; }
+        public ECP Hsk { get; }
+        public ECP HRand { get; }
+        public ECP[] HAttrs { get; }
+        public ECP2 W { get; }
+
+        /**
+         * @return A digest of this issuer public key
+         */
+        // ReSharper disable once MemberInitializerValueIgnored
+        public byte[] Hash { get; }=new byte[0];
 
 
         /**
@@ -216,9 +219,9 @@ namespace Hyperledger.Fabric.SDK.Idemix
         /**
          * @return A proto version of this issuer public key
          */
-        public Protos.Idemix.IssuerPublicKey ToProto()
+        public IssuerPublicKey ToProto()
         {
-            Protos.Idemix.IssuerPublicKey ipc = new Protos.Idemix.IssuerPublicKey
+            IssuerPublicKey ipc = new IssuerPublicKey
             {
                 ProofC = ByteString.CopyFrom(ProofC.ToBytes()),
                 ProofS = ByteString.CopyFrom(ProofS.ToBytes()),

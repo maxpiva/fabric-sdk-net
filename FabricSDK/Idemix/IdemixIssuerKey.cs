@@ -15,30 +15,16 @@
  */
 
 
-using System;
-using System.Linq;
-using Google.Protobuf;
 using Hyperledger.Fabric.SDK.AMCL;
 using Hyperledger.Fabric.SDK.AMCL.FP256BN;
-using Org.BouncyCastle.Security;
 
 namespace Hyperledger.Fabric.SDK.Idemix
 {
-
     /**
      * IdemixIssuerKey represents an idemix issuer key pair
      */
     public class IdemixIssuerKey
     {
-        /**
-         * @return The secret part of the issuer key pair
-         */
-        public BIG Isk { get; }
-        /**
-         * @return The public part of the issuer key pair
-         */
-        public IdemixIssuerPublicKey Ipk { get; }
-
         /**
          * Constructor
          *
@@ -54,6 +40,14 @@ namespace Hyperledger.Fabric.SDK.Idemix
             Ipk = new IdemixIssuerPublicKey(attributeNames, Isk);
         }
 
+        /**
+         * @return The secret part of the issuer key pair
+         */
+        public BIG Isk { get; }
 
+        /**
+         * @return The public part of the issuer key pair
+         */
+        public IdemixIssuerPublicKey Ipk { get; }
     }
 }

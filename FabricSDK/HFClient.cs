@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperledger.Fabric.Protos.Peer;
+using Hyperledger.Fabric.SDK.Channels;
 using Hyperledger.Fabric.SDK.Configuration;
 using Hyperledger.Fabric.SDK.Exceptions;
 using Hyperledger.Fabric.SDK.Helper;

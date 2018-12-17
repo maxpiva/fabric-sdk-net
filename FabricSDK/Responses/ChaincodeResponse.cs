@@ -17,7 +17,7 @@ namespace Hyperledger.Fabric.SDK.Responses
 {
     public class ChaincodeResponse
     {
-        internal int statusReturnCode = -1;
+        internal int statusReturnCode;
 
         public enum ChaincodeResponseStatus
         {

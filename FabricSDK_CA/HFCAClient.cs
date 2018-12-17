@@ -1492,7 +1492,7 @@ namespace Hyperledger.Fabric_CA.SDK
             if (newPayloadType.Value)
             {
                 uurl = AddCAToURL(uurl);
-                string file = new Uri(uurl).PathAndQuery;
+                string file = Convert.ToBase64String(new Uri(uurl).PathAndQuery.ToBytes());
                 signString = method + "." + file + "." + body + "." + cert;
             }
             else
@@ -1529,9 +1529,7 @@ namespace Hyperledger.Fabric_CA.SDK
         public string GetURL(string endpoint, IDictionary<string, string> queryMap)
         {
             SetUpSSL();
-            string murl = url + endpoint;
-            if (CAName != null)
-                murl = AddQueryValue(murl, "ca", CAName);
+            string murl = AddCAToURL(url + endpoint);
             if (queryMap != null)
             {
                 foreach (string key in queryMap.Keys)

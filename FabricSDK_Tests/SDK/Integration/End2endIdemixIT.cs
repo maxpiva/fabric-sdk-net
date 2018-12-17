@@ -15,7 +15,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
     [TestCategory("SDK_INTEGRATION")]
     public class End2endIdemixIT : End2endIT
     {
-        private static readonly string FOO_CHANNEL_NAME = "foo";
+
         private static readonly TestConfig testConfig = TestConfig.Instance;
 
         internal override IReadOnlyList<SampleOrg> testSampleOrgs { get; set; } = testConfig.GetIntegrationTestsSampleOrgs();
@@ -35,6 +35,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         [TestMethod]
         public override void Setup()
         {
+
             sampleStore = new SampleStore(sampleStoreFile);
             SetupUsers(sampleStore);
             RunFabricTest(sampleStore); // just run fabric tests.
@@ -48,18 +49,14 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
          */
         public void SetupUsers(SampleStore sampleStore)
         {
-            //SampleUser can be any implementation that implements org.hyperledger.fabric.sdk.User Interface
-
-            ////////////////////////////
-            // get users for all orgs
-            foreach (SampleOrg sampleOrg in testSampleOrgs)
+            foreach(SampleOrg sampleOrg in testSampleOrgs)
             {
                 string orgName = sampleOrg.Name;
 
                 SampleUser admin = sampleStore.GetMember(TEST_ADMIN_NAME, orgName);
-                sampleOrg.Admin = admin; // The admin of this org.
+                sampleOrg.Admin=admin; // The admin of this org.
 
-                sampleOrg.PeerAdmin = sampleStore.GetMember(orgName + "Admin", orgName);
+                sampleOrg.PeerAdmin=sampleStore.GetMember(orgName + "Admin", orgName);
             }
 
             EnrollIdemixUser(sampleStore);
@@ -107,35 +104,42 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                 SampleUser admin = sampleStore.GetMember(TEST_ADMIN_NAME, orgName);
                 SampleUser idemixUser = sampleStore.GetMember(testUser1, sampleOrg.Name);
-                if (!idemixUser.IsRegistered)
-                {
-                    // users need to be registered AND enrolled
-                    RegistrationRequest rr = new RegistrationRequest(idemixUser.Name, "org1.department1");
-                    idemixUser.EnrollmentSecret = ca.Register(rr, admin);
-                }
 
-                if (!idemixUser.IsEnrolled)
-                {
-                    idemixUser.Enrollment = ca.Enroll(idemixUser.Name, idemixUser.EnrollmentSecret);
-                    idemixUser.MspId = mspid;
-                }
 
-                // If running version 1.3, then get Idemix credential
-                if (testConfig.IsFabricVersionAtOrAfter("1.3"))
-                {
-                    string mspID = "idemixMSPID1";
-                    if (sampleOrg.Name.Contains("Org2"))
-                    {
-                        mspID = "idemixMSPID2";
-                    }
 
-                    idemixUser.SetIdemixEnrollment(ca.IdemixEnroll(idemixUser.Enrollment, mspID));
-                }
-
+                EnrollIdemixUser(sampleOrg,idemixUser,admin);
                 sampleOrg.AddUser(idemixUser);
+         
+    
             }
         }
 
+        private void EnrollIdemixUser(SampleOrg sampleOrg, SampleUser user,  SampleUser admin)
+        {
+            if (!user.IsRegistered)
+            {
+                // users need to be registered AND enrolled
+                RegistrationRequest rr = new RegistrationRequest(user.Name, "org1.department1");
+                user.EnrollmentSecret = sampleOrg.CAClient.Register(rr, admin);
+            }
+
+            if (!user.IsEnrolled)
+            {
+                user.Enrollment = sampleOrg.CAClient.Enroll(user.Name, user.EnrollmentSecret);
+                user.MspId = sampleOrg.MSPID;
+            }
+            // If running version 1.3, then get Idemix credential
+            if (testConfig.IsFabricVersionAtOrAfter("1.3"))
+            {
+                string mspID = "idemixMSPID1";
+                if (sampleOrg.Name.Contains("Org2"))
+                {
+                    mspID = "idemixMSPID2";
+                }
+                user.Enrollment = sampleOrg.CAClient.IdemixEnroll(user.Enrollment, sampleOrg.MSPID);
+            }
+
+        }
         internal override Channel ConstructChannel(string name, HFClient client, SampleOrg sampleOrg)
         {
             // override this method since we don't want to construct the channel that's been done.

@@ -1,4 +1,5 @@
 ﻿using Hyperledger.Fabric.SDK;
+using Hyperledger.Fabric.SDK.Requests;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hyperledger.Fabric.Tests.SDK.Integration
@@ -14,8 +15,8 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
         internal override string CHAIN_CODE_FILEPATH { get; } = "sdkintegration/javacc/sample1"; //override path to Node code
         internal override string CHAIN_CODE_PATH { get; } = null; //This is used only for GO.
         internal override string CHAIN_CODE_NAME { get; } = "example_cc_java"; // chaincode name.
-
-
+        internal override TransactionRequest.Type CHAIN_CODE_LANG { get; } = TransactionRequest.Type.JAVA;
+        
         internal override void BlockWalker(HFClient client, Channel channel)
         {
             // block walker depends on the state of the chain after go's end2end. Nothing here is language specific so

@@ -152,7 +152,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                     got.Add(collectionConfig.Name);
 
                 }
-                Assert.AreEqual(expect, got);
+                CollectionAssert.AreEqual(expect.ToList(),got.ToList());
             }
 
 

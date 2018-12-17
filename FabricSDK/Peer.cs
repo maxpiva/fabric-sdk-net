@@ -21,6 +21,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Grpc.Core;
 using Hyperledger.Fabric.Protos.Discovery;
 using Hyperledger.Fabric.Protos.Peer.FabricProposal;
 using Hyperledger.Fabric.Protos.Peer.FabricProposalResponse;
@@ -219,6 +220,10 @@ namespace Hyperledger.Fabric.SDK
             {
                 return await localEndorserClient.SendProposalAsync(proposal, token).ConfigureAwait(false);
             }
+            catch (RpcException)
+            {
+                throw;
+            }
             catch (Exception)
             {
                 RemoveEndorserClient(true);
@@ -276,6 +281,10 @@ namespace Hyperledger.Fabric.SDK
             try
             {
                 return await localEndorserClient.SendDiscoveryRequestAsync(discoveryRequest, milliseconds, token).ConfigureAwait(false);
+            }
+            catch (RpcException)
+            {
+                throw;
             }
             catch (Exception)
             {
@@ -600,6 +609,7 @@ namespace Hyperledger.Fabric.SDK
 
         public static List<PeerRole> All() => Enum.GetValues(typeof(PeerRole)).Cast<PeerRole>().ToList();
         public static List<PeerRole> NoEventSource() => Enum.GetValues(typeof(PeerRole)).Cast<PeerRole>().Except(new[] {PeerRole.EVENT_SOURCE}).ToList();
+        public static List<PeerRole> NoDiscovery() => Enum.GetValues(typeof(PeerRole)).Cast<PeerRole>().Except(new[] { PeerRole.SERVICE_DISCOVERY }).ToList();
 
         public static PeerRole PeerRoleFromValue(this string value)
         {

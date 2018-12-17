@@ -58,6 +58,7 @@ namespace Hyperledger.Fabric.SDK.Security
                         throw new ArgumentException("Failed to parse TLS client key and/or cert", e);
                     }
                 }
+
                 else
                 {
                     throw new ArgumentException("Properties \"clientKeyFile\" and \"clientCertFile\" must both be set or both be null");

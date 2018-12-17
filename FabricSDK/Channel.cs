@@ -1406,7 +1406,7 @@ namespace Hyperledger.Fabric.SDK
                 ConfigGroup channelGroup = configEnvelope.Config.ChannelGroup;
                 Dictionary<string, MSP> newMSPS = TraverseConfigGroupsMSP(string.Empty, channelGroup, new Dictionary<string, MSP>());
                 msps = newMSPS;
-                return newMSPS;
+                return newMSPS.ToDictionary(a => a.Key, a => a.Value);
             }
             catch (Exception e)
             {
@@ -1589,10 +1589,15 @@ namespace Hyperledger.Fabric.SDK
             // ConfigGroup channelGroup = configEnvelope.getConfig().getChannelGroup();
 
             Protos.Common.Config config = configEnvelope.Config;
-            Protos.Common.Config updated = config.Clone();
-            ConfigGroup channelGroup = updated.ChannelGroup.Clone();
-            IDictionary<string, ConfigGroup> groupsMap = channelGroup.Groups;
-            ConfigGroup application = groupsMap["Application"].Clone();
+            Protos.Common.Config configBuilderUpdate = Protos.Common.Config.Parser.ParseFrom(config.ToByteArray());
+
+
+
+
+            ConfigGroup channelGroupBuild = Protos.Common.ConfigGroup.Parser.ParseFrom(configBuilderUpdate.ChannelGroup.ToByteArray());
+            
+            IDictionary<string, ConfigGroup> groupsMap = channelGroupBuild.Groups;
+            ConfigGroup application = ConfigGroup.Parser.ParseFrom(groupsMap["Application"].ToByteArray());
             string mspid = userContext.MspId;
             ConfigGroup peerOrgConfigGroup = application.Groups.GetOrNull(mspid);
             if (null == peerOrgConfigGroup)
@@ -1607,10 +1612,11 @@ namespace Hyperledger.Fabric.SDK
                 }
                 throw new ArgumentException($"Expected to find organization matching user context's mspid: {mspid}, but only found {sb.ToString()}.");
             }
-            peerOrgConfigGroup = peerOrgConfigGroup.Clone();
+            ConfigGroup peerOrgConfigGroupBuilder = ConfigGroup.Parser.ParseFrom(peerOrgConfigGroup.ToByteArray());
+
             string modPolicy = peerOrgConfigGroup.ModPolicy != null ? peerOrgConfigGroup.ModPolicy : "Admins";
 
-            IDictionary<string, ConfigValue> valuesMap = peerOrgConfigGroup.Values;
+            IDictionary<string, ConfigValue> valuesMap = peerOrgConfigGroupBuilder.Values;
             
             ConfigValue anchorPeersCV = valuesMap.ContainsKey("AnchorPeers") ? valuesMap["AnchorPeers"] : null;
 
@@ -1704,31 +1710,31 @@ namespace Hyperledger.Fabric.SDK
 
             m["AnchorPeers"] = new ConfigValue {Value = anchorPeers.ToByteString(), ModPolicy = modPolicy};
             //       }
-            peerOrgConfigGroup.Values.Clear();
-            peerOrgConfigGroup.Values.Add(m);
+            peerOrgConfigGroupBuilder.Values.Clear();
+            peerOrgConfigGroupBuilder.Values.Add(m);
 
             var m2 = application.Groups.ToDictionary(a => a.Key, a => a.Value);
-            m2[mspid] = peerOrgConfigGroup;
+            m2[mspid] = peerOrgConfigGroupBuilder;
             // application.putAllValues(m);
             application.Groups.Clear();
             application.Groups.Add(m2);
-            var m3 = channelGroup.Groups.ToDictionary(a => a.Key, a => a.Value);
+            var m3 = channelGroupBuild.Groups.ToDictionary(a => a.Key, a => a.Value);
             m3["Application"]=application;
-            channelGroup.Groups.Clear();
-            channelGroup.Groups.Add(m3);
-            updated.ChannelGroup = channelGroup;
-            ConfigUpdate updateBlock = new ConfigUpdate();
+            channelGroupBuild.Groups.Clear();
+            channelGroupBuild.Groups.Add(m3);
+            configBuilderUpdate.ChannelGroup = channelGroupBuild;
+            ConfigUpdate updateBlockBuilder = new ConfigUpdate();
             if (IS_TRACE_LEVEL)
-                logger.Trace($"getConfigUpdateAnchorPeers  updated configBlock: {updated.ToByteArray().ToHexString()}");
+                logger.Trace($"getConfigUpdateAnchorPeers  updated configBlock: {configBuilderUpdate.ToByteArray().ToHexString()}");
 
-            ProtoUtils.ComputeUpdate(Name, config, updated, updateBlock);
+            ProtoUtils.ComputeUpdate(Name, config, configBuilderUpdate, updateBlockBuilder);
 
             AnchorPeersConfigUpdateResult ret = new AnchorPeersConfigUpdateResult();
             ret.CurrentPeers = currentAP.ToList();
             ret.PeersAdded = peersAdded.ToList();
             ret.PeersRemoved = peersRemoved.ToList();
             ret.UpdatedPeers = peersFinalHS.ToList();
-            ret.UpdateChannelConfiguration = new UpdateChannelConfiguration(updated.ToByteArray());
+            ret.UpdateChannelConfiguration = new UpdateChannelConfiguration(updateBlockBuilder.ToByteArray());
             if (IS_TRACE_LEVEL)
                 logger.Trace($"getConfigUpdateAnchorPeers returned: {ret.ToString()}");
 
@@ -3644,12 +3650,15 @@ namespace Hyperledger.Fabric.SDK
 
                 using (var timeoutCancellationTokenSource = new CancellationTokenSource())
                 {
-                    Task ret = Task.WhenAll(tasks.Values);
-                    var completedTask = await Task.WhenAny(ret, Task.Delay((int) transactionContext.ProposalWaitTime, timeoutCancellationTokenSource.Token)).ConfigureAwait(false);
-                    if (completedTask == ret)
-                        timeoutCancellationTokenSource.Cancel();
-                    else
-                        stoken.Cancel();
+                    try
+                    {
+                        await Task.WhenAll(tasks.Values).TimeoutAsync(TimeSpan.FromMilliseconds((int)transactionContext.ProposalWaitTime),token).ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        int a = 1;
+                        //ignored, processed below
+                    }
                 }
             }
 
@@ -3661,24 +3670,8 @@ namespace Hyperledger.Fabric.SDK
                 string message;
                 int status;
                 string peerName = peer.ToString();
-                if (ctask.IsCompleted)
-                {
-                    fabricResponse = ctask.Result;
-                    message = fabricResponse.Response.Message;
-                    status = fabricResponse.Response.Status;
-                    peer.HasConnected = true;
-                    logger.Debug($"Channel {Name}, transaction: {txID} got back from peer {peerName} status: {status}, message: {message}");
-                    if (null != diagnosticFileDumper)
-                        logger.Trace($"Got back from channel {Name}, peer: {peerName}, proposal response: {diagnosticFileDumper.CreateDiagnosticProtobufFile(fabricResponse.ToByteArray())}");
-                    ProposalResponse proposalResponse = new ProposalResponse(transactionContext, status, message);
-                    proposalResponse.ProtoProposalResponse = fabricResponse;
-                    proposalResponse.SetProposal(signedProposal);
-                    proposalResponse.Peer = peer;
-                    if (transactionContext.Verify)
-                        proposalResponse.Verify(client.CryptoSuite);
-                    responses.Add(proposalResponse);
-                }
-                else if (ctask.IsFaulted)
+
+                if (ctask.IsFaulted)
                 {
                     AggregateException ex = ctask.Exception;
                     Exception e = ex?.InnerException ?? ex;
@@ -3696,6 +3689,23 @@ namespace Hyperledger.Fabric.SDK
                 {
                     message = $"Sending proposal to {peerName} with transaction {txID} failed because of timeout({transactionContext.ProposalWaitTime} milliseconds) expiration";
                     logger.Error(message);
+                }
+                else if (ctask.IsCompleted)
+                {
+                    fabricResponse = ctask.Result;
+                    message = fabricResponse.Response.Message;
+                    status = fabricResponse.Response.Status;
+                    peer.HasConnected = true;
+                    logger.Debug($"Channel {Name}, transaction: {txID} got back from peer {peerName} status: {status}, message: {message}");
+                    if (null != diagnosticFileDumper)
+                        logger.Trace($"Got back from channel {Name}, peer: {peerName}, proposal response: {diagnosticFileDumper.CreateDiagnosticProtobufFile(fabricResponse.ToByteArray())}");
+                    ProposalResponse proposalResponse = new ProposalResponse(transactionContext, status, message);
+                    proposalResponse.ProtoProposalResponse = fabricResponse;
+                    proposalResponse.SetProposal(signedProposal);
+                    proposalResponse.Peer = peer;
+                    if (transactionContext.Verify)
+                        proposalResponse.Verify(client.CryptoSuite);
+                    responses.Add(proposalResponse);
                 }
             }
 
@@ -3892,13 +3902,12 @@ namespace Hyperledger.Fabric.SDK
                 }
 
                 bool replyonly = nOfEvents == NOfEvents.NofNoEvents || EventHubs.Count == 0 && GetEventingPeers().Count == 0;
-                TaskCompletionSource<BlockEvent.TransactionEvent> sret;
+                TaskCompletionSource<BlockEvent.TransactionEvent> sret=null;
                 if (replyonly)
                 {
                     //If there are no eventhubs to complete the future, complete it
                     // immediately but give no transaction event
                     logger.Debug($"Completing transaction id {proposalTransactionID} immediately no event hubs or peer eventing services found in channel {Name}.");
-                    sret = new TaskCompletionSource<BlockEvent.TransactionEvent>();
                 }
                 else
                     sret = RegisterTxListener(proposalTransactionID, nOfEvents, transactionOptions.FailFast);
@@ -3948,23 +3957,25 @@ namespace Hyperledger.Fabric.SDK
                     {
                         using (var timeoutCancellationTokenSource = new CancellationTokenSource())
                         {
-                            var completedTask = await Task.WhenAny(sret.Task, Task.Delay(waittimeinmilliseconds.Value, timeoutCancellationTokenSource.Token)).ConfigureAwait(false);
-                            if (completedTask == sret.Task)
-                                timeoutCancellationTokenSource.Cancel();
-                            else
+                            try
                             {
-                                UnregisterTxListener(proposalTransactionID);
-                                Exception ex = new OperationCanceledException("The operation has timed out.");
-                                throw new TransactionException(ex.Message, ex);
-                            }
-                        }
-                    }
+                                var completedTask = await Task.WhenAny(sret.Task, Task.Delay(waittimeinmilliseconds.Value, timeoutCancellationTokenSource.Token)).ConfigureAwait(false);
+                                if (completedTask == sret.Task)
+                                    timeoutCancellationTokenSource.Cancel();
+                                else
+                                {
+                                    UnregisterTxListener(proposalTransactionID);
+                                    Exception ex = new OperationCanceledException("The operation has timed out.");
+                                    throw new TransactionException(ex.Message, ex);
+                                }
 
-                    if (sret.Task.IsCanceled)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        Exception ex2 = new OperationCanceledException("The operation has timed out.");
-                        throw new TransactionException(ex2.Message, ex2);
+                            }
+                            catch (Exception exception)
+                            {
+                                //Ignored processed below
+                            }
+
+                        }
                     }
 
                     if (sret.Task.IsFaulted)
@@ -3974,7 +3985,7 @@ namespace Hyperledger.Fabric.SDK
                         string message;
                         if (e3 is RpcException)
                         {
-                            RpcException rpce = (RpcException) e3;
+                            RpcException rpce = (RpcException)e3;
                             message = $"Channel {Name} failed to recieve event from {proposalTransactionID}. gRPC failure={rpce.Status}";
                         }
                         else
@@ -3983,7 +3994,12 @@ namespace Hyperledger.Fabric.SDK
                         logger.ErrorException(message, e3);
                         throw new TransactionException(message, ex);
                     }
-
+                    if (sret.Task.IsCanceled)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        Exception ex2 = new OperationCanceledException("The operation has timed out.");
+                        throw new TransactionException(ex2.Message, ex2);
+                    }
                     return sret.Task.Result;
                 }
 
@@ -4915,12 +4931,7 @@ namespace Hyperledger.Fabric.SDK
 
             public List<PeerRole> PeerRoles
             {
-                get
-                {
-                    if (peerRoles == null)
-                        return PeerRoleExtensions.All();
-                    return peerRoles;
-                }
+                get => peerRoles ?? (peerRoles = PeerRoleExtensions.NoDiscovery());
                 internal set => peerRoles = value;
             }
 

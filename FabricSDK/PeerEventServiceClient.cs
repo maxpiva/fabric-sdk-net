@@ -219,13 +219,15 @@ namespace Hyperledger.Fabric.SDK
                 logger.Trace($"{ToString()} was shutdown.");
         }
 
-        private async Task DeliverAsync(Deliver.DeliverClient broadcast, Envelope envelope, CancellationToken token)
+        private async Task DeliverAsync(Grpc.Core.Channel channel, Envelope envelope, CancellationToken token)
         {
             retry = true;
-            var call = filterBlock ? broadcast.DeliverFiltered().ToADStreamingCall() : broadcast.Deliver().ToADStreamingCall();
             try
             {
-                Task connect = dtask.ConnectAsync(call, (resp) =>
+                var ch = filterBlock ? new Deliver.DeliverClient(channel).DeliverFiltered() : new Deliver.DeliverClient(channel).Deliver();
+
+                Task connect = dtask.ConnectAsync(ch,
+                    (resp) =>
                 {
                     logger.Trace($"{ToString()}DeliverResponse channel {channelName} peer {peer.Name} resp status value:{resp.Status} typecase {resp.TypeCase}");
                     switch (resp.TypeCase)
@@ -266,11 +268,13 @@ namespace Hyperledger.Fabric.SDK
                             peerEventingServiceException2.Response = resp;
                             throw peerEventingServiceException2;
                     }
-                }, (ex) => ProcessException(ex), token);
-                await call.Call.RequestStream.WriteAsync(envelope).ConfigureAwait(false);
+                }, 
+                    (ex) => ProcessException(ex, token),
+                     token);
                 if (token.IsCancellationRequested)
                     dtask.Cancel();
                 token.ThrowIfCancellationRequested();
+                await dtask.Sender.Call.RequestStream.WriteAsync(envelope).ConfigureAwait(false);
                 await connect.TimeoutAsync(TimeSpan.FromMilliseconds(peerEventRegistrationWaitTimeMilliSecs),token).ConfigureAwait(false);
                 logger.Debug($"{ToString()} DeliverResponse onCompleted channel {channelName} peer {peer.Name} setting done.");
             }
@@ -307,7 +311,7 @@ namespace Hyperledger.Fabric.SDK
                 lmanagedChannel = channelBuilder.BuildChannel();
                 managedChannel = lmanagedChannel;
             }
-            return DeliverAsync(new Deliver.DeliverClient(lmanagedChannel), envelope, token);
+            return DeliverAsync(lmanagedChannel, envelope, token);
         }
 
         public bool IsChannelActive()

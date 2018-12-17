@@ -8,8 +8,8 @@ syntax = "proto3";
 
 option go_package = "github.com/hyperledger/fabric/protos/peer";
 option java_package = "org.hyperledger.fabric.protos.peer";
-option java_outer_classname = "FabricTransaction";
 option csharp_namespace = "Hyperledger.Fabric.Protos.Peer.FabricTransaction";
+option java_outer_classname = "FabricTransaction";
 
 package protos;
 
@@ -142,4 +142,3 @@ enum TxValidationCode {
 	NOT_VALIDATED = 254;
 	INVALID_OTHER_REASON = 255;
 }
-

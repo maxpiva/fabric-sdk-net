@@ -144,10 +144,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 SaveState();
             }
         }
-        public void SetIdemixEnrollment(IEnrollment enrollment)
-        {
-            this.enrollment = enrollment;
-        }
 
         public string MspId
         {

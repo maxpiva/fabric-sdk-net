@@ -156,14 +156,14 @@ namespace Hyperledger.Fabric.SDK.Builders
             }
             else if (null != chaincodeCollectionConfiguration)
             {
-                argList.Add(ByteString.Empty); //place holder for chaincodePolicy
+                argsList.Add(ByteString.Empty); //place holder for chaincodePolicy
             }
 
             if (null != chaincodeCollectionConfiguration)
             {
-                argList.Add(ByteString.Empty); //escc name place holder
-                argList.Add(ByteString.Empty); //vscc name place holder
-                argList.Add(ByteString.CopyFrom(chaincodeCollectionConfiguration));
+                argsList.Add(ByteString.Empty); //escc name place holder
+                argsList.Add(ByteString.Empty); //vscc name place holder
+                argsList.Add(ByteString.CopyFrom(chaincodeCollectionConfiguration));
             }
 
             Args(argsList);

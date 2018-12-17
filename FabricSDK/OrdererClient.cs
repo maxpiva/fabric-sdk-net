@@ -95,7 +95,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 try
                 {
-                    lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                    lchannel.ShutdownAsync().Wait();
                 }
                 catch (Exception e)
                 {
@@ -119,7 +119,7 @@ namespace Hyperledger.Fabric.SDK
                 {
                     try
                     {
-                        lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                        lchannel.ShutdownAsync().Wait();
                     }
                     catch (Exception e)
                     {

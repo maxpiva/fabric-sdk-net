@@ -31,6 +31,9 @@ using Hyperledger.Fabric.SDK.Helper;
 using Hyperledger.Fabric.SDK.Logging;
 using Newtonsoft.Json;
 using Nito.AsyncEx;
+using System.Collections.Generic;
+using Grpc.Core.Interceptors;
+using Grpc.Core.Utils;
 
 
 namespace Hyperledger.Fabric.SDK
@@ -169,43 +172,48 @@ namespace Hyperledger.Fabric.SDK
             return ConnectAsync(transactionContext, false, token);
         }
 
-
-        private async Task EventsAsync(Events.EventsClient events, TransactionContext context, CancellationToken token)
+        private async Task EventsAsync(Grpc.Core.Channel channel, TransactionContext context, CancellationToken token)
         {
+       
             try
             {
-                var senderLocal = events.Chat().ToADStreamingCall();
-                Task connect = dtask.ConnectAsync(senderLocal, (evnt) =>
-                {
-                    logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
-                    if (evnt.EventCase == Event.EventOneofCase.Block)
-                    {
-                        try
+                Events.EventsClient cl = new Events.EventsClient(channel);
+                var chat = cl.Chat();
+
+                Task connect = dtask.ConnectAsync(chat,
+                    (evnt) =>
                         {
-                            BlockEvent blockEvent = new BlockEvent(this, evnt);
-                            logger.Trace($"{ToString()} got block number: {blockEvent.BlockNumber}");
-                            SetLastBlockSeen(blockEvent);
-                            eventQue.AddBEvent(blockEvent); //add to channel queue
-                        }
-                        catch (InvalidProtocolBufferException e)
-                        {
-                            EventHubException eventHubException = new EventHubException($"{Name} onNext error {e}", e);
-                            logger.Error(eventHubException.Message);
-                        }
-                    }
-                    if (evnt.EventCase == Event.EventOneofCase.Register)
-                    {
-                        if (reconnectCount > 1)
-                            logger.Info($"Eventhub {Name} has reconnecting after {reconnectCount} attempts");
-                        IsConnected = true;
-                        ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                        reconnectCount = 0L;
-                        return ProcessResult.ConnectionComplete;
-                    }
-                    logger.Error($"{ToString()} got a unexpected block type: {evnt.EventCase}");
-                    return ProcessResult.Ok;
-                }, (ex) => ProcessException(ex), token);
-                await BlockListenAsync(senderLocal, context).ConfigureAwait(false);
+                            logger.Debug($"EventHub {Name} got  event type: {evnt.EventCase.ToString()}");
+                            if (evnt.EventCase == Event.EventOneofCase.Block)
+                            {
+                                try
+                                {
+                                    BlockEvent blockEvent = new BlockEvent(this, evnt);
+                                    logger.Trace($"{ToString()} got block number: {blockEvent.BlockNumber}");
+                                    SetLastBlockSeen(blockEvent);
+                                    eventQue.AddBEvent(blockEvent); //add to channel queue
+                                }
+                                catch (InvalidProtocolBufferException e)
+                                {
+                                    EventHubException eventHubException = new EventHubException($"{Name} onNext error {e}", e);
+                                    logger.Error(eventHubException.Message);
+                                }
+                            }
+                            if (evnt.EventCase == Event.EventOneofCase.Register)
+                            {
+                                if (reconnectCount > 1)
+                                    logger.Info($"Eventhub {Name} has reconnecting after {reconnectCount} attempts");
+                                IsConnected = true;
+                                ConnectedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                reconnectCount = 0L;
+                                return ProcessResult.ConnectionComplete;
+                            }
+                            logger.Error($"{ToString()} got a unexpected block type: {evnt.EventCase}");
+                            return ProcessResult.Ok;
+                        }, 
+                    (ex) => ProcessException(ex,token),                   
+                    token);
+                await BlockListenAsync(dtask.Sender.Call, context, token).ConfigureAwait(false);
                 await connect.TimeoutAsync(TimeSpan.FromMilliseconds(EVENTHUB_CONNECTION_WAIT_TIME),token).ConfigureAwait(false);
                 logger.Debug($"Eventhub {Name} connect is done with connect status: {IsConnected} ");
             }
@@ -262,7 +270,7 @@ namespace Hyperledger.Fabric.SDK
                 Endpoint endpoint = Endpoint.Create(Url, Properties);
                 managedChannel = endpoint.BuildChannel();
                 clientTLSCertificateDigest = endpoint.GetClientTLSCertificateDigest();
-                await EventsAsync(new Events.EventsClient(managedChannel), transactionContext, token).ConfigureAwait(false);               
+                await EventsAsync(managedChannel, transactionContext, token).ConfigureAwait(false);               
                 return IsConnected;
             }            
         }
@@ -284,12 +292,12 @@ namespace Hyperledger.Fabric.SDK
             }
         }
 
-        private async Task BlockListenAsync(ADStreamingCall<SignedEvent, Event> sendL, TransactionContext transactionContext)
+        private async Task BlockListenAsync(AsyncDuplexStreamingCall<SignedEvent, Event> call, TransactionContext transactionContext, CancellationToken token)
         {
             TransactionContext = transactionContext;
             Register register = new Register();
             register.Events.Add(new Interest {EventType = EventType.Block});
-            Event blockEvent = new Event {Register = register, Creator = transactionContext.Identity.ToByteString(), Timestamp = ProtoUtils.GetCurrentFabricTimestamp()};
+            Event blockEvent = new Event {Register = register, Creator = transactionContext.Identity.ToByteString(), Timestamp = ProtoUtils.GetCurrentFabricTimestamp()};            
             if (null != clientTLSCertificateDigest)
             {
                 logger.Trace("Setting clientTLSCertificate digest for event registration to " + clientTLSCertificateDigest.ToHexString());
@@ -297,7 +305,7 @@ namespace Hyperledger.Fabric.SDK
             }
             ByteString blockEventByteString = blockEvent.ToByteString();
             SignedEvent signedBlockEvent = new SignedEvent {EventBytes = blockEventByteString, Signature = transactionContext.SignByteString(blockEventByteString.ToByteArray())};
-            await sendL.Call.RequestStream.WriteAsync(signedBlockEvent).ConfigureAwait(false);
+            await call.RequestStream.WriteAsync(signedBlockEvent).ConfigureAwait(false);
         }
 
 

@@ -16,6 +16,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Google.Protobuf.Collections;
 using Grpc.Core;
 using Hyperledger.Fabric.Protos.Discovery;
 using Hyperledger.Fabric.Protos.Peer;
@@ -106,7 +107,7 @@ namespace Hyperledger.Fabric.SDK
             {
                 try
                 {
-                    lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                    lchannel.ShutdownAsync().Wait();
                 }
                 catch (Exception e)
                 {
@@ -130,7 +131,7 @@ namespace Hyperledger.Fabric.SDK
                 {
                     try
                     {
-                        lchannel.ShutdownAsync().GetAwaiter().GetResult();
+                        lchannel.ShutdownAsync().Wait();
                     }
                     catch (Exception e)
                     {
@@ -143,10 +144,7 @@ namespace Hyperledger.Fabric.SDK
         public virtual async Task<ProposalResponse> SendProposalAsync(SignedProposal proposal, CancellationToken token = default(CancellationToken))
         {
             if (shutdown)
-            {
                 throw new PeerException("Shutdown");
-            }
-
             return await ecl.ProcessProposalAsync(proposal, null, null, token);
         }
 
@@ -166,7 +164,7 @@ namespace Hyperledger.Fabric.SDK
 
         private async Task<Response> SendDiscoveryRequestInternalAsync(SignedRequest signedRequest, CancellationToken token)
         {
-            return await dfs.DiscoverAsync(signedRequest, null, null, token);
+                return await dfs.DiscoverAsync(signedRequest, null, null, token);
         }
 
         public ProposalResponse SendProposal(SignedProposal proposal)

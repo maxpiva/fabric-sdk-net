@@ -625,7 +625,6 @@ namespace Hyperledger.Fabric.SDK
 
             // orderers is an array of orderer name strings
             JArray ordererNames = jsonChannel["orderers"] as JArray;
-            bool foundOrderer = false;
 
             //out("Orderer names: " + (ordererNames == null ? "null" : ordererNames.toString()));
             if (ordererNames != null)
@@ -640,7 +639,6 @@ namespace Hyperledger.Fabric.SDK
                     }
 
                     channel.AddOrderer(orderer);
-                    foundOrderer = true;
                 }
             }
 
@@ -790,6 +788,12 @@ namespace Hyperledger.Fabric.SDK
                 {
                     props.GetAndRemove("grpc.NettyChannelBuilderOption.maxInboundMessageSize");
                     props.Set("grpc.max_receive_message_length", value);
+                }
+                value = props.Get("grpc.http2.keepalive_time");
+                if (null != value) 
+                {
+                    props.GetAndRemove("grpc.http2.keepalive_time");
+                    props.Set("grpc.keepalive_time_ms", (int.Parse(value)*1000).ToString());
                 }
             }
         }

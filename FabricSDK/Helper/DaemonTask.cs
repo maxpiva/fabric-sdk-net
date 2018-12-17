@@ -2,7 +2,9 @@
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Grpc.Core;
 using Hyperledger.Fabric.SDK.Logging;
+using System.Collections.Generic;
 
 namespace Hyperledger.Fabric.SDK.Helper
 {
@@ -17,25 +19,29 @@ namespace Hyperledger.Fabric.SDK.Helper
         private bool canceling;
         public ADStreamingCall<T, S> Sender { get; private set; }
 
-        public Task ConnectAsync(ADStreamingCall<T, S> call, Func<S, ProcessResult> process_function, Action<Exception> exception_function, CancellationToken token)
+        public Task ConnectAsync(AsyncDuplexStreamingCall<T,S> sender,
+            Func<S, ProcessResult> process_function, 
+            Action<Exception> exception_function, 
+            CancellationToken token)
         {
             Cancel();
             canceling = false;
-            Sender = call;
+            Sender = sender.ToADStreamingCall();
             _tokenSource = new CancellationTokenSource();
             _completeTask = new TaskCompletionSource<bool>();
             _needCompletition = true;
             token.Register(() => { _tokenSource?.Cancel(); });
+           
 #pragma warning disable 4014
             Task.Run(async () =>
 #pragma warning restore 4014
             {
                 try
                 {
-                    while (await call.Call.ResponseStream.MoveNext(_tokenSource.Token).ConfigureAwait(false))
+                    while (await Sender.Call.ResponseStream.MoveNext())
                     {
                         _tokenSource.Token.ThrowIfCancellationRequested();
-                        S evnt = call.Call.ResponseStream.Current;
+                        S evnt = Sender.Call.ResponseStream.Current;
                         ProcessResult result = process_function(evnt);
                         if (result == ProcessResult.ConnectionComplete)
                             ShouldCompleteConnection();
@@ -50,6 +56,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 }
                 catch (Exception e)
                 {
+
                     if (!canceling)
                     {
                         logger.Debug($"Stream Exception {e.Message}");
@@ -64,7 +71,7 @@ namespace Hyperledger.Fabric.SDK.Helper
                 }
 
                 logger.Debug($"Stream completed");
-            }, _tokenSource.Token);
+            });
             return _completeTask.Task;
         }
 

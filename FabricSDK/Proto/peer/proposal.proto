@@ -18,8 +18,8 @@ syntax = "proto3";
 
 option go_package = "github.com/hyperledger/fabric/protos/peer";
 option java_package = "org.hyperledger.fabric.protos.peer";
-option java_outer_classname = "FabricProposal";
 option csharp_namespace = "Hyperledger.Fabric.Protos.Peer.FabricProposal";
+option java_outer_classname = "FabricProposal";
 
 package protos;
 

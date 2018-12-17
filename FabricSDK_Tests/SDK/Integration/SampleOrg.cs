@@ -110,7 +110,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
         public void AddUser(SampleUser user)
         {
-            userMap.Add(user.Name, user);
+            userMap[user.Name]=user;
         }
 
         public IUser GetUser(string name)

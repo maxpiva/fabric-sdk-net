@@ -252,12 +252,11 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
                 }
 
                 SampleUser user = sampleStore.GetMember(testUser1, sampleOrg.Name);
-                
+
                 if (!user.IsRegistered)
-                {
-                    // users need to be registered AND enrolled
+                {  // users need to be registered AND enrolled
                     RegistrationRequest rr = new RegistrationRequest(user.Name, "org1.department1");
-                    user.EnrollmentSecret = ca.Register(rr, admin);
+                    user.EnrollmentSecret=ca.Register(rr, admin);
                 }
 
                 if (!user.IsEnrolled)
@@ -281,16 +280,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        public static byte[] GetPEMStringFromPrivateKey(AsymmetricKeyParameter priv)
-        {
-            using (StringWriter str = new StringWriter())
-            {
-                PemWriter pw = new PemWriter(str);
-                pw.WriteObject(priv);
-                str.Flush();
-                return str.ToString().ToBytes();
-            }
-        }
         Dictionary<string, long> expectedMoveRCMap = new Dictionary<string, long>(); // map from channel name to move chaincode's return code.
 
         //CHECKSTYLE.OFF: Method length is 320 lines (max allowed is 150).
@@ -606,7 +595,7 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
 
                     Assert.AreEqual(":)", resultAsString);
 
-                    Assert.AreEqual(200, expectedMoveRCMap[channelName], resp.ChaincodeActionResponseStatus); //Chaincode's status.
+                    Assert.AreEqual(expectedMoveRCMap[channelName], resp.ChaincodeActionResponseStatus); //Chaincode's status.
 
                     TxReadWriteSetInfo readWriteSetInfo = resp.ChaincodeActionResponseReadWriteSetInfo;
                     //See blockwalker below how to transverse this

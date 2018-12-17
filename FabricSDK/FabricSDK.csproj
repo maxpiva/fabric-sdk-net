@@ -16,43 +16,24 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.6.1" />
-    <PackageReference Include="Grpc.Tools" Version="1.17.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Grpc.Tools.MsBuild.Unofficial" Version="1.0.51" />
-    <PackageReference Include="LibLog" Version="5.0.3">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Grpc.Tools" Version="1.17.0" PrivateAssets="All"/>
+    <PackageReference Include="LibLog" Version="5.0.3" PrivateAssets="All"/>
     <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.4" />
     <PackageReference Include="SharpCompress" Version="0.22.0" />
     <PackageReference Include="YamlDotNet" Version="5.3.0" />
+    <PackageReference Include="Grpc" Version="1.17.0" />
   </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net47'">
-    <PackageReference Include="Grpc" Version="1.12.0" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="Grpc.Core" Version="1.17.0" />
-  </ItemGroup>
-
-
-  <PropertyGroup>
-    <GrpcToolsVersion>1.17.0</GrpcToolsVersion>
-    <GrpcIncludeFolders>$(SolutionDir)\ProtoBuf;$(SolutionDir)\FabricSDK\Proto</GrpcIncludeFolders>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProtoIncludeFolder Include="$(SolutionDir)\ProtoBuf" />
-    <ProtoIncludeFolder Include="$(SolutionDir)\FabricSDK\Proto" />
+  <ItemGroup>  
+    <ProtoBuf Include="$(SolutionDir)FabricSDK\Proto\**\*.*">
+      <ProtoRoot>$(SolutionDir)FabricSDK\Proto\</ProtoRoot>
+    </ProtoBuf>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Diagnostics.DiagnosticSource">
       <HintPath>..\..\..\..\Program Files\dotnet\sdk\NuGetFallbackFolder\microsoft.netcore.app\2.0.0\ref\netcoreapp2.0\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
   </ItemGroup>
-
-
 </Project>

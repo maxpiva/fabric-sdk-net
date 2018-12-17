@@ -21,6 +21,7 @@ import "common/common.proto";
 option go_package = "github.com/hyperledger/fabric/protos/orderer";
 option java_package = "org.hyperledger.fabric.protos.orderer";
 option csharp_namespace = "Hyperledger.Fabric.Protos.Orderer";
+
 package orderer;
 
 message BroadcastResponse {

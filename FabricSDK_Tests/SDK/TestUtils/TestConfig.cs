@@ -463,7 +463,7 @@ namespace Hyperledger.Fabric.Tests.SDK.TestUtils
 
             string ret = Path.Combine(pname.Locate(), fname);
 
-            if (!"localhost".Equals(LOCALHOST))
+            if (!"localhost".Equals(LOCALHOST) || IsFabricVersionAtOrAfter("1.3"))
             {
                 // change on the fly ...
                 string temp;

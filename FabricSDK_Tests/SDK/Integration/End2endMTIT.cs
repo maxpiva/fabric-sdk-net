@@ -455,17 +455,6 @@ namespace Hyperledger.Fabric.Tests.SDK.Integration
             }
         }
 
-        public static byte[] GetPEMStringFromPrivateKey(AsymmetricAlgorithm priv)
-        {
-            AsymmetricCipherKeyPair keyPair = DotNetUtilities.GetRsaKeyPair((RSA) priv);
-            using (StringWriter str = new StringWriter())
-            {
-                PemWriter pw = new PemWriter(str);
-                pw.WriteObject(keyPair.Private);
-                str.Flush();
-                return str.ToString().ToBytes();
-            }
-        }
 
         //CHECKSTYLE.OFF: Method length is 320 lines (max allowed is 150).
         private void RunChannel(HFClient client, Channel channel, int workerId, int runId, SampleOrg sampleOrg, int delta, int start)

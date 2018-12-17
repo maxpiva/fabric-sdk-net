@@ -15,8 +15,6 @@ option csharp_namespace = "Hyperledger.Fabric.Protos.Common";
 
 package common;
 
-
-
 // ConfigEnvelope is designed to contain _all_ configuration for a chain with no dependency
 // on previous configuration transactions.
 //
@@ -59,6 +57,7 @@ message Config {
     // Prevent removed tag re-use
     reserved 3;
     reserved "type";
+
     uint64 sequence = 1;
     ConfigGroup channel_group = 2; // channel_group is a bad name for this, it should be changed to root when API breakage is allowed
 }
@@ -81,6 +80,7 @@ message ConfigUpdate {
     // Prevent removed tag re-use
     reserved 4;
     reserved "type";
+
     string channel_id = 1; // Which channel this config update is for
     ConfigGroup read_set = 2; // ReadSet explicitly lists the portion of the config which was read, this should be sparse with only Version set
     ConfigGroup write_set = 3; // WriteSet lists the portion of the config which was written, this should included updated Versions

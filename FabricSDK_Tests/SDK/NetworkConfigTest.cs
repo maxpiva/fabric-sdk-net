@@ -264,7 +264,7 @@ namespace Hyperledger.Fabric.Tests.SDK
                 Properties properties = peer.Properties;
 
                 Assert.IsNotNull(properties);
-                Assert.IsNull(properties.Get("grpc.keepalive_time_ms"));
+                //Assert.IsNull(properties.Get("grpc.keepalive_time_ms"));
                 Assert.IsNull(properties.Get("grpc.keepalive_timeout_ms"));
                 //Assert.IsNull(properties.Get("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls"));
             }

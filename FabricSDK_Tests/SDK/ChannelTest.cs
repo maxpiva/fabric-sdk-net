@@ -534,7 +534,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Channel channel = CreateRunningChannel(null);
             Peer peer = channel.Peers.First();
-            peer.endorserClent = new MockEndorserClient(new System.Exception("You interrupting me?"));
+            peer.endorserClent = new MockEndorserClient(new ProposalException("You interrupting me?"));
 
             hfclient.QueryChannels(peer);
         }
@@ -545,7 +545,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Channel channel = CreateRunningChannel(null);
             Peer peer = channel.Peers.First();
-            peer.endorserClent = new MockEndorserClient(new PeerException("rick did this:)"));
+            peer.endorserClent = new MockEndorserClient(new ProposalException("rick did this:)"));
 
             hfclient.QueryChannels(peer);
         }
@@ -556,7 +556,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Channel channel = CreateRunningChannel(null);
             Peer peer = channel.Peers.First();
-            peer.endorserClent = new MockEndorserClient(new PeerException("What time is it?"));
+            peer.endorserClent = new MockEndorserClient(new ProposalException("What time is it?"));
 
             hfclient.QueryChannels(peer);
             //????
@@ -568,7 +568,7 @@ namespace Hyperledger.Fabric.Tests.SDK
         {
             Channel channel = CreateRunningChannel(null);
             Peer peer = channel.Peers.First();
-            peer.endorserClent = new MockEndorserClient(new System.Exception("Error bad bad bad"));
+            peer.endorserClent = new MockEndorserClient(new ProposalException("Error bad bad bad"));
             hfclient.QueryChannels(peer);
         }
 

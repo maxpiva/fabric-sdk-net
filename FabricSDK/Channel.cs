@@ -3684,6 +3684,7 @@ namespace Hyperledger.Fabric.SDK
                         message = $"Sending proposal to {peerName} with transaction {txID} failed because of: {e?.Message}";
 
                     logger.ErrorException(message, e);
+                    throw e;
                 }
                 else if (ctask.IsCanceled)
                 {
